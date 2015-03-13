@@ -1,7 +1,7 @@
 (ns uncomplicate.clojurecl.core
   (:require [clojure.string :as str]
             [vertigo
-             [bytes :refer [buffer byte-seq]]
+             [bytes :refer [buffer byte-seq byte-count]]
              [structs :refer [int32 int64 wrap-byte-seq]]]
             [uncomplicate.fluokitten jvm
              [core :refer [fmap]]])
@@ -49,38 +49,62 @@
    CL/CL_OUT_OF_RESOURCES "CL_OUT_OF_RESOURCES"
    CL/CL_INVALID_DEVICE "CL_INVALID_DEVICE"
    CL/CL_DEVICE_NOT_AVAILABLE "CL_DEVICE_NOT_AVAILABLE"
-   CL/CL_INVALID_CONTEXT "CL_INVALID_CONTEXT"})
+   CL/CL_INVALID_CONTEXT "CL_INVALID_CONTEXT"
+   CL/CL_INVALID_PROGRAM "CL_INVALID_PROGRAM"
+   CL/CL_INVALID_BINARY "CL_INVALID_BINARY"
+   CL/CL_INVALID_BUILD_OPTIONS "CL_INVALID_BUILD_OPTIONS"
+   CL/CL_INVALID_OPERATION "CL_INVALID_OPERATION"
+   CL/CL_COMPILER_NOT_AVAILABLE "CL_COMPILER_NOT_AVAILABLE"
+   CL/CL_BUILD_PROGRAM_FAILURE "CL_BUILD_PROGRAM_FAILURE"
+   CL/CL_INVALID_BUFFER_SIZE "CL_INVALID_BUFFER_SIZE"
+   CL/CL_INVALID_HOST_PTR "CL_INVALID_HOST_PTR"
+   CL/CL_MEM_USE_HOST_PTR "CL_MEM_USE_HOST_PTR"
+   CL/CL_MEM_OBJECT_ALLOCATION_FAILURE "CL_MEM_OBJECT_ALLOCATION_FAILURE"
+   CL/CL_INVALID_PROGRAM_EXECUTABLE "CL_INVALID_PROGRAM_EXECUTABLE"
+   CL/CL_INVALID_KERNEL_NAME "CL_INVALID_KERNEL_NAME"
+   CL/CL_INVALID_KERNEL_DEFINITION "CL_INVALID_KERNEL_DEFINITION"
+   CL/CL_INVALID_ARG_INDEX "CL_CL_INVALID_ARG_INDEX"})
 
 ;; ============= Utils ============================================
+(defn error [err-code]
+  (let [err (error-codes err-code)]
+    (ex-info (if err
+               (format "OpenCL error: %s." err)
+               "UNKNOWN OpenCL ERROR!")
+             {:name err :code err-code :type :opencl-error})))
+
+(defmacro with-check-arr [err-code form]
+  `(with-check (aget (ints ~err-code) 0) ~form))
+
+(defmacro with-check [err-code form]
+  `(if (= 0 ~err-code)
+     ~form
+     (throw (error ~err-code))))
+
 (defmacro ^:private info-string* [method clobject info]
   `(let [size# (long-array 1)
          err# (~method ~clobject ~info 0 nil size#)]
-     (if (= 0 err#)
+     (with-check err#
        (let [size# (aget size# 0)
              res# (byte-array size#)
              err# (~method ~clobject ~info
                            (alength res#) (Pointer/to res#)
                            nil)]
-         (if (= 0 err#)
-           (String. res# 0 (dec size#))
-           (throw (error err#))))
-       (throw (error err#)))))
+         (with-check err#
+           (String. res# 0 (dec size#)))))))
 
 (let [native-pointer (fn [^"[Lorg.jocl.NativePointerObject;" np]
                        (Pointer/to np))]
   (defmacro ^:private info-native* [method clobject info type size]
     `(let [size# (long-array 1)
            err# (~method ~clobject ~info 0 nil size#)]
-       (if (= 0 err#)
+       (with-check err#
          (let [size# (aget size# 0)
                res# (make-array ~type (/ size# ~size))
                err# (~method ~clobject ~info
                              size# (~native-pointer res#)
                              nil)]
-           (if (= 0 err#)
-             res#
-             (throw (error err#))))
-         (throw (error err#))))))
+           (with-check err# res#))))))
 
 (defmacro info-mask* [method clobject info table]
   `(let [mask# (info-long* ~method ~clobject ~info)]
@@ -105,12 +129,11 @@
                           (* Sizeof/size_t (long ~num))
                           (~pointer-to-buffer res#)
                           nil)]
-        (if (= 0 err#)
+        (with-check err#
           (wrap-byte-seq (if (= 4 Sizeof/size_t)
                            int32
                            int64)
-                         (byte-seq res#))
-          (throw (error err#)))))
+                         (byte-seq res#)))))
     ([method clobject info]
      `(first (info-size* ~method ~clobject ~info 1)))))
 
@@ -121,9 +144,7 @@
                         (* Sizeof/cl_long (long ~num))
                         (Pointer/to res#)
                         nil)]
-      (if (= 0 err#)
-        res#
-        (throw (error err#)))))
+      (with-check err# res#)))
   ([method clobject info]
    `(aget (longs (info-long* ~method ~clobject ~info 1)) 0)))
 
@@ -134,37 +155,24 @@
                         (* Sizeof/cl_int (long ~num))
                         (Pointer/to res#)
                         nil)]
-      (if (= 0 err#)
-        res#
-        (throw (error err#)))))
+      (with-check err# res#)))
   ([method clobject info]
-   `(aget (ints (info-ints* ~method ~clobject ~info 1)) 0)))
+   `(aget (ints (info-int* ~method ~clobject ~info 1)) 0)))
 
 (defmacro ^:private info-bool* [method clobject info]
   `(not= 0 (info-int* ~method ~clobject ~info)))
-
-(defn error [^long err-code]
-  (let [err (error-codes err-code)]
-    (ex-info (if err
-               (format "OpenCL error: %s." err)
-               "UNKNOWN OpenCL ERROR!")
-             {:name err :code err-code :type :opencl-error})))
 
 ;; =============== Platform =========================================
 (defn num-platforms []
   (let [res (int-array 1)
         err (CL/clGetPlatformIDs 0 nil res)]
-    (if (= 0 err)
-      (aget res 0)
-      (throw (error err)))))
+    (with-check err (aget res 0))))
 
 (defn platforms []
   (let [num-platforms (num-platforms)
         res (make-array cl_platform_id num-platforms)
         err (CL/clGetPlatformIDs num-platforms res nil)]
-    (if (= 0 err)
-      (vec res)
-      (throw (error err)))))
+    (with-check err (vec res))))
 
 (defn platform-info
   ([platform info]
@@ -404,9 +412,7 @@
                                     Sizeof/cl_device_id
                                     (Pointer/to parent)
                                     nil)]
-        (if (= 0 err)
-          parent
-          (throw (error err)))))))
+        (with-check err parent)))))
 
 (defn info-partition-affinity-domain [device]
   (info-mask* CL/clGetDeviceInfo device
@@ -436,9 +442,7 @@
                                 Sizeof/cl_platform_id
                                 (Pointer/to platform)
                                 nil)]
-    (if (= 0 err)
-      platform
-      (throw (error err)))))
+    (with-check err platform)))
 
 (defn info-preferred-global-atomic-alignment [device]
   nil)
@@ -622,9 +626,8 @@
   [platform ^long device-type]
   (let [res (int-array 1)
         err (CL/clGetDeviceIDs platform device-type 0 nil res)]
-    (if (= 0 err)
-      (aget res 0)
-      (throw (error err)))))
+    (with-check err
+      (aget res 0))))
 
 (defn num-devices
   ([platform device-type]
@@ -640,9 +643,7 @@
         res (make-array cl_device_id num-devices)
         err (CL/clGetDeviceIDs platform device-type
                                num-devices res nil)]
-    (if (= 0 err)
-      res
-      (throw (error err)))))
+    (with-check err res)))
 
 (defn devices
   ([platform device-type]
@@ -671,9 +672,7 @@
         res (CL/clCreateContext properties
                                 (alength devices) devices
                                 nil nil err)]
-    (if (= 0 (aget err 0))
-      res
-      (throw (error err)))))
+    (with-check-arr err res)))
 
 (defn context
   ([devices properties]
@@ -699,7 +698,7 @@
   {:num-devices info-num-devices
    :num-reference-count info-num-reference-count
    :devices info-devices
-   :context-properties info-context-properties})
+   :properties info-context-properties})
 
 (defn context-info
   ([context info]
@@ -708,4 +707,82 @@
      nil))
   ([context]
    (fmap #(% context) context-info-table)))
+
+;; ============= Program ==========================================
+(defn program-with-source [context source]
+  (let [err (int-array 1)
+        n (count source)
+        res (CL/clCreateProgramWithSource
+             context n (into-array String source) nil err)]
+    (with-check-arr err res)))
+
+;; TODO Callback function
+(defn build-program! [program]
+  (let [err (CL/clBuildProgram program 0 nil nil nil nil)]
+    (with-check err program)))
+
+;; ============== Kernel =========================================
+(defn num-kernels [program]
+  (let [res (int-array 1)
+        err (CL/clCreateKernelsInProgram program 0 nil res)]
+    (with-check err (aget res 0))))
+
+(defn kernels
+  ([program ^String name]
+   (let [err (int-array 1)
+         res (CL/clCreateKernel program name err)]
+     (with-check-arr err res)))
+  ([program]
+   (let [nk (num-kernels program)
+         res (make-array cl_kernel nk)
+         err (CL/clCreateKernelsInProgram program nk res nil)]
+     (vec (with-check err res)))))
+
+(defn set-arg! [kernel ^long n arg]
+  (with-check (CL/clSetKernelArg kernel n Sizeof/cl_mem arg) kernel))
+
+;;  ============== Command Queue ===============================
+;; TODO clCreateCommandQueue is deprecated in JOCL 0.2.0 use ccqWithProperties
+(defn command-queue [context device properties]
+  (let [err (int-array 1)
+        res (CL/clCreateCommandQueue context device properties err)]
+    (with-check-arr err res)))
+
+(defn enqueue-nd-range [queue kernel work-dim
+                        global-work-offset global-work-size local-work-size
+                        num-events-in-wait-lis event-wait-list event]
+  (with-check
+    (CL/clEnqueueNDRangeKernel queue kernel work-dim
+                               global-work-offset
+                               global-work-size
+                               local-work-size
+                               num-events-in-wait-lis
+                               event-wait-list
+                               event)
+    queue))
+
+(defn enqueue-read-buffer
+  [queue buffer blocking-read offset cb ptr num-events-in-wait-list
+   event-wait-list event]
+  (with-check
+    (CL/clEnqueueReadBuffer queue buffer blocking-read offset
+                            cb ptr num-events-in-wait-list
+                            event-wait-list event)
+    queue))
+
+;; =============== Data =========================================
+;; TODO
+(defn float-buffer
+  ([context _ ^floats o flags]
+   (let [err (int-array 1)
+         res (CL/clCreateBuffer context (apply bit-or flags)
+                                (* Sizeof/cl_float (alength o))
+                                (Pointer/to o) err)]
+     (with-check-arr err res)))
+  ([context ^long n flags]
+   (let [err (int-array 1)
+         res (CL/clCreateBuffer context (apply bit-or flags)
+                                (* Sizeof/cl_float n)
+                                nil err)]
+     (with-check-arr err res))))
 ;; ================================================================
