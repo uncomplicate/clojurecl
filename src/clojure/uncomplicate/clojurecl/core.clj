@@ -20,7 +20,7 @@
 (def device-types-table
   (into {} (map (fn [[k v]] [v k]) device-types)))
 
-(def platform-info-names
+(def platform-info-table
   {:profile CL/CL_PLATFORM_PROFILE
    :version CL/CL_PLATFORM_VERSION
    :name CL/CL_PLATFORM_NAME
@@ -28,7 +28,7 @@
    :extensions CL/CL_PLATFORM_EXTENSIONS
    :icd-suffix-khr CL/CL_PLATFORM_ICD_SUFFIX_KHR})
 
-(def context-prop-names
+(def context-prop-table
   {:platform CL/CL_CONTEXT_PLATFORM
    :interop-user-sync CL/CL_CONTEXT_INTEROP_USER_SYNC
    :gl CL/CL_GL_CONTEXT_KHR
@@ -61,6 +61,20 @@
            (String. res# 0 (dec size#))
            (throw (error err#))))
        (throw (error err#)))))
+
+(defmacro info-mask* [method clobject info table]
+  `(let [mask# (info-long* ~method ~clobject ~info)]
+     (fmap (fn [^long config#]
+             (not= 0 (bit-and mask# config#)))
+           ~table)))
+
+(defmacro info-mask-one* [method clobject info table]
+  `(let [mask# (info-long* ~method ~clobject ~info)]
+     (some (fn [[k# v#]]
+             (if (= 0 (bit-and mask# (long v#)))
+               false
+               k#))
+           ~table)))
 
 (let [pointer-to-buffer (fn [^ByteBuffer b]
                           (Pointer/to b))]
@@ -136,12 +150,44 @@
 (defn platform-info
   ([platform info]
    (info-string* CL/clGetPlatformInfo platform
-                 (platform-info-names info)))
+                 (platform-info-table info)))
   ([platform]
    (fmap #(info-string* CL/clGetPlatformInfo platform %)
-         platform-info-names)))
+         platform-info-table)))
 
 ;; =============== Device ==========================================
+(def fp-config-table
+  {:denorm CL/CL_FP_DENORM
+   :inf-nan CL/CL_FP_INF_NAN
+   :round-to-nearest CL/CL_FP_ROUND_TO_NEAREST
+   :round-to-zero CL/CL_FP_ROUND_TO_ZERO
+   :round-to-inf CL/CL_FP_ROUND_TO_INF
+   :fma CL/CL_FP_FMA
+   :correctly-rounded-divide-sqrt CL/CL_FP_CORRECTLY_ROUNDED_DIVIDE_SQRT
+   :soft-float CL/CL_FP_SOFT_FLOAT})
+
+(def exec-capabilities-table
+  {:kernel CL/CL_EXEC_KERNEL
+   :native-kernel CL/CL_EXEC_NATIVE_KERNEL})
+
+(def cache-type-table
+  {:none CL/CL_NONE
+   :read-only CL/CL_READ_ONLY_CACHE
+   :read-write CL/CL_READ_WRITE_CACHE})
+
+(def mem-type-table
+  {:none CL/CL_NONE
+   :global CL/CL_GLOBAL
+   :local CL/CL_LOCAL})
+
+(def affinity-domain-table
+  {:numa CL/CL_DEVICE_AFFINITY_DOMAIN_NUMA
+   :l4-cache CL/CL_DEVICE_AFFINITY_DOMAIN_L4_CACHE
+   :l3-cache CL/CL_DEVICE_AFFINITY_DOMAIN_L3_CACHE
+   :l2-cache CL/CL_DEVICE_AFFINITY_DOMAIN_L2_CACHE
+   :l1-cache CL/CL_DEVICE_AFFINITY_DOMAIN_L1_CACHE
+   :next-partitionable CL/CL_DEVICE_AFFINITY_DOMAIN_NEXT_PARTITIONABLE})
+
 (defn info-address-bits [device]
   (info-int* CL/clGetDeviceInfo device CL/CL_DEVICE_ADDRESS_BITS))
 
@@ -149,14 +195,19 @@
   (info-bool* CL/clGetDeviceInfo device CL/CL_DEVICE_AVAILABLE))
 
 (defn info-built-in-kernels [device]
-  (info-string* CL/clGetDeviceInfo device CL/CL_DEVICE_BUILT_IN_KERNELS))
+  (let [res (info-string* CL/clGetDeviceInfo device
+                          CL/CL_DEVICE_BUILT_IN_KERNELS)]
+    (if (str/blank? res)
+      []
+      (str/split res #" "))))
 
 (defn info-compiler-available [device]
   (info-bool* CL/clGetDeviceInfo device CL/CL_DEVICE_COMPILER_AVAILABLE))
 
-;;TODO
 (defn info-double-fp-config [device]
-  (info-long* CL/clGetDeviceInfo device CL/CL_DEVICE_DOUBLE_FP_CONFIG))
+  (info-mask* CL/clGetDeviceInfo device
+              CL/CL_DEVICE_DOUBLE_FP_CONFIG
+              fp-config-table))
 
 (defn info-endian-little [device]
   (info-bool* CL/clGetDeviceInfo device CL/CL_DEVICE_ENDIAN_LITTLE))
@@ -164,20 +215,23 @@
 (defn info-error-correction-support [device]
   (info-bool* CL/clGetDeviceInfo device CL/CL_DEVICE_ERROR_CORRECTION_SUPPORT))
 
-;;TODO
 (defn info-execution-capabilities [device]
-  (info-long* CL/clGetDeviceInfo device CL/CL_DEVICE_EXECUTION_CAPABILITIES))
+  (info-mask* CL/clGetDeviceInfo device
+              CL/CL_DEVICE_DOUBLE_FP_CONFIG
+              exec-capabilities-table))
 
-;;TODO partition the string
 (defn info-extensions [device]
-  (info-string* CL/clGetDeviceInfo device CL/CL_DEVICE_EXTENSIONS))
+  (str/split (info-string* CL/clGetDeviceInfo device
+                           CL/CL_DEVICE_EXTENSIONS)
+             #" "))
 
 (defn info-global-mem-cache-size [device]
   (info-long* CL/clGetDeviceInfo device CL/CL_DEVICE_GLOBAL_MEM_CACHE_SIZE))
 
-;;TODO
 (defn info-global-mem-cache-type [device]
-  (info-long* CL/clGetDeviceInfo device CL/CL_DEVICE_GLOBAL_MEM_CACHE_TYPE))
+  (info-mask-one* CL/clGetDeviceInfo device
+                  CL/CL_DEVICE_GLOBAL_MEM_CACHE_TYPE
+                  cache-type-table))
 
 (defn info-global-mem-cacheline-size ^long [device]
   (info-int* CL/clGetDeviceInfo device CL/CL_DEVICE_GLOBAL_MEM_CACHELINE_SIZE))
@@ -224,9 +278,10 @@
 (defn info-local-mem-size [device]
   (info-long* CL/clGetDeviceInfo device CL/CL_DEVICE_LOCAL_MEM_SIZE))
 
-;;TODO
 (defn info-local-mem-type [device]
-  (info-long* CL/clGetDeviceInfo device CL/CL_DEVICE_LOCAL_MEM_TYPE))
+  (info-mask-one* CL/clGetDeviceInfo device
+                  CL/CL_DEVICE_LOCAL_MEM_TYPE
+                  mem-type-table))
 
 (defn info-max-clock-frequency [device]
   (info-int* CL/clGetDeviceInfo device CL/CL_DEVICE_MAX_CLOCK_FREQUENCY))
@@ -314,13 +369,25 @@
     {:version (info 2)
      :vendor-specific-info (get info 3)}))
 
-;;TODO
 (defn info-parent-device [device]
-  (info-long* CL/clGetDeviceInfo device CL/CL_DEVICE_PARENT_DEVICE))
+  (let [parent (cl_device_id.)
+        id (info-long* CL/clGetDeviceInfo device
+                       CL/CL_DEVICE_PARENT_DEVICE)]
+    (if (= 0 id)
+      nil
+      (let [parent (cl_device_id.)
+            err (CL/clGetDeviceInfo device CL/CL_DEVICE_PARENT_DEVICE
+                                    Sizeof/cl_device_id
+                                    (Pointer/to parent)
+                                    nil)]
+        (if (= 0 err)
+          parent
+          (throw (error err)))))))
 
-;;TODO
 (defn info-partition-affinity-domain [device]
-  (info-long* CL/clGetDeviceInfo device CL/CL_DEVICE_PARTITION_AFFINITY_DOMAIN))
+  (info-mask* CL/clGetDeviceInfo device
+              CL/CL_DEVICE_PARTITION_AFFINITY_DOMAIN
+              affinity-domain-table))
 
 (defn info-partition-max-sub-devices [device]
   (info-int* CL/clGetDeviceInfo device CL/CL_DEVICE_PARTITION_MAX_SUB_DEVICES))
@@ -406,9 +473,10 @@
 (defn info-reference-count [device]
   (info-int* CL/clGetDeviceInfo device CL/CL_DEVICE_REFERENCE_COUNT))
 
-;;TODO
 (defn info-single-fp-config [device]
-  (info-long* CL/clGetDeviceInfo device CL/CL_DEVICE_SINGLE_FP_CONFIG))
+  (info-mask* CL/clGetDeviceInfo device
+              CL/CL_DEVICE_SINGLE_FP_CONFIG
+              fp-config-table))
 
 (defn info-spir-versions [device]
   nil)
@@ -419,9 +487,10 @@
 (defn info-terminate-capability-khr [device]
   nil)
 
-;;TODO
 (defn info-device-type [device]
-  (info-long* CL/clGetDeviceInfo device CL/CL_DEVICE_TYPE))
+  (info-mask-one* CL/clGetDeviceInfo device
+                  CL/CL_DEVICE_TYPE
+                  device-types))
 
 (defn info-vendor [device]
   (info-string* CL/clGetDeviceInfo device CL/CL_DEVICE_VENDOR))
@@ -568,7 +637,7 @@
 ;; ============= Context ===========================================
 (defn context-properties [props]
   (reduce (fn [^cl_context_properties cp [p v]]
-            (doto cp (.addProperty (context-prop-names p) v)))
+            (doto cp (.addProperty (context-prop-table p) v)))
           (cl_context_properties.)
           props))
 
