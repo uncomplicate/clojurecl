@@ -6,7 +6,8 @@
             [uncomplicate.fluokitten jvm
              [core :refer [fmap]]])
   (:import [org.jocl CL cl_platform_id cl_context_properties cl_device_id
-            cl_context cl_command_queue cl_mem cl_program cl_kernel Sizeof Pointer]
+            cl_context cl_command_queue cl_mem cl_program cl_kernel
+            Sizeof Pointer CreateContextFunction]
            [java.nio ByteBuffer ByteOrder]))
 
 (def device-types
@@ -28,14 +29,15 @@
    :extensions CL/CL_PLATFORM_EXTENSIONS
    :icd-suffix-khr CL/CL_PLATFORM_ICD_SUFFIX_KHR})
 
+;;TODO update for JOCL 2.0
 (def context-prop-table
   {:platform CL/CL_CONTEXT_PLATFORM
    :interop-user-sync CL/CL_CONTEXT_INTEROP_USER_SYNC
-   :gl CL/CL_GL_CONTEXT_KHR
-   :cgl CL/CL_CGL_SHAREGROUP_KHR
-   :egl CL/CL_EGL_DISPLAY_KHR
-   :glx CL/CL_GLX_DISPLAY_KHR
-   :wgl CL/CL_WGL_HDC_KHR})
+   :gl-context-khr CL/CL_GL_CONTEXT_KHR
+   :cgl-sharegroup-khr CL/CL_CGL_SHAREGROUP_KHR
+   :egl-display-khr CL/CL_EGL_DISPLAY_KHR
+   :glx-display-khr CL/CL_GLX_DISPLAY_KHR
+   :wgl-hdc-khr CL/CL_WGL_HDC_KHR})
 
 (def error-codes
   {CL/CL_INVALID_VALUE "CL_INVALID_VALUE"
@@ -45,7 +47,9 @@
    CL/CL_INVALID_DEVICE_TYPE "CL_INVALID_DEVICE_TYPE"
    CL/CL_DEVICE_NOT_FOUND "CL_DEVICE_NOT_FOUND"
    CL/CL_OUT_OF_RESOURCES "CL_OUT_OF_RESOURCES"
-   CL/CL_INVALID_DEVICE "CL_INVALID_DEVICE"})
+   CL/CL_INVALID_DEVICE "CL_INVALID_DEVICE"
+   CL/CL_DEVICE_NOT_AVAILABLE "CL_DEVICE_NOT_AVAILABLE"
+   CL/CL_INVALID_CONTEXT "CL_INVALID_CONTEXT"})
 
 ;; ============= Utils ============================================
 (defmacro ^:private info-string* [method clobject info]
@@ -61,6 +65,22 @@
            (String. res# 0 (dec size#))
            (throw (error err#))))
        (throw (error err#)))))
+
+(let [native-pointer (fn [^"[Lorg.jocl.NativePointerObject;" np]
+                       (Pointer/to np))]
+  (defmacro ^:private info-native* [method clobject info type size]
+    `(let [size# (long-array 1)
+           err# (~method ~clobject ~info 0 nil size#)]
+       (if (= 0 err#)
+         (let [size# (aget size# 0)
+               res# (make-array ~type (/ size# ~size))
+               err# (~method ~clobject ~info
+                             size# (~native-pointer res#)
+                             nil)]
+           (if (= 0 err#)
+             res#
+             (throw (error err#))))
+         (throw (error err#))))))
 
 (defmacro info-mask* [method clobject info table]
   `(let [mask# (info-long* ~method ~clobject ~info)]
@@ -92,7 +112,7 @@
                          (byte-seq res#))
           (throw (error err#)))))
     ([method clobject info]
-     `(first (info-long* ~method ~clobject ~info 1)))))
+     `(first (info-size* ~method ~clobject ~info 1)))))
 
 (defmacro ^:private info-long*
   ([method clobject info num]
@@ -106,7 +126,6 @@
         (throw (error err#)))))
   ([method clobject info]
    `(aget (longs (info-long* ~method ~clobject ~info 1)) 0)))
-
 
 (defmacro ^:private info-int*
   ([method clobject info num]
@@ -220,10 +239,15 @@
               CL/CL_DEVICE_DOUBLE_FP_CONFIG
               exec-capabilities-table))
 
-(defn info-extensions [device]
-  (str/split (info-string* CL/clGetDeviceInfo device
-                           CL/CL_DEVICE_EXTENSIONS)
-             #" "))
+(defn info-extensions [clid]
+  (str/split
+   (cond
+    (instance? cl_device_id clid)
+    (info-string* CL/clGetDeviceInfo clid CL/CL_DEVICE_EXTENSIONS)
+    (instance? cl_platform_id clid)
+    (info-string* CL/clGetPlatformInfo clid CL/CL_PLATFORM_EXTENSIONS)
+    :default nil)
+   #" "))
 
 (defn info-global-mem-cache-size [device]
   (info-long* CL/clGetDeviceInfo device CL/CL_DEVICE_GLOBAL_MEM_CACHE_SIZE))
@@ -641,6 +665,7 @@
           (cl_context_properties.)
           props))
 
+;;TODO Callback function
 (defn ^:private context* [^objects devices ^objects properties]
   (let [err (int-array 1)
         res (CL/clCreateContext properties
@@ -654,4 +679,33 @@
   ([devices properties]
    (context* (into-array devices) (context-properties properties)))
   ([devices]
-   (context* devices nil)))
+   (context* (into-array devices) nil)))
+
+(defn info-num-devices [context]
+  (info-int* CL/clGetContextInfo context CL/CL_CONTEXT_NUM_DEVICES))
+
+(defn info-num-reference-count [context]
+  (info-int* CL/clGetContextInfo context CL/CL_CONTEXT_REFERENCE_COUNT))
+
+(defn info-devices [context]
+  (vec (info-native* CL/clGetContextInfo context CL/CL_CONTEXT_DEVICES
+                    cl_device_id Sizeof/cl_device_id)))
+
+;; TODO see how to retreive variable length objects.
+(defn info-context-properties [context]
+  nil)
+
+(def context-info-table
+  {:num-devices info-num-devices
+   :num-reference-count info-num-reference-count
+   :devices info-devices
+   :context-properties info-context-properties})
+
+(defn context-info
+  ([context info]
+   (if-let [info-f (context-info-table info)]
+     (info-f context)
+     nil))
+  ([context]
+   (fmap #(% context) context-info-table)))
+;; ================================================================
