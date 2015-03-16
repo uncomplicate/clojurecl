@@ -6,9 +6,14 @@
             [uncomplicate.fluokitten jvm
              [core :refer [fmap]]])
   (:import [org.jocl CL cl_platform_id cl_context_properties cl_device_id
-            cl_context cl_command_queue cl_mem cl_program cl_kernel
+            cl_context cl_command_queue cl_mem cl_program cl_kernel cl_sampler
+            cl_event
             Sizeof Pointer CreateContextFunction]
            [java.nio ByteBuffer ByteOrder]))
+
+(def ^:dynamic *platform*)
+(def ^:dynamic *context*)
+(def ^:dynamic *command-queue*)
 
 (def device-types
   {:gpu CL/CL_DEVICE_TYPE_GPU
@@ -162,6 +167,73 @@
 (defmacro ^:private info-bool* [method clobject info]
   `(not= 0 (info-int* ~method ~clobject ~info)))
 
+;; =============== Release Functions  ===============================
+(defprotocol Releaseable
+  (close [this]))
+
+(extend-type cl_command_queue
+  Releaseable
+  (close [q]
+    (with-check (CL/clReleaseCommandQueue q) true)))
+
+(extend-type cl_context
+  Releaseable
+  (close [c]
+    (with-check (CL/clReleaseContext c) true)))
+
+(extend-type cl_device_id
+  Releaseable
+  (close [d]
+    (with-check (CL/clReleaseDevice d) true)))
+
+(extend-type cl_event
+  Releaseable
+  (close [e]
+    (with-check (CL/clReleaseEvent e) true)))
+
+(extend-type cl_kernel
+  Releaseable
+  (close [k]
+    (with-check (CL/clReleaseKernel k) true)))
+
+(extend-type cl_mem
+  Releaseable
+  (close [m]
+    (with-check (CL/clReleaseMemObject m) true)))
+
+(extend-type cl_program
+  Releaseable
+  (close [p]
+    (with-check (CL/clReleaseProgram p) true)))
+
+(extend-type cl_sampler
+  Releaseable
+  (close [s]
+    (with-check (CL/clReleaseSampler s) true)))
+
+(defn close-seq [cl]
+  (if (sequential? cl)
+    (map close-seq cl)
+    (close cl)))
+
+(defmacro with-cl [bindings & body]
+  `(let ~(vec bindings)
+     (try
+       (do
+         ~@body)
+       (finally
+         (do
+           ~@(map #(list 'close %) (take-nth 2 bindings)))))))
+
+(defmacro with-cls [bindings & body]
+  `(let ~(vec bindings)
+     (try
+       (do
+         ~@body)
+       (finally
+         (do
+           ~@(map #(list 'close-seq %) (take-nth 2 bindings)))))))
+
 ;; =============== Platform =========================================
 (defn num-platforms []
   (let [res (int-array 1)
@@ -180,7 +252,13 @@
                  (platform-info-table info)))
   ([platform]
    (fmap #(info-string* CL/clGetPlatformInfo platform %)
-         platform-info-table)))
+         platform-info-table))
+  ([]
+   (platform-info *platform*)))
+
+(defmacro with-platform [platform & body]
+  `(binding [*platform* ~platform]
+    ~@body))
 
 ;; =============== Device ==========================================
 (def fp-config-table
@@ -632,11 +710,18 @@
 (defn num-devices
   ([platform device-type]
    (num-devices* platform (device-types device-type)))
-  ([platform]
-   (num-devices platform CL/CL_DEVICE_TYPE_ALL)))
+  ([x]
+   (if (integer? x)
+     (num-devices *platform* x)
+     (num-devices x CL/CL_DEVICE_TYPE_ALL)))
+  ([]
+   (num-devices *platform* CL/CL_DEVICE_TYPE_ALL)))
 
-(defn num-gpus [platform]
-  (num-devices* platform CL/CL_DEVICE_TYPE_GPU))
+(defn num-gpus
+  ([platform]
+   (num-devices* platform CL/CL_DEVICE_TYPE_GPU))
+  ([]
+   (num-gpus *platform*)))
 
 (defn ^:private devices* [platform ^long device-type]
   (let [num-devices (num-devices* platform device-type)
@@ -648,8 +733,12 @@
 (defn devices
   ([platform device-type]
    (vec (devices* platform (device-types device-type))))
-  ([platform]
-   (vec (devices* platform CL/CL_DEVICE_TYPE_ALL))))
+  ([x]
+   (if (integer? x)
+     (devices *platform* x)
+     (vec (devices* x CL/CL_DEVICE_TYPE_ALL))))
+  ([]
+   (devices *platform*)))
 
 (defn device-info
   ([device info]
@@ -680,19 +769,31 @@
   ([devices]
    (context* (into-array devices) nil)))
 
-(defn info-num-devices [context]
-  (info-int* CL/clGetContextInfo context CL/CL_CONTEXT_NUM_DEVICES))
+(defn info-num-devices
+  ([context]
+   (info-int* CL/clGetContextInfo context CL/CL_CONTEXT_NUM_DEVICES))
+  ([]
+   (info-num-devices *context*)))
 
-(defn info-num-reference-count [context]
-  (info-int* CL/clGetContextInfo context CL/CL_CONTEXT_REFERENCE_COUNT))
+(defn info-num-reference-count
+  ([context]
+   (info-int* CL/clGetContextInfo context CL/CL_CONTEXT_REFERENCE_COUNT))
+  ([]
+   (info-num-reference-count *context*)))
 
-(defn info-devices [context]
-  (vec (info-native* CL/clGetContextInfo context CL/CL_CONTEXT_DEVICES
-                    cl_device_id Sizeof/cl_device_id)))
+(defn info-devices
+  ([context]
+   (vec (info-native* CL/clGetContextInfo context CL/CL_CONTEXT_DEVICES
+                      cl_device_id Sizeof/cl_device_id)))
+  ([]
+   (info-devices *context*)))
 
 ;; TODO see how to retreive variable length objects.
-(defn info-context-properties [context]
-  nil)
+(defn info-context-properties
+  ([context]
+   nil)
+  ([]
+   (info-context-properties *context*)))
 
 (def context-info-table
   {:num-devices info-num-devices
@@ -705,16 +806,27 @@
    (if-let [info-f (context-info-table info)]
      (info-f context)
      nil))
-  ([context]
-   (fmap #(% context) context-info-table)))
+  ([x]
+   (fmap #(% context) context-info-table))
+  ([]
+   (context-info *context*)))
+
+;;TODO assert
+(defmacro with-context [context & body]
+  `(binding [*context* ~context]
+     (try ~@body
+          (finally (close *context*)))))
 
 ;; ============= Program ==========================================
-(defn program-with-source [context source]
-  (let [err (int-array 1)
-        n (count source)
-        res (CL/clCreateProgramWithSource
-             context n (into-array String source) nil err)]
-    (with-check-arr err res)))
+(defn program-with-source
+  ([context source]
+   (let [err (int-array 1)
+         n (count source)
+         res (CL/clCreateProgramWithSource
+              context n (into-array String source) nil err)]
+     (with-check-arr err res)))
+  ([source]
+   (program-with-source *context* source)))
 
 ;; TODO Callback function
 (defn build-program! [program]
@@ -743,10 +855,13 @@
 
 ;;  ============== Command Queue ===============================
 ;; TODO clCreateCommandQueue is deprecated in JOCL 0.2.0 use ccqWithProperties
-(defn command-queue [context device properties]
-  (let [err (int-array 1)
-        res (CL/clCreateCommandQueue context device properties err)]
-    (with-check-arr err res)))
+(defn command-queue
+  ([context device properties]
+   (let [err (int-array 1)
+         res (CL/clCreateCommandQueue context device properties err)]
+     (with-check-arr err res)))
+  ([device properties]
+   (command-queue *context* device properties)))
 
 (defn enqueue-nd-range [queue kernel work-dim
                         global-work-offset global-work-size local-work-size
@@ -770,6 +885,26 @@
                             event-wait-list event)
     queue))
 
+(defn enqueue-map-buffer
+  [queue buffer blocking flags offset data-size num-events
+   wait-list event]
+  (let [err (int-array 1)
+        res (CL/clEnqueueMapBuffer queue buffer blocking flags offset
+                                   data-size num-events
+                                   wait-list event err)]
+    (with-check-arr err res)))
+
+(defn enqueue-unmap-mem-object
+  [queue mem-object mapped-ptr num-events-in-event-list wait-list event]
+  (let [err (CL/clEnqueueUnmapMemObject
+             queue mem-object mapped-ptr
+             num-events-in-event-list wait-list event)]
+    (with-check err queue)))
+
+(defmacro with-queue [queue & body]
+  `(binding [*command-queue* ~queue]
+     (try ~@body
+          (finally (close *queue*)))))
 ;; =============== Data =========================================
 ;; TODO
 (defn float-buffer
@@ -779,9 +914,9 @@
                                 (* Sizeof/cl_float (alength o))
                                 (Pointer/to o) err)]
      (with-check-arr err res)))
-  ([context ^long n flags]
+  ([^long n flags]
    (let [err (int-array 1)
-         res (CL/clCreateBuffer context (apply bit-or flags)
+         res (CL/clCreateBuffer *context* (apply bit-or flags)
                                 (* Sizeof/cl_float n)
                                 nil err)]
      (with-check-arr err res))))
