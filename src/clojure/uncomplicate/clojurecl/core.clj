@@ -817,6 +817,74 @@
      (try ~@body
           (finally (close *context*)))))
 
+;; =============== Data =========================================
+;; TODO
+(defprotocol Memory
+  (host-obj [this])
+  (cl-buffer [this])
+  (cnt [this])
+  (size [this])
+  (host-obj* [this])
+  (cl-buffer* [this]))
+
+(defprotocol Argument
+  (set-arg [arg kernel n]))
+
+(deftype ClBuffer [^cl_mem cl ^Pointer cl* h ^Pointer h* c s]
+  Releaseable
+  (close [_]
+    (close cl))
+  Memory
+  (host-obj [_]
+    h)
+  (host-obj* [_]
+    h*)
+  (cl-buffer [_]
+    cl)
+  (cl-buffer* [_]
+    cl*)
+  (cnt [_]
+    c)
+  (size [_]
+    s)
+  Argument
+  (set-arg [_ kernel n]
+    (with-check (CL/clSetKernelArg kernel n Sizeof/cl_mem cl*) kernel)))
+
+(defprotocol MemorySource
+  (bond
+    [this context flags]
+    [this flags]))
+
+(extend-type (Class/forName "[F")
+  MemorySource
+  (bond
+    ([this context flags]
+     (let [err (int-array 1)
+           ptr (Pointer/to ^floats this)
+           count (alength ^floats this)
+           res (CL/clCreateBuffer context flags
+                                  (* Sizeof/cl_float count)
+                                  (if (= 0 (bit-and CL/CL_MEM_WRITE_ONLY flags))
+                                    ptr
+                                    nil)
+                                  err)]
+       (with-check-arr err (->ClBuffer res (Pointer/to ^cl_mem res)
+                                       this ptr
+                                       count Sizeof/cl_float))))
+    ([this flags]
+     (bond this *context* flags))))
+
+(defn float-buffer
+  ([context ^long n ^long flags]
+   (let [err (int-array 1)
+         res (CL/clCreateBuffer context flags
+                                (* Sizeof/cl_float n)
+                                nil err)]
+     (with-check-arr err res)))
+  ([^long n ^long flags]
+   (float-buffer *context* n flags)))
+
 ;; ============= Program ==========================================
 (defn program-with-source
   ([context source]
@@ -850,8 +918,8 @@
          err (CL/clCreateKernelsInProgram program nk res nil)]
      (vec (with-check err res)))))
 
-(defn set-arg! [kernel ^long n arg]
-  (with-check (CL/clSetKernelArg kernel n Sizeof/cl_mem arg) kernel))
+(defn set-arg! [kernel ^long n memory]
+  (set-arg memory kernel n))
 
 ;;  ============== Command Queue ===============================
 ;; TODO clCreateCommandQueue is deprecated in JOCL 0.2.0 use ccqWithProperties
@@ -863,9 +931,11 @@
   ([device properties]
    (command-queue *context* device properties)))
 
-(defn enqueue-nd-range [queue kernel work-dim
-                        global-work-offset global-work-size local-work-size
-                        num-events-in-wait-lis event-wait-list event]
+;; TODO use *command-queue* in enqueueXXX functions
+(defn enqueue-nd-range
+  [queue kernel work-dim
+     global-work-offset global-work-size local-work-size
+     num-events-in-wait-lis event-wait-list event]
   (with-check
     (CL/clEnqueueNDRangeKernel queue kernel work-dim
                                global-work-offset
@@ -876,13 +946,14 @@
                                event)
     queue))
 
+;; TODO protocolize
 (defn enqueue-read-buffer
-  [queue buffer blocking-read offset cb ptr num-events-in-wait-list
+  [queue memory blocking-read offset num-events-in-wait-list
    event-wait-list event]
   (with-check
-    (CL/clEnqueueReadBuffer queue buffer blocking-read offset
-                            cb ptr num-events-in-wait-list
-                            event-wait-list event)
+    (CL/clEnqueueReadBuffer queue (cl-buffer memory) blocking-read offset
+                            (* (size memory) (cnt memory)) (host-obj* memory)
+                            num-events-in-wait-list event-wait-list event)
     queue))
 
 (defn enqueue-map-buffer
@@ -904,20 +975,6 @@
 (defmacro with-queue [queue & body]
   `(binding [*command-queue* ~queue]
      (try ~@body
-          (finally (close *queue*)))))
-;; =============== Data =========================================
-;; TODO
-(defn float-buffer
-  ([context _ ^floats o flags]
-   (let [err (int-array 1)
-         res (CL/clCreateBuffer context (apply bit-or flags)
-                                (* Sizeof/cl_float (alength o))
-                                (Pointer/to o) err)]
-     (with-check-arr err res)))
-  ([^long n flags]
-   (let [err (int-array 1)
-         res (CL/clCreateBuffer *context* (apply bit-or flags)
-                                (* Sizeof/cl_float n)
-                                nil err)]
-     (with-check-arr err res))))
+          (finally (close *command-queue*)))))
+
 ;; ================================================================
