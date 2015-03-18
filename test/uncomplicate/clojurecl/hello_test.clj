@@ -5,11 +5,10 @@
            [java.nio ByteBuffer ByteOrder]))
 
 (def n 100)
+(def bytesize (* (long n) Sizeof/cl_float))
 (def src-array-a (float-array (range n)))
 (def src-array-b (float-array (range n)))
 (def dest-array  (float-array n))
-
-(def dest (Pointer/to dest-array))
 
 (def program-source "__kernel void sampleKernel(__global const float *a, __global const float *b, __global float *c) { int gid = get_global_id(0); c[gid] = a[gid] + b[gid] + 1.0;}")
 
@@ -20,29 +19,32 @@
 
     (with-context (context devs)
       (with-cls [cqueue (command-queue dev 0)
-                 mem-objects [(bond src-array-a *context*;;TODO add context to memory?
+                 mem-objects [(cl-buffer bytesize CL/CL_MEM_READ_ONLY)
+                              (cl-buffer bytesize CL/CL_MEM_READ_ONLY)
+                              (cl-buffer bytesize CL/CL_MEM_WRITE_ONLY)]
+                 #_[(bond src-array-a
                                        (bit-or CL/CL_MEM_READ_ONLY CL/CL_MEM_COPY_HOST_PTR))
-                              (bond src-array-b *context*
+                              (bond src-array-b
                                       (bit-or CL/CL_MEM_READ_ONLY CL/CL_MEM_COPY_HOST_PTR))
-                              (bond dest-array  *context* CL/CL_MEM_WRITE_ONLY )]
+                              (bond dest-array CL/CL_MEM_WRITE_ONLY )]
                  prog (build-program! (program-with-source  [program-source]))
                  k (kernels prog "sampleKernel")
-                 mem-object-a (float-buffer n CL/CL_MEM_READ_ONLY)
-                 mem-object-b (float-buffer n CL/CL_MEM_READ_ONLY)
-                 mem-object-dest (float-buffer n CL/CL_MEM_WRITE_ONLY)]
+                 mem-object-a (cl-buffer bytesize CL/CL_MEM_READ_ONLY)
+                 mem-object-b (cl-buffer bytesize CL/CL_MEM_READ_ONLY)
+                 mem-object-dest (cl-buffer bytesize CL/CL_MEM_WRITE_ONLY)]
 
-        (set-arg! k 0 (mem-objects 0))
-        (set-arg! k 1 (mem-objects 1))
-        (set-arg! k 2 (mem-objects 2))
+        (apply set-args! k mem-objects)
 
+        (enqueue-write cqueue (mem-objects 0) src-array-a)
+        (enqueue-write cqueue (mem-objects 1) src-array-b)
 
-        (def global-work-size (long-array [n]))
-        (def local-work-size (long-array [1]))
+        (let [global-work-size (long-array [n])
+              local-work-size (long-array [1])]
 
-        (enqueue-nd-range cqueue k 1 nil global-work-size
-                          local-work-size 0 nil nil)
+          (enqueue-nd-range cqueue k 1 nil global-work-size
+                            local-work-size 0 nil nil))
 
-        (enqueue-read-buffer cqueue (mem-objects 2) CL/CL_TRUE 0 0 nil nil)
+        (enqueue-read cqueue (mem-objects 2) dest-array)
 
         (println "Dest array: " (seq dest-array))
 

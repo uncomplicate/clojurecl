@@ -216,6 +216,8 @@
     (map close-seq cl)
     (close cl)))
 
+;; TODO if something fails in let, previous bindings won't be closed. you have to do it the same
+;; way clojure with-open does. rename it to with-releaseable.
 (defmacro with-cl [bindings & body]
   `(let ~(vec bindings)
      (try
@@ -817,73 +819,80 @@
      (try ~@body
           (finally (close *context*)))))
 
-;; =============== Data =========================================
-;; TODO
-(defprotocol Memory
-  (host-obj [this])
-  (cl-buffer [this])
-  (cnt [this])
-  (size [this])
-  (host-obj* [this])
-  (cl-buffer* [this]))
+;; =============== CL Mem =========================================
+(defprotocol CLMem ;;TODO add context to memory?
+  (cl-mem [this])
+  (cl-mem* [this])
+  (size [this]))
 
 (defprotocol Argument
   (set-arg [arg kernel n]))
 
-(deftype ClBuffer [^cl_mem cl ^Pointer cl* h ^Pointer h* c s]
+(defprotocol HostMem
+  (ptr [this]))
+
+(deftype CLBuffer [^cl_mem cl ^Pointer cl* s]
   Releaseable
   (close [_]
     (close cl))
-  Memory
-  (host-obj [_]
-    h)
-  (host-obj* [_]
-    h*)
-  (cl-buffer [_]
+  CLMem
+  (cl-mem [_]
     cl)
-  (cl-buffer* [_]
+  (cl-mem* [_]
     cl*)
-  (cnt [_]
-    c)
   (size [_]
     s)
   Argument
   (set-arg [_ kernel n]
     (with-check (CL/clSetKernelArg kernel n Sizeof/cl_mem cl*) kernel)))
 
-(defprotocol MemorySource
-  (bond
-    [this context flags]
-    [this flags]))
+(defn cl-buffer
+  ([context ^long size ^long flags]
+   (let [err (int-array 1)
+         res (CL/clCreateBuffer context flags size nil err)]
+     (with-check-arr err (->CLBuffer res (Pointer/to ^cl_mem res) size))))
+  ([^long size ^long flags]
+   (cl-buffer *context* size flags)))
 
 (extend-type (Class/forName "[F")
-  MemorySource
-  (bond
-    ([this context flags]
-     (let [err (int-array 1)
-           ptr (Pointer/to ^floats this)
-           count (alength ^floats this)
-           res (CL/clCreateBuffer context flags
-                                  (* Sizeof/cl_float count)
-                                  (if (= 0 (bit-and CL/CL_MEM_WRITE_ONLY flags))
-                                    ptr
-                                    nil)
-                                  err)]
-       (with-check-arr err (->ClBuffer res (Pointer/to ^cl_mem res)
-                                       this ptr
-                                       count Sizeof/cl_float))))
-    ([this flags]
-     (bond this *context* flags))))
+  HostMem
+  (ptr [this]
+    (Pointer/to ^floats this)))
 
-(defn float-buffer
-  ([context ^long n ^long flags]
-   (let [err (int-array 1)
-         res (CL/clCreateBuffer context flags
-                                (* Sizeof/cl_float n)
-                                nil err)]
-     (with-check-arr err res)))
-  ([^long n ^long flags]
-   (float-buffer *context* n flags)))
+(extend-type (Class/forName "[D")
+  HostMem
+  (ptr [this]
+    (Pointer/to ^doubles this)))
+
+(extend-type (Class/forName "[I")
+  HostMem
+  (ptr [this]
+    (Pointer/to ^ints this)))
+
+(extend-type (Class/forName "[J")
+  HostMem
+  (ptr [this]
+    (Pointer/to ^longs this)))
+
+(extend-type (Class/forName "[B")
+  HostMem
+  (ptr [this]
+    (Pointer/to ^bytes this)))
+
+(extend-type (Class/forName "[C")
+  HostMem
+  (ptr [this]
+    (Pointer/to ^chars this)))
+
+(extend-type (Class/forName "[S")
+  HostMem
+  (ptr [this]
+    (Pointer/to ^shorts this)))
+
+(extend-type ByteBuffer
+  HostMem
+  (ptr [this]
+    (Pointer/toBuffer this)))
 
 ;; ============= Program ==========================================
 (defn program-with-source
@@ -921,6 +930,14 @@
 (defn set-arg! [kernel ^long n memory]
   (set-arg memory kernel n))
 
+(defn set-args! [kernel & memories]
+  (reduce (fn [^long i mem]
+            (do
+              (set-arg! kernel i mem)
+              (inc i)))
+          0
+          memories))
+
 ;;  ============== Command Queue ===============================
 ;; TODO clCreateCommandQueue is deprecated in JOCL 0.2.0 use ccqWithProperties
 (defn command-queue
@@ -946,15 +963,27 @@
                                event)
     queue))
 
-;; TODO protocolize
-(defn enqueue-read-buffer
-  [queue memory blocking-read offset num-events-in-wait-list
-   event-wait-list event]
-  (with-check
-    (CL/clEnqueueReadBuffer queue (cl-buffer memory) blocking-read offset
-                            (* (size memory) (cnt memory)) (host-obj* memory)
-                            num-events-in-wait-list event-wait-list event)
-    queue))
+(defn enqueue-read
+  ([queue cl host blocking-read num-events-in-wait-list
+    event-wait-list event]
+   (with-check
+     (CL/clEnqueueReadBuffer queue (cl-mem cl) blocking-read 0
+                             (size cl) (ptr host)
+                             num-events-in-wait-list event-wait-list event)
+     queue))
+  ([queue cl host]
+   (enqueue-read queue cl host CL/CL_TRUE 0 nil nil)))
+
+(defn enqueue-write
+  ([queue cl host blocking-write num-events-in-wait-list
+    event-wait-list event]
+   (with-check
+     (CL/clEnqueueWriteBuffer queue (cl-mem cl) blocking-write 0
+                             (size cl) (ptr host)
+                             num-events-in-wait-list event-wait-list event)
+     queue))
+  ([queue cl host]
+   (enqueue-write queue cl host CL/CL_TRUE 0 nil nil)))
 
 (defn enqueue-map-buffer
   [queue buffer blocking flags offset data-size num-events
