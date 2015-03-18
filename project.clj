@@ -10,9 +10,6 @@
                  [uncomplicate/fluokitten "0.3.0"]
                  [vertigo "0.1.3"]]
 
-  :global-vars {*warn-on-reflection* true
-                *unchecked-math* :warn-on-boxed}
-
   :codox {:src-dir-uri "http://github.com/uncomplicate/clojurecl/blob/master/"
           :src-linenum-anchor-prefix "L"
     ;;      :exclude [uncomplicate.clojrecl.protocols]
@@ -25,11 +22,12 @@
                              [lein-marginalia "0.8.0"]
                              [codox "0.8.10"]]
                    :global-vars {*warn-on-reflection* true
-                                 *assert* false}
+                                 *assert* true
+                                 *unchecked-math* :warn-on-boxed}
                    :dependencies [[midje "1.6.3"]
                                   [criterium "0.4.3"]]}}
 
   :javac-options ["-target" "1.6" "-source" "1.6" "-Xlint:-options"]
   :source-paths ["src/clojure"]
-  :java-source-paths ["src/java"]
-  :test-paths ["test" "test/clojure"])
+  :test-paths ["test/clojure" "test/opencl"]
+  :java-source-paths ["src/java"])

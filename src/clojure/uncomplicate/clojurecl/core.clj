@@ -924,12 +924,13 @@
   (set-arg memory kernel n))
 
 (defn set-args! [kernel & memories]
-  (reduce (fn [^long i mem]
-            (do
-              (set-arg! kernel i mem)
-              (inc i)))
-          0
-          memories))
+  (do (reduce (fn [^long i mem]
+               (do
+                 (set-arg! kernel i mem)
+                 (inc i)))
+             0
+             memories)
+      kernel))
 
 ;;  ============== Command Queue ===============================
 ;; TODO clCreateCommandQueue is deprecated in JOCL 0.2.0 use ccqWithProperties
@@ -945,13 +946,13 @@
 (defn enqueue-nd-range
   [queue kernel work-dim
      global-work-offset global-work-size local-work-size
-     num-events-in-wait-lis event-wait-list event]
+     num-events-in-wait-list event-wait-list event]
   (with-check
     (CL/clEnqueueNDRangeKernel queue kernel work-dim
                                global-work-offset
                                global-work-size
                                local-work-size
-                               num-events-in-wait-lis
+                               num-events-in-wait-list
                                event-wait-list
                                event)
     queue))
