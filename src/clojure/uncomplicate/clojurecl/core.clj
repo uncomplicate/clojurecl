@@ -986,20 +986,25 @@
    (enqueue-write queue cl host CL/CL_TRUE 0 nil nil)))
 
 (defn enqueue-map-buffer
-  [queue buffer blocking flags offset data-size num-events
-   wait-list event]
-  (let [err (int-array 1)
-        res (CL/clEnqueueMapBuffer queue buffer blocking flags offset
-                                   data-size num-events
-                                   wait-list event err)]
-    (with-check-arr err res)))
+  ([queue cl blocking flags num-events
+    wait-list event]
+   (let [err (int-array 1)
+         res (CL/clEnqueueMapBuffer queue (cl-mem cl) blocking flags 0
+                                    (size cl) num-events
+                                    wait-list event err)]
+     (with-check-arr err (.order res (ByteOrder/nativeOrder)))))
+  ([queue cl flags]
+   (enqueue-map-buffer queue cl CL/CL_TRUE flags 0 nil nil)))
+
+;; TODO with-mapping
 
 (defn enqueue-unmap-mem-object
-  [queue mem-object mapped-ptr num-events-in-event-list wait-list event]
-  (let [err (CL/clEnqueueUnmapMemObject
-             queue mem-object mapped-ptr
-             num-events-in-event-list wait-list event)]
-    (with-check err queue)))
+  ([queue cl host num-events-in-event-list wait-list event]
+   (let [err (CL/clEnqueueUnmapMemObject queue (cl-mem cl) host
+                                         num-events-in-event-list wait-list event)]
+     (with-check err queue)))
+  ([queue cl host]
+   (enqueue-unmap-mem-object queue cl host 0 nil nil)))
 
 (defmacro with-queue [queue & body]
   `(binding [*command-queue* ~queue]

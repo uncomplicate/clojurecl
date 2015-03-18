@@ -18,20 +18,15 @@
              dev (first devs)]
 
     (with-context (context devs)
+
       (with-cls [cqueue (command-queue dev 0)
                  mem-objects [(cl-buffer bytesize CL/CL_MEM_READ_ONLY)
                               (cl-buffer bytesize CL/CL_MEM_READ_ONLY)
                               (cl-buffer bytesize CL/CL_MEM_WRITE_ONLY)]
-                 #_[(bond src-array-a
-                                       (bit-or CL/CL_MEM_READ_ONLY CL/CL_MEM_COPY_HOST_PTR))
-                              (bond src-array-b
-                                      (bit-or CL/CL_MEM_READ_ONLY CL/CL_MEM_COPY_HOST_PTR))
-                              (bond dest-array CL/CL_MEM_WRITE_ONLY )]
                  prog (build-program! (program-with-source  [program-source]))
-                 k (kernels prog "sampleKernel")
-                 mem-object-a (cl-buffer bytesize CL/CL_MEM_READ_ONLY)
-                 mem-object-b (cl-buffer bytesize CL/CL_MEM_READ_ONLY)
-                 mem-object-dest (cl-buffer bytesize CL/CL_MEM_WRITE_ONLY)]
+                 k (kernels prog "sampleKernel")]
+
+        (println "==================== READ/WRITE  =====================")
 
         (apply set-args! k mem-objects)
 
@@ -46,44 +41,38 @@
 
         (enqueue-read cqueue (mem-objects 2) dest-array)
 
-        (println "Dest array: " (seq dest-array))
+        (println "Dest array: " (seq dest-array)))
+
+      (with-cl [cqueue (command-queue dev 0)
+                 prog (build-program! (program-with-source  [program-source]))
+                 k (kernels prog "sampleKernel")
+                 mem-object-a (cl-buffer bytesize CL/CL_MEM_READ_ONLY)
+                 mem-object-b (cl-buffer bytesize CL/CL_MEM_READ_ONLY)
+                 mem-object-dest (cl-buffer bytesize CL/CL_MEM_WRITE_ONLY)]
 
         (println "==================== MAPPING =====================")
-        (comment
-          (def src-buffer-a (enqueue-map-buffer cqueue mem-object-a CL/CL_TRUE
-                                                CL/CL_MAP_WRITE 0
-                                                (* n Sizeof/cl_float) 0 nil nil))
-          (.order src-buffer-a ByteOrder/LITTLE_ENDIAN)
+
+        (let [src-buffer-a (enqueue-map-buffer cqueue mem-object-a CL/CL_MAP_WRITE)]
           (.putFloat src-buffer-a 0 46)
-          (enqueue-unmap-mem-object cqueue mem-object-a src-buffer-a 0 nil nil)
+          (enqueue-unmap-mem-object cqueue mem-object-a src-buffer-a))
 
-          (def src-buffer-b (enqueue-map-buffer cqueue mem-object-b CL/CL_TRUE
-                                                CL/CL_MAP_WRITE 0
-                                                (* n Sizeof/cl_float) 0 nil nil))
-          (.order src-buffer-b ByteOrder/LITTLE_ENDIAN)
-          (.putFloat src-buffer-b 0 55)
-          (enqueue-unmap-mem-object cqueue mem-object-b src-buffer-b 0 nil nil)
+        (let [src-buffer-b (enqueue-map-buffer cqueue mem-object-b CL/CL_MAP_WRITE)]
+          (.putFloat src-buffer-b 0 56)
+          (enqueue-unmap-mem-object cqueue mem-object-b src-buffer-b))
 
-          (set-arg! k 0 mem-object-a)
-          (set-arg! k 1 mem-object-b)
-          (set-arg! k 2 mem-object-dest)
+
+        (set-arg! k 0 mem-object-a)
+        (set-arg! k 1 mem-object-b)
+        (set-arg! k 2 mem-object-dest)
+
+        (let [global-work-size (long-array [n])
+              local-work-size (long-array [1])]
 
           (enqueue-nd-range cqueue k 1 nil global-work-size
-                            local-work-size 0 nil nil)
+                            local-work-size 0 nil nil))
 
-          (def dest-buffer (enqueue-map-buffer cqueue mem-object-dest CL/CL_TRUE
-                                               CL/CL_MAP_READ 0
-                                               (* n Sizeof/cl_float) 0 nil nil))
-          (.order dest-buffer ByteOrder/LITTLE_ENDIAN)
+        (let [dest-buffer (enqueue-map-buffer cqueue mem-object-dest CL/CL_MAP_READ)]
+          (.getFloat dest-buffer 0)
           (println "Dest buffer: " (.getFloat dest-buffer 0))
-          (enqueue-unmap-mem-object cqueue mem-object-dest dest-buffer 0 nil nil))
-
-
-
-        )))
-
-
-
-
-
-  )
+          (enqueue-unmap-mem-object cqueue mem-object-dest dest-buffer)))
+      )))
