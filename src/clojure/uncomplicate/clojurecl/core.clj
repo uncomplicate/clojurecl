@@ -212,29 +212,22 @@
     (with-check (CL/clReleaseSampler s) true)))
 
 (defn close-seq [cl]
-  (if (sequential? cl)
-    (map close-seq cl)
-    (close cl)))
+  (cond
+   (instance? uncomplicate.clojurecl.core.Releaseable cl) (close cl)
+   (sequential? cl) (map close-seq cl)) )
 
-;; TODO if something fails in let, previous bindings won't be closed. you have to do it the same
-;; way clojure with-open does. rename it to with-releaseable.
-(defmacro with-cl [bindings & body]
-  `(let ~(vec bindings)
-     (try
-       (do
-         ~@body)
-       (finally
-         (do
-           ~@(map #(list 'close %) (take-nth 2 bindings)))))))
-
-(defmacro with-cls [bindings & body]
-  `(let ~(vec bindings)
-     (try
-       (do
-         ~@body)
-       (finally
-         (do
-           ~@(map #(list 'close-seq %) (take-nth 2 bindings)))))))
+(defmacro with-release [bindings & body]
+  (assert (vector? bindings) "a vector for its binding")
+  (assert (even? (count bindings)) "an even number of forms in binding vector")
+  (cond
+   (= (count bindings) 0) `(do ~@body)
+   (symbol? (bindings 0)) `(let ~(subvec bindings 0 2)
+                             (try
+                               (with-release ~(subvec bindings 2) ~@body)
+                               (finally
+                                 (close-seq ~(bindings 0)))))
+   :else (throw (IllegalArgumentException.
+                 "with-release only allows Symbols in bindings"))))
 
 ;; =============== Platform =========================================
 (defn num-platforms []

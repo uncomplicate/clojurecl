@@ -14,17 +14,17 @@
 
 (with-platform (first (platforms))
 
-  (with-cls [devs (devices)
-             dev (first devs)]
+  (with-release [devs (devices)
+                 dev (first devs)]
 
     (with-context (context devs)
 
-      (with-cls [cqueue (command-queue dev 0)
-                 mem-objects [(cl-buffer bytesize CL/CL_MEM_READ_ONLY)
-                              (cl-buffer bytesize CL/CL_MEM_READ_ONLY)
-                              (cl-buffer bytesize CL/CL_MEM_WRITE_ONLY)]
-                 prog (build-program! (program-with-source  [program-source]))
-                 k (kernels prog "sampleKernel")]
+      (with-release [cqueue (command-queue dev 0)
+                     mem-objects [(cl-buffer bytesize CL/CL_MEM_READ_ONLY)
+                                  (cl-buffer bytesize CL/CL_MEM_READ_ONLY)
+                                  (cl-buffer bytesize CL/CL_MEM_WRITE_ONLY)]
+                     prog (build-program! (program-with-source  [program-source]))
+                     k (kernels prog "sampleKernel")]
 
         (println "==================== READ/WRITE  =====================")
 
@@ -43,12 +43,12 @@
 
         (println "Dest array: " (seq dest-array)))
 
-      (with-cl [cqueue (command-queue dev 0)
-                 prog (build-program! (program-with-source  [program-source]))
-                 k (kernels prog "sampleKernel")
-                 mem-object-a (cl-buffer bytesize CL/CL_MEM_READ_ONLY)
-                 mem-object-b (cl-buffer bytesize CL/CL_MEM_READ_ONLY)
-                 mem-object-dest (cl-buffer bytesize CL/CL_MEM_WRITE_ONLY)]
+      (with-release [cqueue (command-queue dev 0)
+                     prog (build-program! (program-with-source  [program-source]))
+                     k (kernels prog "sampleKernel")
+                     mem-object-a (cl-buffer bytesize CL/CL_MEM_READ_ONLY)
+                     mem-object-b (cl-buffer bytesize CL/CL_MEM_READ_ONLY)
+                     mem-object-dest (cl-buffer bytesize CL/CL_MEM_WRITE_ONLY)]
 
         (println "==================== MAPPING =====================")
 
