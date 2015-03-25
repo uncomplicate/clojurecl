@@ -34,7 +34,7 @@
              (enqueue-read (mem-objects 2) dest-array))
          => cqueue
 
-         (seq dest-array) => (map float (range 1 200 2))))
+         (seq dest-array) => (map float (range 0 200 2))))
 
       (with-release [cqueue (command-queue dev 0)
                      prog (build-program! (program-with-source  [program-source]))
@@ -61,6 +61,6 @@
          => cqueue
 
          (let [dest-buffer (enqueue-map-buffer cqueue mem-object-dest CL/CL_MAP_READ)]
-           (.getFloat dest-buffer 0) => 103.0
+           (.getFloat dest-buffer 0) => 102.0
            (enqueue-unmap-mem-object cqueue mem-object-dest dest-buffer) => cqueue)))
       )))
