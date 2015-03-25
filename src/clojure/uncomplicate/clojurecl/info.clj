@@ -1069,20 +1069,75 @@
 
 ;; ===================== Image ================================================
 
+;; TODO
 
 ;; ===================== Kernel Arg ===========================================
 
+;; TODO
 
 ;; ===================== Kernel ===============================================
 
+(defn function-name [kernel]
+  (info-string* CL/clGetKernelInfo kernel CL/CL_KERNEL_FUNCTION_NAME))
+
+(defn num-args ^long [kernel]
+  (info-int* CL/clGetKernelInfo kernel CL/CL_KERNEL_NUM_ARGS))
+
+(defn kernel-context [kernel]
+  (let [c (cl_context.)
+        err (CL/clGetKernelInfo kernel CL/CL_KERNEL_CONTEXT
+                                Sizeof/cl_context
+                                (Pointer/to c)
+                                nil)]
+    (with-check err c)))
+
+(defn kernel-program [kernel]
+  (let [p (cl_program.)
+        err (CL/clGetKernelInfo kernel CL/CL_KERNEL_PROGRAM
+                                Sizeof/cl_program
+                                (Pointer/to p)
+                                nil)]
+    (with-check err p)))
+
+(defn attributes [kernel]
+  (to-set (info-string* CL/clGetKernelInfo kernel CL/CL_KERNEL_ATTRIBUTES)))
+
+(defrecord KernelInfo [function-name ^long num-args reference-count
+                       context program attributes])
+
+(extend-type cl_kernel
+  Info
+  (info
+    ([k info-type]
+     (case info-type
+       :function-name (function-name k)
+       :num-args (num-args k)
+       :reference-count (reference-count k)
+       :context (kernel-context k)
+       :program (kernel-program k)
+       :attributes (attributes k)))
+    ([k]
+     (->KernelInfo (function-name k) (num-args k) (reference-count k)
+                   (kernel-context k) (kernel-program k) (attributes k))))
+  InfoReferenceCount
+  (reference-count [k]
+    (info-int* CL/clGetKernelInfo k CL/CL_KERNEL_REFERENCE_COUNT)))
+
 ;; ===================== Kernel Sub Group =====================================
 
+;; TODO
+
 ;; ===================== Kernel Work Group ====================================
+
+;; TODO
 
 ;; ===================== Mem Object ===========================================
 
 
+
 ;; ===================== Pipe =================================================
+
+;; TODO
 
 ;; ===================== Program Build ========================================
 
@@ -1090,11 +1145,17 @@
 
 ;; ===================== Sampler ==============================================
 
+;; TODO
 
 ;; ===================== GL Context ===========================================
 
+;; TODO
 ;; ===================== GL Object ============================================
+
+;; TODO
 
 ;; ===================== GL Texture ===========================================
 
-;; ================================================================
+;; TODO
+
+;; ============================================================================

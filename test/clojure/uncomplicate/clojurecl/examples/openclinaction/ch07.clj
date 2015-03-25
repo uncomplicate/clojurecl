@@ -2,7 +2,7 @@
   (:require [midje.sweet :refer :all]
             [uncomplicate.clojurecl
              [core :refer :all]
-             [info :refer [profiling-info durations event-command-queue event-context command-type]]])
+             [info :refer :all]])
   (:import [org.jocl CL cl_event Pointer Sizeof]
            [java.nio ByteBuffer]))
 
@@ -37,5 +37,6 @@
 
           (durations (profiling-info prof-event))
 
-          (info prof-event)
+          (info kern)
+
           )))))
