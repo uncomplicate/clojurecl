@@ -6,11 +6,46 @@
              [structs :refer [int32 int64 wrap-byte-seq]]])
   (:import [org.jocl CL cl_platform_id  cl_device_id cl_context cl_command_queue
             cl_mem cl_program cl_kernel cl_sampler cl_event
+            cl_device_partition_property
             Sizeof Pointer]
            [java.nio ByteBuffer]))
 
+;; TODO OpenCL 2.0
+(def CL_QUEUE_ON_DEVICE (bit-shift-left 1 2))
+(def CL_QUEUE_ON_DEVICE_DEFAULT (bit-shift-left 1 3))
+(def CL_DEVICE_GLOBAL_VARIABLE_PREFERRED_TOTAL_SIZE 0x1054)
+(def CL_DEVICE_IMAGE_BASE_ADDRESS_ALIGNMENT 0x104B)
+
+(def CL_DEVICE_IMAGE_PITCH_ALIGNMENT 0x104A)
+(def CL_DEVICE_MAX_GLOBAL_VARIABLE_SIZE 0x104D)
+(def CL_DEVICE_MAX_ON_DEVICE_EVENTS 0x1052)
+(def CL_DEVICE_MAX_ON_DEVICE_QUEUES 0x1051)
+(def CL_DEVICE_MAX_PIPE_ARGS 0x1055)
+(def CL_DEVICE_MAX_READ_WRITE_IMAGE_ARGS 0x104C)
+(def CL_DEVICE_PIPE_MAX_ACTIVE_RESERVATIONS 0x1056)
+(def CL_DEVICE_PIPE_MAX_PACKET_SIZE 0x1057)
+(def CL_DEVICE_PREFERRED_GLOBAL_ATOMIC_ALIGNMENT 0x1059)
+(def CL_DEVICE_PREFERRED_LOCAL_ATOMIC_ALIGNMENT 0x105A)
+(def CL_DEVICE_PREFERRED_PLATFORM_ATOMIC_ALIGNMENT 0x1058)
+(def CL_DEVICE_QUEUE_ON_DEVICE_MAX_SIZE 0x1050)
+(def CL_DEVICE_QUEUE_ON_DEVICE_PREFERRED_SIZE 0x104F)
+(def CL_DEVICE_QUEUE_ON_DEVICE_PROPERTIES 0x104E)
+(def CL_DEVICE_QUEUE_ON_HOST_PROPERTIES 0x102A)
+(def CL_DEVICE_SPIR_VERSIONS 0x40E0)
+(def CL_DEVICE_SVM_CAPABILITIES 0x1053)
+(def CL_DEVICE_SVM_COARSE_GRAIN_BUFFER (bit-shift-left 1 0) )
+(def CL_DEVICE_SVM_FINE_GRAIN_BUFFER (bit-shift-left 1 1));
+(def CL_DEVICE_SVM_FINE_GRAIN_SYSTEM (bit-shift-left 1 2))
+(def CL_DEVICE_SVM_ATOMICS (bit-shift-left 1 3))
+
 ;; =================== Info* utility macros ===============================
 
+(defmacro ^:private info-num* [method clobject info sizeof]
+  `(let [res# (long-array 1)
+         err# (~method ~clobject ~info 0 nil res#)]
+     (with-check err# (/ (aget res# 0) ~sizeof))))
+
+;;TODO use info-num*
 (defmacro ^:private info-string* [method clobject info]
   `(let [size# (long-array 1)
          err# (~method ~clobject ~info 0 nil size#)]
@@ -57,6 +92,7 @@
                          (byte-seq res#)))))
     ([method clobject info]
      `(first (info-size* ~method ~clobject ~info 1)))))
+
 
 (defmacro ^:private info-long*
   ([method clobject info num]
@@ -206,9 +242,9 @@
 (defn global-mem-size ^long [device]
   (info-long* CL/clGetDeviceInfo device CL/CL_DEVICE_GLOBAL_MEM_SIZE))
 
-;; TODO Opencl 2.0
-(defn global-variable-preferred-total-size [device]
-  nil)
+(defn global-variable-preferred-total-size ^long [device]
+  (info-size* CL/clGetDeviceInfo device
+              CL_DEVICE_GLOBAL_VARIABLE_PREFERRED_TOTAL_SIZE))
 
 (defn image2d-max-height ^long [device]
   (info-size* CL/clGetDeviceInfo device CL/CL_DEVICE_IMAGE2D_MAX_HEIGHT))
@@ -225,9 +261,8 @@
 (defn image3d-max-width ^long [device]
   (info-size* CL/clGetDeviceInfo device CL/CL_DEVICE_IMAGE3D_MAX_WIDTH))
 
-;; TODO Opencl 2.0
-(defn image-base-address-alignment [device]
-  nil)
+(defn image-base-address-alignment ^long [device]
+  (info-int* CL/clGetDeviceInfo device CL_DEVICE_IMAGE_BASE_ADDRESS_ALIGNMENT))
 
 (defn image-max-array-size ^long [device]
   (info-size* CL/clGetDeviceInfo device CL/CL_DEVICE_IMAGE_MAX_ARRAY_SIZE))
@@ -235,9 +270,8 @@
 (defn image-max-buffer-size ^long [device]
   (info-size* CL/clGetDeviceInfo device CL/CL_DEVICE_IMAGE_MAX_BUFFER_SIZE))
 
-;; TODO Opencl 2.0
-(defn image-pitch-alignment [device]
-  nil)
+(defn image-pitch-alignment ^long [device]
+  (info-int* CL/clGetDeviceInfo device CL_DEVICE_IMAGE_PITCH_ALIGNMENT))
 
 (defn image-support [device]
   (info-bool* CL/clGetDeviceInfo device CL/CL_DEVICE_IMAGE_SUPPORT))
@@ -268,34 +302,29 @@
 (defn max-constant-buffer-size ^long [device]
   (info-long* CL/clGetDeviceInfo device CL/CL_DEVICE_MAX_CONSTANT_BUFFER_SIZE))
 
-;; TODO Opencl 2.0
-(defn max-global-variable-size [device]
-  nil)
+(defn max-global-variable-size ^long [device]
+  (info-size* CL/clGetDeviceInfo device CL_DEVICE_MAX_GLOBAL_VARIABLE_SIZE))
 
 (defn max-mem-aloc-size ^long [device]
   (info-long* CL/clGetDeviceInfo device CL/CL_DEVICE_MAX_MEM_ALLOC_SIZE))
 
-;; TODO Opencl 2.0
-(defn max-on-device-events [device]
-  nil)
+(defn max-on-device-events ^long [device]
+  (info-int* CL/clGetDeviceInfo device CL_DEVICE_MAX_ON_DEVICE_EVENTS))
 
-;; TODO Opencl 2.0
-(defn max-on-device-queues [device]
-  nil)
+(defn max-on-device-queues ^long [device]
+  (info-int* CL/clGetDeviceInfo device CL_DEVICE_MAX_ON_DEVICE_QUEUES))
 
 (defn max-parameter-size ^long [device]
   (info-size* CL/clGetDeviceInfo device CL/CL_DEVICE_MAX_PARAMETER_SIZE))
 
-;; TODO Opencl 2.0
-(defn max-pipe-args [device]
-  nil)
+(defn max-pipe-args ^long [device]
+  (info-int* CL/clGetDeviceInfo device CL_DEVICE_MAX_PIPE_ARGS))
 
 (defn max-read-image-args ^long [device]
   (info-int* CL/clGetDeviceInfo device CL/CL_DEVICE_MAX_READ_IMAGE_ARGS))
 
-;; TODO Opencl 2.0
-(defn max-read-write-image-args [device]
-  nil)
+(defn max-read-write-image-args ^long [device]
+  (info-int* CL/clGetDeviceInfo device CL_DEVICE_MAX_READ_WRITE_IMAGE_ARGS))
 
 (defn max-samplers ^long [device]
   (info-int* CL/clGetDeviceInfo device CL/CL_DEVICE_MAX_SAMPLERS))
@@ -373,20 +402,36 @@
   (info-int* CL/clGetDeviceInfo device CL/CL_DEVICE_PARTITION_MAX_SUB_DEVICES))
 
 ;;TODO
+
+(defn ^:private decode-partition-property [^long code]
+  (case code
+    0x1086 :partition-equally
+    0x1087 :partition-by-counts
+    0x1088 :partition-by-affinity-domain
+    :unknown))
+
 (defn partition-properties [device]
-  (info-long* CL/clGetDeviceInfo device CL/CL_DEVICE_PARTITION_PROPERTIES))
+  (set (map decode-partition-property
+            (vec (info-long* CL/clGetDeviceInfo device
+                             CL/CL_DEVICE_PARTITION_PROPERTIES
+                             (info-num* CL/clGetDeviceInfo device
+                                        CL/CL_DEVICE_PARTITION_PROPERTIES
+                                        Sizeof/cl_long)))) ))
 
 ;;TODO
 (defn partition-type [device]
-  (info-long* CL/clGetDeviceInfo device CL/CL_DEVICE_PARTITION_TYPE))
+  (set (map decode-partition-property
+            (vec (info-long* CL/clGetDeviceInfo device
+                             CL/CL_DEVICE_PARTITION_TYPE
+                             (info-num* CL/clGetDeviceInfo device
+                                        CL/CL_DEVICE_PARTITION_TYPE
+                                        Sizeof/cl_long)))) ))
 
-;; TODO Opencl 2.0
-(defn pipe-max-active-reservations [device]
-  nil)
+(defn pipe-max-active-reservations ^long [device]
+  (info-int* CL/clGetDeviceInfo device CL_DEVICE_PIPE_MAX_ACTIVE_RESERVATIONS))
 
-;; TODO Opencl 2.0
-(defn pipe-max-packet-size [device]
-  nil)
+(defn pipe-max-packet-size ^long [device]
+  (info-int* CL/clGetDeviceInfo device CL_DEVICE_PIPE_MAX_PACKET_SIZE))
 
 (defn platform [device]
   (let [p (cl_platform_id.)
@@ -394,22 +439,19 @@
                                 Sizeof/cl_platform_id
                                 (Pointer/to p)
                                 nil)]
-    (with-check err platform)))
+    (with-check err p)))
 
-;; TODO Opencl 2.0
-(defn preferred-global-atomic-alignment [device]
-  nil)
+(defn preferred-global-atomic-alignment ^long [device]
+  (info-int* CL/clGetDeviceInfo device CL_DEVICE_PREFERRED_GLOBAL_ATOMIC_ALIGNMENT))
 
 (defn preferred-interop-user-sync [device]
   (info-bool* CL/clGetDeviceInfo device CL/CL_DEVICE_PREFERRED_INTEROP_USER_SYNC))
 
-;; TODO Opencl 2.0
-(defn preferred-local-atomic-alignment [device]
-  nil)
+(defn preferred-local-atomic-alignment ^long [device]
+  (info-int* CL/clGetDeviceInfo device CL_DEVICE_PREFERRED_LOCAL_ATOMIC_ALIGNMENT))
 
-;; TODO Opencl 2.0
-(defn preferred-platform-atomic-alignment [device]
-  nil)
+(defn preferred-platform-atomic-alignment ^long [device]
+  (info-int* CL/clGetDeviceInfo device CL_DEVICE_PREFERRED_PLATFORM_ATOMIC_ALIGNMENT))
 
 (defn preferred-vector-width-char ^long [device]
   (info-int* CL/clGetDeviceInfo device CL/CL_DEVICE_PREFERRED_VECTOR_WIDTH_CHAR))
@@ -438,21 +480,27 @@
 (defn profiling-timer-resolution [device]
   (info-size* CL/clGetDeviceInfo device CL/CL_DEVICE_PROFILING_TIMER_RESOLUTION))
 
-;; TODO Opencl 2.0
-(defn queue-on-device-max-size [device]
-  nil)
+(defn queue-on-device-max-size ^long [device]
+  (info-int* CL/clGetDeviceInfo device CL_DEVICE_QUEUE_ON_DEVICE_MAX_SIZE))
 
-;; TODO Opencl 2.0
-(defn queue-on-device-preferred-size [device]
-  nil)
+(defn queue-on-device-preferred-size ^long [device]
+  (info-int* CL/clGetDeviceInfo device CL_DEVICE_QUEUE_ON_DEVICE_PREFERRED_SIZE))
 
-;; TODO Opencl 2.0
 (defn queue-on-device-properties [device]
-  nil)
+  (let [mask (info-long* CL/clGetDeviceInfo device
+                         CL_DEVICE_QUEUE_ON_DEVICE_PROPERTIES)]
+    (disj (hash-set (mask* mask CL/CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE
+                           :out-of-order-exec-mode)
+                    (mask* mask CL/CL_QUEUE_PROFILING_ENABLE :profiling))
+          nil)))
 
-;; TODO Opencl 2.0
 (defn queue-on-host-properties [device]
-  nil)
+  (let [mask (info-long* CL/clGetDeviceInfo device
+                         CL_DEVICE_QUEUE_ON_HOST_PROPERTIES)]
+    (disj (hash-set (mask* mask CL/CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE
+                           :out-of-order-exec-mode)
+                    (mask* mask CL/CL_QUEUE_PROFILING_ENABLE :profiling))
+          nil)))
 
 (defn single-fp-config [device]
   (let [mask (info-long* CL/clGetDeviceInfo device
@@ -468,13 +516,21 @@
                     (mask* mask CL/CL_FP_SOFT_FLOAT :soft-float))
           nil)))
 
-;; TODO Opencl 2.0
 (defn spir-versions [device]
-  nil)
+  (to-set (info-string* CL/clGetDeviceInfo device CL_DEVICE_SPIR_VERSIONS)))
 
-;; TODO Opencl 2.0
 (defn svm-capabilities [device]
-  nil)
+  (let [mask (info-long* CL/clGetDeviceInfo device
+                         CL_DEVICE_SVM_CAPABILITIES)]
+    (disj (hash-set (mask* mask CL_DEVICE_SVM_COARSE_GRAIN_BUFFER
+                           :coarse-grain-buffer)
+                    (mask* mask CL_DEVICE_SVM_FINE_GRAIN_BUFFER
+                           :fine-grain-buffer)
+                    (mask* mask CL_DEVICE_SVM_FINE_GRAIN_SYSTEM
+                           :fine-grain-system)
+                    (mask* mask CL_DEVICE_SVM_ATOMICS
+                           :svm-atomics))
+          nil)))
 
 ;; TODO Opencl 2.0
 (defn terminate-capability-khr [device]
@@ -518,16 +574,16 @@
      global-mem-cache-type
      ^long global-mem-cacheline-size
      ^long global-mem-size
-     global-variable-preferred-total-size
+     ^long global-variable-preferred-total-size
      ^long image2d-max-height
      ^long image2d-max-width
      ^long image3d-max-depth
      ^long image3d-max-height
      ^long image3d-max-width
-     image-base-address-alignment
+     ^long image-base-address-alignment
      ^long image-max-array-size
      ^long image-max-buffer-size
-     image-pitch-alignment
+     ^long image-pitch-alignment
      image-support
      linker-available
      ^long local-mem-size
@@ -536,14 +592,14 @@
      ^long max-compute-units
      ^long max-constant-args
      ^long max-constant-buffer-size
-      max-global-variable-size
+     ^long max-global-variable-size
      ^long max-mem-aloc-size
-     max-on-device-events
-     max-on-device-queues
+     ^long max-on-device-events
+     ^long max-on-device-queues
      ^long max-parameter-size
-     max-pipe-args
+     ^long max-pipe-args
      ^long max-read-image-args
-     max-read-write-image-args
+     ^long max-read-write-image-args
      ^long max-samplers
      ^long max-work-group-size
      ^long max-work-item-dimensions
@@ -562,15 +618,15 @@
      parent-device
      partition-affinity-domain
      ^long partition-max-sub-devices
-     ;;:partition-properties partition-properties ;;TODO raises exception when called on CPU
+     partition-properties
      partition-type
-     pipe-max-active-reservations
-     pipe-max-packet-size
+     ^long pipe-max-active-reservations
+     ^long pipe-max-packet-size
      platform
-     preferred-global-atomic-alignment
+     ^long preferred-global-atomic-alignment
      preferred-interop-user-sync
-     preferred-local-atomic-alignment
-     preferred-platform-atomic-alignment
+     ^long preferred-local-atomic-alignment
+     ^long preferred-platform-atomic-alignment
      ^long preferred-vector-width-char
      ^long preferred-vector-width-short
      ^long preferred-vector-width-int
@@ -581,8 +637,8 @@
      ^long printf-buffer-size
      profile
      profiling-timer-resolution
-     queue-on-device-max-size
-     queue-on-device-preferred-size
+     ^long queue-on-device-max-size
+     ^long queue-on-device-preferred-size
      queue-on-device-properties
      queue-on-host-properties
      ^long reference-count
@@ -658,7 +714,7 @@
        :parent-device (parent-device d)
        :partition-affinity-domain (partition-affinity-domain d)
        :partition-max-sub-devices (partition-max-sub-devices d)
-       ;;:partition-properties partition-properties ;;TODO raises exception when called on CPU
+       :partition-properties (partition-properties d)
        :partition-type (partition-type d)
        :pipe-max-active-reservations (pipe-max-active-reservations d)
        :pipe-max-packet-size (pipe-max-packet-size d)
@@ -750,7 +806,7 @@
       (parent-device d)
       (partition-affinity-domain d)
       (partition-max-sub-devices d)
-     ;;:partition-properties partition-properties ;;TODO raises exception when called on CPU
+      (partition-properties d)
       (partition-type d)
       (pipe-max-active-reservations d)
       (pipe-max-packet-size d)
@@ -878,8 +934,8 @@
       (disj (hash-set (mask* mask CL/CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE
                              :out-of-order-exec-mode)
                       (mask* mask CL/CL_QUEUE_PROFILING_ENABLE :profiling)
-                      ;; TODO OpenCL 2.0 (mask* mask CL/CL_QUEUE_ON_DEVICE :queue-on-device)
-                      #_(mask* mask CL/CL_QUEUE_ON_DEVICE_DEFAULT
+                      (mask* mask CL_QUEUE_ON_DEVICE :queue-on-device)
+                      (mask* mask CL_QUEUE_ON_DEVICE_DEFAULT
                                :queue-on-device-default))
             nil))))
 
