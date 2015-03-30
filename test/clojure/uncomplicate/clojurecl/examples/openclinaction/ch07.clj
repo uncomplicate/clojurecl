@@ -17,7 +17,7 @@
                  dev (first devs)]
     (with-context (context devs)
       (let [prof-event (event)
-            data-host (float-array (/ bytesize Float/BYTES))]
+            data-host (float-array (/ (long bytesize) Float/BYTES))]
         (with-release [cqueue (command-queue dev CL/CL_QUEUE_PROFILING_ENABLE)
                        data-buffer (cl-buffer bytesize CL/CL_MEM_WRITE_ONLY)
                        prog (build-program! (program-with-source [program-source]))
@@ -27,7 +27,7 @@
 
            (set-arg! kern 0 data-buffer) => kern
 
-           (set-arg! kern 1 (int-array [(/ bytesize 16)]))
+           (set-arg! kern 1 (int-array [(/ (long bytesize) 16)]))
 
            (dotimes [n num-iterations]
              (-> cqueue
@@ -37,6 +37,9 @@
 
           (durations (profiling-info prof-event))
 
-          (info kern)
+          (info *context*)
+
+
+
 
           )))))

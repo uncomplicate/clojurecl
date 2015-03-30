@@ -1,5 +1,6 @@
 (ns uncomplicate.clojurecl.utils
-  (:require [clojure.string :as str]))
+  (:require [clojure.string :as str])
+  (:import clojure.lang.ExceptionInfo))
 
 ;; ============= Error Handling  ============================================
 (defn error-string [^long code]
@@ -70,6 +71,25 @@
     -1001 "CL_PLATFORM_NOT_FOUND_KHR"
     "UNKNOWN OpenCL ERROR!"))
 
+(defn mask ^long [table flags]
+  (apply bit-or (map table flags)))
+
+(defn unmask [table ^long mask]
+  (filter identity
+          (map (fn [[k v]]
+                 (if (= 0 (bit-and mask (long v)))
+                   nil
+                   k))
+               table)))
+
+(defn unmask1 [table ^long mask]
+  (some identity
+        (map (fn [[k v]]
+               (if (= 0 (bit-and mask (long v)))
+                   nil
+                   k))
+             table)))
+
 (defn error [err-code]
   (let [err (error-string err-code)]
     (ex-info (format "OpenCL error: %s." err)
@@ -82,3 +102,10 @@
   `(if (= 0 ~err-code)
      ~form
      (throw (error ~err-code))))
+
+(defmacro maybe [form]
+  `(try ~form
+         (catch ExceptionInfo ex-info#
+           (if (= :opencl-error (:type (ex-data ex-info#)))
+             ex-info#
+             (throw ex-info#)))))
