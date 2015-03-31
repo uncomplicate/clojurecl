@@ -43,6 +43,8 @@
 
 (def CL_MEM_USES_SVM_POINTER 0x1109)
 
+(def CL_KERNEL_ARG_TYPE_PIPE (bit-shift-left 1 3))
+(def CL_PROGRAM_BUILD_GLOBAL_VARIABLE_TOTAL_SIZE 0x1185)
 ;; =================== Info* utility macros ===============================
 
 (defmacro ^:private info-count*
@@ -93,7 +95,6 @@
                          (byte-seq res#)))))
     ([method clobject info]
      `(first (info-size* ~method ~clobject ~info 1)))))
-
 
 (defmacro ^:private info-long*
   ([method clobject info num]
@@ -1059,10 +1060,6 @@
 
 ;; TODO
 
-;; ===================== Kernel Arg ===========================================
-
-;; TODO
-
 ;; ===================== Kernel ===============================================
 
 (defn function-name [kernel]
@@ -1113,6 +1110,93 @@
   InfoReferenceCount
   (reference-count [k]
     (info-int* CL/clGetKernelInfo k CL/CL_KERNEL_REFERENCE_COUNT)))
+
+;; ===================== Kernel Arg ===========================================
+
+;; -- Kernel Arg Info has special utility functions with one more parameter. --
+
+(defmacro ^:private arg-info-string* [kernel arg info]
+  `(let [cnt# (long-array 1)
+         err# (CL/clGetKernelArgInfo ~kernel ~arg ~info 0 nil cnt#)]
+     (with-check err#
+       (let [res# (byte-array (aget cnt# 0))
+             err# (CL/clGetKernelArgInfo ~kernel ~arg ~info
+                                         (alength res#) (Pointer/to res#)
+                                         nil)]
+         (with-check err#
+           (String. res# 0 (dec (alength res#))))))))
+
+(defmacro ^:private arg-info-long* [kernel arg info]
+  `(let [res# (long-array 1)
+         err# (CL/clGetKernelArgInfo ~kernel ~arg ~info Sizeof/cl_long
+                                     (Pointer/to res#) nil)]
+     (with-check err# (aget res# 0))))
+
+;; ----------- Kernel Arg Info functions -------------------------------------
+
+(defn cl-kernel-arg-address-qualifier [^long code]
+  (case code
+    0x119B :global
+    0x119C :local
+    0x119D :constant
+    0x119E :private))
+
+(defn arg-address-qualifier [kernel arg]
+  (arg-info-long* kernel arg CL/CL_KERNEL_ARG_ADDRESS_QUALIFIER))
+
+(defn cl-kernel-arg-access-qualifier [^long code]
+  (case code
+    0x11A0 :read-only
+    0x11A1 :write-only
+    0x11A2 :read-write
+    0x11A3 :none))
+
+(defn arg-access-qualifier [kernel arg]
+  (arg-info-long* kernel arg CL/CL_KERNEL_ARG_ACCESS_QUALIFIER))
+
+(defn arg-type-name [kernel arg]
+  (arg-info-string* kernel arg CL/CL_KERNEL_ARG_TYPE_NAME))
+
+(def cl-kernel-arg-type-qualifier
+  {:const CL/CL_KERNEL_ARG_TYPE_CONST
+   :restrict CL/CL_KERNEL_ARG_TYPE_RESTRICT
+   :volatile CL/CL_KERNEL_ARG_TYPE_VOLATILE
+   :pipe CL_KERNEL_ARG_TYPE_PIPE
+   :none CL/CL_KERNEL_ARG_TYPE_NONE})
+
+(defn arg-type-qualifier [kernel arg]
+  (arg-info-long* kernel arg CL/CL_KERNEL_ARG_TYPE_QUALIFIER))
+
+(defn arg-name [kernel arg]
+  (arg-info-string* kernel arg CL/CL_KERNEL_ARG_NAME))
+
+(defrecord KernelArgInfo [address-qualifier access-qualifier type-name
+                          type-qualifier name])
+
+(defn arg-info
+  ([kernel arg info-type]
+   (maybe
+    (case info-type
+      :address-qualifier
+      (cl-kernel-arg-address-qualifier (arg-address-qualifier kernel arg))
+      :access-qualifier
+      (cl-kernel-arg-access-qualifier (arg-access-qualifier kernel arg))
+      :type-name (arg-type-name kernel arg)
+      :type-qualifier
+      (unmask cl-kernel-arg-type-qualifier (arg-type-qualifier kernel arg))
+      :name (arg-name kernel arg)
+      nil)))
+  ([kernel arg]
+   (->KernelArgInfo (maybe (cl-kernel-arg-address-qualifier
+                            (arg-address-qualifier kernel arg)))
+                    (maybe (cl-kernel-arg-access-qualifier
+                            (arg-access-qualifier kernel arg)))
+                    (maybe (arg-type-name kernel arg))
+                    (maybe (unmask cl-kernel-arg-type-qualifier
+                                   (arg-type-qualifier kernel arg)))
+                    (maybe (arg-name kernel arg))))
+  ([kernel]
+   (map (partial arg-info kernel) (range (num-args kernel)) )))
 
 ;; ===================== Kernel Sub Group =====================================
 
@@ -1212,6 +1296,90 @@
 ;; TODO
 
 ;; ===================== Program Build ========================================
+
+;; -- Program Build Info has special utility functions with one more param ----
+
+(defmacro ^:private pb-info-string* [program device info]
+  `(let [cnt# (long-array 1)
+         err# (CL/clGetProgramBuildInfo ~program ~device ~info 0 nil cnt#)]
+     (with-check err#
+       (let [res# (byte-array (aget cnt# 0))
+             err# (CL/clGetProgramBuildInfo ~program ~device ~info
+                                         (alength res#) (Pointer/to res#)
+                                         nil)]
+         (with-check err#
+           (String. res# 0 (dec (alength res#))))))))
+
+(defmacro ^:private pb-info-long* [program device info]
+  `(let [res# (long-array 1)
+         err# (CL/clGetProgramBuildInfo ~program ~device ~info Sizeof/cl_long
+                                     (Pointer/to res#) nil)]
+     (with-check err# (aget res# 0))))
+
+(let [pointer-to-buffer (fn [^ByteBuffer b]
+                          (Pointer/to b))]
+  (defmacro ^:private pb-info-size* [program device info]
+    `(let [res# (buffer Sizeof/size_t)
+           err# (CL/clGetProgramBuildInfo
+                 ~program ~device ~info Sizeof/size_t
+                 (~pointer-to-buffer res#) nil)]
+       (with-check err#
+         (first (wrap-byte-seq (if (= 4 Sizeof/size_t)
+                                 int32
+                                 int64)
+                               (byte-seq res#)))))))
+
+;; -- Program Build Info functions --------------------------------------------
+
+(defn cl-build-status [^long code]
+  (case code
+    0 :success
+    -1 :none
+    -2 :error
+    -3 :in-progress))
+
+(defn build-status [program device]
+  (pb-info-long* program device CL/CL_PROGRAM_BUILD_STATUS))
+
+(defn build-options [program device]
+  (pb-info-string* program device CL/CL_PROGRAM_BUILD_OPTIONS))
+
+(defn build-log [program device]
+  (pb-info-string* program device CL/CL_PROGRAM_BUILD_LOG))
+
+(defn cl-program-binary-type [^long code]
+  (case code
+    0x0 :none
+    0x1 :compiled-object
+    0x2 :library
+    0x4 :executable
+    0x40E1 :intermediate))
+
+(defn binary-type [program device]
+  (pb-info-long* program device CL/CL_PROGRAM_BINARY_TYPE))
+
+(defn global-variable-total-size [program device]
+  (pb-info-size* program device CL_PROGRAM_BUILD_GLOBAL_VARIABLE_TOTAL_SIZE))
+
+(defrecord ProgramBuildInfo [build-status build-options build-log
+                             binary-type global-variable-total-size])
+
+(defn build-info
+  ([program device info-type]
+   (maybe
+    (case info-type
+      :status (cl-build-status (build-status program device))
+      :options (build-options program device)
+      :log (build-log program device)
+      :binary-type (cl-program-binary-type (binary-type program device))
+      :global-variable-total-size (global-variable-total-size program device))))
+  ([program device]
+   (->ProgramBuildInfo (maybe (cl-build-status (build-status program device)))
+                       (maybe (build-options program device))
+                       (maybe (build-log program device))
+                       (maybe (cl-program-binary-type
+                               (binary-type program device)))
+                       (maybe (global-variable-total-size program device)))))
 
 ;; ===================== Program ==============================================
 

@@ -37,7 +37,7 @@
 
           (durations (profiling-info prof-event))
 
-          (info *context*)
+           (build-info prog dev)
 
 
 
