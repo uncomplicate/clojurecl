@@ -23,7 +23,8 @@
                              [codox "0.8.10"]]
                    :global-vars {*warn-on-reflection* true
                                  *assert* true
-                                 *unchecked-math* :warn-on-boxed}
+                                 *unchecked-math* :warn-on-boxed
+                                 *print-length* 128}
                    :dependencies [[midje "1.6.3"]
                                   [criterium "0.4.3"]]}}
 

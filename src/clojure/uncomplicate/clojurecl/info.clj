@@ -2,7 +2,7 @@
   (:require [clojure.string :as str]
             [uncomplicate.clojurecl.utils :refer :all]
             [vertigo
-             [bytes :refer [buffer byte-seq byte-count]]
+             [bytes :refer [buffer direct-buffer byte-seq byte-count slice]]
              [structs :refer [int32 int64 wrap-byte-seq]]])
   (:import [org.jocl CL cl_platform_id  cl_device_id cl_context cl_command_queue
             cl_mem cl_program cl_kernel cl_sampler cl_event
@@ -69,32 +69,35 @@
     #{}
     (apply hash-set (str/split s #" "))))
 
-(let [native-pointer (fn [^"[Lorg.jocl.NativePointerObject;" np]
-                       (Pointer/to np))]
-  (defmacro ^:private info-native* [method clobject info type size]
-    `(let [bytesize# (info-count* ~method ~clobject ~info)
-           res# (make-array ~type (/ bytesize# ~size))
-           err# (~method ~clobject ~info
-                         bytesize# (~native-pointer res#)
-                         nil)]
-       (with-check err# res#))))
+(defn ^:private native-pointer
+  [^"[Lorg.jocl.NativePointerObject;" np]
+  (Pointer/to np))
 
-(let [pointer-to-buffer (fn [^ByteBuffer b]
-                          (Pointer/to b))]
-  (defmacro ^:private info-size*
-    ([method clobject info num]
-     `(let [res# (buffer (* Sizeof/size_t (long ~num)))
-            err# (~method ~clobject ~info
-                          (* Sizeof/size_t (long ~num))
-                          (~pointer-to-buffer res#)
-                          nil)]
-        (with-check err#
-          (wrap-byte-seq (if (= 4 Sizeof/size_t)
-                           int32
-                           int64)
-                         (byte-seq res#)))))
-    ([method clobject info]
-     `(first (info-size* ~method ~clobject ~info 1)))))
+(defmacro ^:private info-native* [method clobject info type size]
+  `(let [bytesize# (info-count* ~method ~clobject ~info)
+         res# (make-array ~type (/ bytesize# ~size))
+         err# (~method ~clobject ~info
+                       bytesize# (~native-pointer res#)
+                       nil)]
+     (with-check err# res#)))
+
+(defn ^:private pointer-to-buffer [^ByteBuffer b]
+  (Pointer/toBuffer b))
+
+(defmacro ^:private info-size*
+  ([method clobject info num]
+   `(let [res# (buffer (* Sizeof/size_t (long ~num)))
+          err# (~method ~clobject ~info
+                        (* Sizeof/size_t (long ~num))
+                        (~pointer-to-buffer res#)
+                        nil)]
+      (with-check err#
+        (wrap-byte-seq (if (= 4 Sizeof/size_t)
+                         int32
+                         int64)
+                       (byte-seq res#)))))
+  ([method clobject info]
+   `(first (info-size* ~method ~clobject ~info 1))))
 
 (defmacro ^:private info-long*
   ([method clobject info num]
@@ -186,7 +189,7 @@
 
 ;; =================== Device ==============================================
 
-(defn address-bits [device]
+(defn address-bits ^long [device]
   (info-int* CL/clGetDeviceInfo device CL/CL_DEVICE_ADDRESS_BITS))
 
 (defn available [device]
@@ -209,7 +212,7 @@
    :correctly-rounded-divide-sqrt CL/CL_FP_CORRECTLY_ROUNDED_DIVIDE_SQRT
    :soft-float CL/CL_FP_SOFT_FLOAT})
 
-(defn double-fp-config [device]
+(defn double-fp-config ^long [device]
   (info-long* CL/clGetDeviceInfo device CL/CL_DEVICE_DOUBLE_FP_CONFIG))
 
 (defn endian-little [device]
@@ -222,11 +225,10 @@
   {:kernel CL/CL_EXEC_KERNEL
    :native-kernel CL/CL_EXEC_NATIVE_KERNEL})
 
-(defn execution-capabilities [device]
-  (info-long* CL/clGetDeviceInfo device
-              CL/CL_DEVICE_EXECUTION_CAPABILITIES))
+(defn execution-capabilities ^long [device]
+  (info-long* CL/clGetDeviceInfo device CL/CL_DEVICE_EXECUTION_CAPABILITIES))
 
-(defn global-mem-cache-size [device]
+(defn global-mem-cache-size ^long [device]
   (info-long* CL/clGetDeviceInfo device CL/CL_DEVICE_GLOBAL_MEM_CACHE_SIZE))
 
 (def device-mem-cache-type
@@ -234,44 +236,44 @@
    :read-only CL/CL_READ_ONLY_CACHE
    :read-write CL/CL_READ_WRITE_CACHE})
 
-(defn global-mem-cache-type [device]
+(defn global-mem-cache-type ^long [device]
   (info-long* CL/clGetDeviceInfo device CL/CL_DEVICE_GLOBAL_MEM_CACHE_TYPE))
 
-(defn global-mem-cacheline-size [device]
+(defn global-mem-cacheline-size ^long [device]
   (info-int* CL/clGetDeviceInfo device CL/CL_DEVICE_GLOBAL_MEM_CACHELINE_SIZE))
 
-(defn global-mem-size [device]
+(defn global-mem-size ^long [device]
   (info-long* CL/clGetDeviceInfo device CL/CL_DEVICE_GLOBAL_MEM_SIZE))
 
-(defn global-variable-preferred-total-size [device]
+(defn global-variable-preferred-total-size ^long [device]
   (info-size* CL/clGetDeviceInfo device
               CL_DEVICE_GLOBAL_VARIABLE_PREFERRED_TOTAL_SIZE))
 
-(defn image2d-max-height [device]
+(defn image2d-max-height ^long [device]
   (info-size* CL/clGetDeviceInfo device CL/CL_DEVICE_IMAGE2D_MAX_HEIGHT))
 
-(defn image2d-max-width [device]
+(defn image2d-max-width ^long [device]
   (info-size* CL/clGetDeviceInfo device CL/CL_DEVICE_IMAGE2D_MAX_WIDTH))
 
-(defn image3d-max-depth [device]
+(defn image3d-max-depth ^long [device]
   (info-size* CL/clGetDeviceInfo device CL/CL_DEVICE_IMAGE3D_MAX_DEPTH))
 
-(defn image3d-max-height [device]
+(defn image3d-max-height ^long [device]
   (info-size* CL/clGetDeviceInfo device CL/CL_DEVICE_IMAGE3D_MAX_HEIGHT))
 
-(defn image3d-max-width [device]
+(defn image3d-max-width ^long [device]
   (info-size* CL/clGetDeviceInfo device CL/CL_DEVICE_IMAGE3D_MAX_WIDTH))
 
-(defn image-base-address-alignment [device]
+(defn image-base-address-alignment ^long [device]
   (info-int* CL/clGetDeviceInfo device CL_DEVICE_IMAGE_BASE_ADDRESS_ALIGNMENT))
 
-(defn image-max-array-size [device]
+(defn image-max-array-size ^long [device]
   (info-size* CL/clGetDeviceInfo device CL/CL_DEVICE_IMAGE_MAX_ARRAY_SIZE))
 
-(defn image-max-buffer-size [device]
+(defn image-max-buffer-size ^long [device]
   (info-size* CL/clGetDeviceInfo device CL/CL_DEVICE_IMAGE_MAX_BUFFER_SIZE))
 
-(defn image-pitch-alignment [device]
+(defn image-pitch-alignment ^long [device]
   (info-int* CL/clGetDeviceInfo device CL_DEVICE_IMAGE_PITCH_ALIGNMENT))
 
 (defn image-support [device]
@@ -280,7 +282,7 @@
 (defn linker-available [device]
   (info-bool* CL/clGetDeviceInfo device CL/CL_DEVICE_LINKER_AVAILABLE))
 
-(defn local-mem-size [device]
+(defn local-mem-size ^long [device]
   (info-long* CL/clGetDeviceInfo device CL/CL_DEVICE_LOCAL_MEM_SIZE))
 
 (def cl-local-mem-type
@@ -288,84 +290,84 @@
    :global CL/CL_GLOBAL
    :none CL/CL_NONE})
 
-(defn local-mem-type [device]
+(defn local-mem-type ^long [device]
   (info-long* CL/clGetDeviceInfo device
               CL/CL_DEVICE_LOCAL_MEM_TYPE))
 
-(defn max-clock-frequency [device]
+(defn max-clock-frequency ^long [device]
   (info-int* CL/clGetDeviceInfo device CL/CL_DEVICE_MAX_CLOCK_FREQUENCY))
 
-(defn max-compute-units [device]
+(defn max-compute-units ^long [device]
   (info-int* CL/clGetDeviceInfo device CL/CL_DEVICE_MAX_COMPUTE_UNITS))
 
-(defn max-constant-args [device]
+(defn max-constant-args ^long [device]
   (info-int* CL/clGetDeviceInfo device CL/CL_DEVICE_MAX_CONSTANT_ARGS))
 
-(defn max-constant-buffer-size [device]
+(defn max-constant-buffer-size ^long [device]
   (info-long* CL/clGetDeviceInfo device CL/CL_DEVICE_MAX_CONSTANT_BUFFER_SIZE))
 
-(defn max-global-variable-size [device]
+(defn max-global-variable-size ^long [device]
   (info-size* CL/clGetDeviceInfo device CL_DEVICE_MAX_GLOBAL_VARIABLE_SIZE))
 
-(defn max-mem-aloc-size [device]
+(defn max-mem-aloc-size ^long [device]
   (info-long* CL/clGetDeviceInfo device CL/CL_DEVICE_MAX_MEM_ALLOC_SIZE))
 
-(defn max-on-device-events [device]
+(defn max-on-device-events ^long [device]
   (info-int* CL/clGetDeviceInfo device CL_DEVICE_MAX_ON_DEVICE_EVENTS))
 
-(defn max-on-device-queues [device]
+(defn max-on-device-queues ^long [device]
   (info-int* CL/clGetDeviceInfo device CL_DEVICE_MAX_ON_DEVICE_QUEUES))
 
-(defn max-parameter-size [device]
+(defn max-parameter-size ^long [device]
   (info-size* CL/clGetDeviceInfo device CL/CL_DEVICE_MAX_PARAMETER_SIZE))
 
-(defn max-pipe-args [device]
+(defn max-pipe-args ^long [device]
   (info-int* CL/clGetDeviceInfo device CL_DEVICE_MAX_PIPE_ARGS))
 
-(defn max-read-image-args [device]
+(defn max-read-image-args ^long [device]
   (info-int* CL/clGetDeviceInfo device CL/CL_DEVICE_MAX_READ_IMAGE_ARGS))
 
-(defn max-read-write-image-args [device]
+(defn max-read-write-image-args ^long [device]
   (info-int* CL/clGetDeviceInfo device CL_DEVICE_MAX_READ_WRITE_IMAGE_ARGS))
 
-(defn max-samplers [device]
+(defn max-samplers ^long [device]
   (info-int* CL/clGetDeviceInfo device CL/CL_DEVICE_MAX_SAMPLERS))
 
-(defn max-work-group-size [device]
+(defn max-work-group-size ^long [device]
   (info-size* CL/clGetDeviceInfo device CL/CL_DEVICE_MAX_WORK_GROUP_SIZE))
 
-(defn max-work-item-dimensions [device]
+(defn max-work-item-dimensions ^long [device]
   (info-int* CL/clGetDeviceInfo device CL/CL_DEVICE_MAX_WORK_ITEM_DIMENSIONS))
 
 (defn max-work-item-sizes [device]
   (info-size* CL/clGetDeviceInfo device CL/CL_DEVICE_MAX_WORK_ITEM_SIZES
               (max-work-item-dimensions device)))
 
-(defn max-write-image-args [device]
+(defn max-write-image-args ^long [device]
   (info-int* CL/clGetDeviceInfo device CL/CL_DEVICE_MAX_WRITE_IMAGE_ARGS))
 
-(defn mem-base-addr-align [device]
+(defn mem-base-addr-align ^long [device]
   (info-int* CL/clGetDeviceInfo device CL/CL_DEVICE_MEM_BASE_ADDR_ALIGN))
 
-(defn native-vector-width-char [device]
+(defn native-vector-width-char ^long [device]
   (info-int* CL/clGetDeviceInfo device CL/CL_DEVICE_NATIVE_VECTOR_WIDTH_CHAR))
 
-(defn native-vector-width-short [device]
+(defn native-vector-width-short ^long [device]
   (info-int* CL/clGetDeviceInfo device CL/CL_DEVICE_NATIVE_VECTOR_WIDTH_SHORT))
 
-(defn native-vector-width-int [device]
+(defn native-vector-width-int ^long [device]
   (info-int* CL/clGetDeviceInfo device CL/CL_DEVICE_NATIVE_VECTOR_WIDTH_INT))
 
-(defn native-vector-width-long [device]
+(defn native-vector-width-long ^long [device]
   (info-int* CL/clGetDeviceInfo device CL/CL_DEVICE_NATIVE_VECTOR_WIDTH_LONG))
 
-(defn native-vector-width-float [device]
+(defn native-vector-width-float ^long [device]
   (info-int* CL/clGetDeviceInfo device CL/CL_DEVICE_NATIVE_VECTOR_WIDTH_FLOAT))
 
-(defn native-vector-width-double [device]
+(defn native-vector-width-double ^long [device]
   (info-int* CL/clGetDeviceInfo device CL/CL_DEVICE_NATIVE_VECTOR_WIDTH_DOUBLE))
 
-(defn native-vector-width-half [device]
+(defn native-vector-width-half ^long [device]
   (info-int* CL/clGetDeviceInfo device CL/CL_DEVICE_NATIVE_VECTOR_WIDTH_HALF))
 
 (defn opencl-c-version [device]
@@ -396,11 +398,11 @@
    :l4-cache CL/CL_DEVICE_AFFINITY_DOMAIN_L4_CACHE
    :next-partitionable CL/CL_DEVICE_AFFINITY_DOMAIN_NEXT_PARTITIONABLE})
 
-(defn partition-affinity-domain [device]
+(defn partition-affinity-domain ^long [device]
   (info-long* CL/clGetDeviceInfo device
               CL/CL_DEVICE_PARTITION_AFFINITY_DOMAIN))
 
-(defn partition-max-sub-devices [device]
+(defn partition-max-sub-devices ^long [device]
   (info-int* CL/clGetDeviceInfo device CL/CL_DEVICE_PARTITION_MAX_SUB_DEVICES))
 
 (defn partition-property [^long code]
@@ -426,10 +428,10 @@
                               CL/CL_DEVICE_PARTITION_TYPE
                               Sizeof/cl_long))) )
 
-(defn pipe-max-active-reservations [device]
+(defn pipe-max-active-reservations ^long [device]
   (info-int* CL/clGetDeviceInfo device CL_DEVICE_PIPE_MAX_ACTIVE_RESERVATIONS))
 
-(defn pipe-max-packet-size [device]
+(defn pipe-max-packet-size ^long [device]
   (info-long* CL/clGetDeviceInfo device CL_DEVICE_PIPE_MAX_PACKET_SIZE))
 
 (defn platform [device]
@@ -440,62 +442,62 @@
                                 nil)]
     (with-check err p)))
 
-(defn preferred-global-atomic-alignment [device]
+(defn preferred-global-atomic-alignment ^long [device]
   (info-int* CL/clGetDeviceInfo device CL_DEVICE_PREFERRED_GLOBAL_ATOMIC_ALIGNMENT))
 
 (defn preferred-interop-user-sync [device]
   (info-bool* CL/clGetDeviceInfo device CL/CL_DEVICE_PREFERRED_INTEROP_USER_SYNC))
 
-(defn preferred-local-atomic-alignment [device]
+(defn preferred-local-atomic-alignment ^long [device]
   (info-int* CL/clGetDeviceInfo device CL_DEVICE_PREFERRED_LOCAL_ATOMIC_ALIGNMENT))
 
-(defn preferred-platform-atomic-alignment [device]
+(defn preferred-platform-atomic-alignment ^long [device]
   (info-int* CL/clGetDeviceInfo device CL_DEVICE_PREFERRED_PLATFORM_ATOMIC_ALIGNMENT))
 
-(defn preferred-vector-width-char [device]
+(defn preferred-vector-width-char ^long [device]
   (info-int* CL/clGetDeviceInfo device CL/CL_DEVICE_PREFERRED_VECTOR_WIDTH_CHAR))
 
-(defn preferred-vector-width-short [device]
+(defn preferred-vector-width-short ^long [device]
   (info-int* CL/clGetDeviceInfo device CL/CL_DEVICE_PREFERRED_VECTOR_WIDTH_SHORT))
 
-(defn preferred-vector-width-int [device]
+(defn preferred-vector-width-int ^long [device]
   (info-int* CL/clGetDeviceInfo device CL/CL_DEVICE_PREFERRED_VECTOR_WIDTH_INT))
 
-(defn preferred-vector-width-long [device]
+(defn preferred-vector-width-long ^long [device]
   (info-int* CL/clGetDeviceInfo device CL/CL_DEVICE_PREFERRED_VECTOR_WIDTH_LONG))
 
-(defn preferred-vector-width-float [device]
+(defn preferred-vector-width-float ^long [device]
   (info-int* CL/clGetDeviceInfo device CL/CL_DEVICE_PREFERRED_VECTOR_WIDTH_FLOAT))
 
-(defn preferred-vector-width-double [device]
+(defn preferred-vector-width-double ^long [device]
   (info-int* CL/clGetDeviceInfo device CL/CL_DEVICE_PREFERRED_VECTOR_WIDTH_DOUBLE))
 
-(defn preferred-vector-width-half [device]
+(defn preferred-vector-width-half ^long [device]
   (info-int* CL/clGetDeviceInfo device CL/CL_DEVICE_PREFERRED_VECTOR_WIDTH_HALF))
 
-(defn printf-buffer-size [device]
+(defn printf-buffer-size ^long [device]
   (info-size* CL/clGetDeviceInfo device CL/CL_DEVICE_PRINTF_BUFFER_SIZE))
 
-(defn profiling-timer-resolution [device]
+(defn profiling-timer-resolution ^long [device]
   (info-size* CL/clGetDeviceInfo device CL/CL_DEVICE_PROFILING_TIMER_RESOLUTION))
 
-(defn queue-on-device-max-size [device]
+(defn queue-on-device-max-size ^long [device]
   (info-int* CL/clGetDeviceInfo device CL_DEVICE_QUEUE_ON_DEVICE_MAX_SIZE))
 
-(defn queue-on-device-preferred-size [device]
+(defn queue-on-device-preferred-size ^long [device]
   (info-int* CL/clGetDeviceInfo device CL_DEVICE_QUEUE_ON_DEVICE_PREFERRED_SIZE))
 
 (def queue-properties
   {:out-of-order-exec-mode CL/CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE
    :profiling CL/CL_QUEUE_PROFILING_ENABLE})
 
-(defn queue-on-device-properties [device]
+(defn queue-on-device-properties ^long [device]
   (info-long* CL/clGetDeviceInfo device CL_DEVICE_QUEUE_ON_DEVICE_PROPERTIES))
 
-(defn queue-on-host-properties [device]
+(defn queue-on-host-properties ^long [device]
   (info-long* CL/clGetDeviceInfo device CL_DEVICE_QUEUE_ON_HOST_PROPERTIES))
 
-(defn single-fp-config [device]
+(defn single-fp-config ^long [device]
   (info-long* CL/clGetDeviceInfo device CL/CL_DEVICE_SINGLE_FP_CONFIG))
 
 (defn spir-versions [device]
@@ -507,10 +509,10 @@
    :fine-grain-system CL_DEVICE_SVM_FINE_GRAIN_SYSTEM
    :svm-atomics CL_DEVICE_SVM_ATOMICS})
 
-(defn svm-capabilities [device]
+(defn svm-capabilities ^long [device]
   (info-long* CL/clGetDeviceInfo device CL_DEVICE_SVM_CAPABILITIES))
 
-(defn terminate-capability-khr [device]
+(defn terminate-capability-khr ^long [device]
   (info-long* CL/clGetDeviceInfo device CL_TERMINATE_CAPABILITY_KHR))
 
 (def cl-device-type
@@ -521,10 +523,10 @@
    :accelerator CL/CL_DEVICE_TYPE_ACCELERATOR
    :custom CL/CL_DEVICE_TYPE_CUSTOM})
 
-(defn device-type [device]
+(defn device-type ^long [device]
   (info-long* CL/clGetDeviceInfo device CL/CL_DEVICE_TYPE))
 
-(defn vendor-id [device]
+(defn vendor-id ^long [device]
   (info-int* CL/clGetDeviceInfo device CL/CL_DEVICE_VENDOR_ID))
 
 (defn device-version [device]
@@ -841,10 +843,10 @@
     (info-int* CL/clGetDeviceInfo d CL/CL_DEVICE_REFERENCE_COUNT)))
 
 ;; =================== Context =============================================
-(defn num-reference-count [context]
+(defn num-reference-count ^long [context]
   (info-int* CL/clGetContextInfo context CL/CL_CONTEXT_REFERENCE_COUNT))
 
-(defn num-devices-in-context [context]
+(defn num-devices-in-context ^long [context]
   (info-int* CL/clGetContextInfo context CL/CL_CONTEXT_NUM_DEVICES))
 
 (defn devices-in-context [context]
@@ -901,7 +903,7 @@
                                       nil)]
     (with-check err d)))
 
-(defn queue-size [queue]
+(defn queue-size ^long [queue]
   (info-int* CL/clGetCommandQueueInfo queue CL_QUEUE_SIZE))
 
 (defrecord CommandQueueInfo [context device reference-count
@@ -1065,7 +1067,7 @@
 (defn function-name [kernel]
   (info-string* CL/clGetKernelInfo kernel CL/CL_KERNEL_FUNCTION_NAME))
 
-(defn num-args [kernel]
+(defn num-args ^long [kernel]
   (info-int* CL/clGetKernelInfo kernel CL/CL_KERNEL_NUM_ARGS))
 
 (defn kernel-context [kernel]
@@ -1141,7 +1143,7 @@
     0x119D :constant
     0x119E :private))
 
-(defn arg-address-qualifier [kernel arg]
+(defn arg-address-qualifier ^long [kernel arg]
   (arg-info-long* kernel arg CL/CL_KERNEL_ARG_ADDRESS_QUALIFIER))
 
 (defn cl-kernel-arg-access-qualifier [^long code]
@@ -1151,10 +1153,10 @@
     0x11A2 :read-write
     0x11A3 :none))
 
-(defn arg-access-qualifier [kernel arg]
+(defn arg-access-qualifier ^long [kernel arg]
   (arg-info-long* kernel arg CL/CL_KERNEL_ARG_ACCESS_QUALIFIER))
 
-(defn arg-type-name [kernel arg]
+(defn arg-type-name ^long [kernel arg]
   (arg-info-string* kernel arg CL/CL_KERNEL_ARG_TYPE_NAME))
 
 (def cl-kernel-arg-type-qualifier
@@ -1164,7 +1166,7 @@
    :pipe CL_KERNEL_ARG_TYPE_PIPE
    :none CL/CL_KERNEL_ARG_TYPE_NONE})
 
-(defn arg-type-qualifier [kernel arg]
+(defn arg-type-qualifier ^long [kernel arg]
   (arg-info-long* kernel arg CL/CL_KERNEL_ARG_TYPE_QUALIFIER))
 
 (defn arg-name [kernel arg]
@@ -1219,7 +1221,7 @@
     0x10F6 :image1d-buffer
     0x10F7 :pipe))
 
-(defn mem-type [mo]
+(defn mem-type ^long [mo]
   (info-int* CL/clGetMemObjectInfo mo CL/CL_MEM_TYPE))
 
 (def cl-mem-flags
@@ -1233,28 +1235,32 @@
    :host-read-only CL/CL_MEM_HOST_READ_ONLY
    :host-no-access CL/CL_MEM_HOST_NO_ACCESS})
 
-(defn flags [mo]
+(defn flags ^long [mo]
   (info-long* CL/clGetMemObjectInfo mo CL/CL_MEM_FLAGS))
 
-(defn mem-size [mo]
+(defn mem-size ^long [mo]
   (info-size* CL/clGetMemObjectInfo mo CL/CL_MEM_SIZE))
 
 ;;TODO see what to do with these voids, and whether they make sense with Java.
 ;;(defn mem-host-ptr [mo]
 ;;  (info-long* CL/clGetMemObjectInfo mo CL/CL_MEM_HOST_PTR))
 
-(defn map-count [mo]
+(defn map-count ^long [mo]
   (info-int* CL/clGetMemObjectInfo mo CL/CL_MEM_MAP_COUNT))
 
+(defn ^:private aget-first-np [^"[Lorg.jocl.NativePointerObject;" npa]
+  (aget npa 0))
+
 (defn mem-context [mo]
-  (info-native* CL/clGetMemObjectInfo mo CL/CL_MEM_CONTEXT
-                cl_context Sizeof/cl_context))
+  (aget-first-np (info-native* CL/clGetMemObjectInfo mo CL/CL_MEM_CONTEXT
+                               cl_context Sizeof/cl_context)))
 
 (defn associated-memobject [mo]
-  (info-native* CL/clGetMemObjectInfo mo CL/CL_MEM_ASSOCIATED_MEMOBJECT
-                cl_mem Sizeof/cl_mem))
+  (aget-first-np (info-native* CL/clGetMemObjectInfo mo
+                               CL/CL_MEM_ASSOCIATED_MEMOBJECT
+                               cl_mem Sizeof/cl_mem)))
 
-(defn offset [mo]
+(defn offset ^long [mo]
   (info-size* CL/clGetMemObjectInfo mo CL/CL_MEM_OFFSET))
 
 (defn uses-svm-pointer [mo]
@@ -1338,7 +1344,7 @@
     -2 :error
     -3 :in-progress))
 
-(defn build-status [program device]
+(defn build-status ^long [program device]
   (pb-info-long* program device CL/CL_PROGRAM_BUILD_STATUS))
 
 (defn build-options [program device]
@@ -1355,10 +1361,10 @@
     0x4 :executable
     0x40E1 :intermediate))
 
-(defn binary-type [program device]
+(defn binary-type ^long [program device]
   (pb-info-long* program device CL/CL_PROGRAM_BINARY_TYPE))
 
-(defn global-variable-total-size [program device]
+(defn global-variable-total-size ^long [program device]
   (pb-info-size* program device CL_PROGRAM_BUILD_GLOBAL_VARIABLE_TOTAL_SIZE))
 
 (defrecord ProgramBuildInfo [build-status build-options build-log
@@ -1382,6 +1388,68 @@
                        (maybe (global-variable-total-size program device)))))
 
 ;; ===================== Program ==============================================
+
+(defn program-context [p]
+  (aget-first-np (info-native* CL/clGetProgramInfo p CL/CL_PROGRAM_CONTEXT
+                               cl_context Sizeof/cl_context)))
+
+(defn program-num-devices ^long [p]
+  (info-int* CL/clGetProgramInfo p CL/CL_PROGRAM_NUM_DEVICES))
+
+(defn program-devices [p]
+  (vec (info-native* CL/clGetProgramInfo p CL/CL_PROGRAM_DEVICES
+                     cl_device_id Sizeof/cl_device_id)))
+
+(defn source [p]
+  (info-string* CL/clGetProgramInfo p CL/CL_PROGRAM_SOURCE))
+
+(defn binary-sizes [p]
+  (info-size* CL/clGetProgramInfo p CL/CL_PROGRAM_BINARY_SIZES
+              (program-num-devices p)))
+
+(defn binaries [p]
+  (let [result-buffers (map direct-buffer (binary-sizes p))
+        pointer (native-pointer (into-array Pointer (map pointer-to-buffer
+                                                         result-buffers)))
+        err (CL/clGetProgramInfo p CL/CL_PROGRAM_BINARIES
+                                 (* (count result-buffers) Sizeof/POINTER)
+                                 pointer nil)]
+    (with-check err result-buffers)))
+
+(defn program-num-kernels ^long [p]
+  (info-size* CL/clGetProgramInfo p CL/CL_PROGRAM_NUM_KERNELS))
+
+(defn kernel-names [p]
+  (to-set (info-string* CL/clGetProgramInfo p CL/CL_PROGRAM_KERNEL_NAMES)))
+
+(defrecord ProgramInfo [reference-count context num-devices devices source
+                        binary-sizes binaries num-kernels kernel-names])
+
+(extend-type cl_program
+  Info
+  (info
+    ([p info-type]
+     (maybe
+      (case info-type
+        :reference-count (reference-count p)
+        :context (program-context p)
+        :num-devices (program-num-devices p)
+        :devices (program-devices p)
+        :source (source p)
+        :binary-sizes (binary-sizes p)
+        :binaries (binaries p)
+        :num-kernels (program-num-kernels p)
+        :kernel-names (kernel-names p)
+        nil)))
+    ([p]
+     (->ProgramInfo (maybe (reference-count p)) (maybe (program-context p))
+                    (maybe (program-num-devices p)) (maybe (program-devices p))
+                    (maybe (source p)) (maybe (binary-sizes p))
+                    (maybe (binaries p)) (maybe (program-num-kernels p))
+                    (maybe (kernel-names p)))))
+  InfoReferenceCount
+  (reference-count [p]
+    (info-int* CL/clGetProgramInfo p CL/CL_PROGRAM_REFERENCE_COUNT)))
 
 ;; ===================== Sampler ==============================================
 
