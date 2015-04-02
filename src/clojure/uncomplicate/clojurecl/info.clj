@@ -1,6 +1,8 @@
 (ns uncomplicate.clojurecl.info
   (:require [clojure.string :as str]
-            [uncomplicate.clojurecl.utils :refer :all]
+            [uncomplicate.clojurecl
+             [constants :refer :all]
+             [utils :refer :all]]
             [vertigo
              [bytes :refer [buffer direct-buffer byte-seq byte-count slice]]
              [structs :refer [int32 int64 wrap-byte-seq]]])
@@ -10,41 +12,9 @@
             Sizeof Pointer]
            [java.nio ByteBuffer]))
 
-;; TODO OpenCL 2.0
-(def CL_QUEUE_ON_DEVICE (bit-shift-left 1 2))
-(def CL_QUEUE_ON_DEVICE_DEFAULT (bit-shift-left 1 3))
-(def CL_DEVICE_GLOBAL_VARIABLE_PREFERRED_TOTAL_SIZE 0x1054)
-(def CL_DEVICE_IMAGE_BASE_ADDRESS_ALIGNMENT 0x104B)
+;; TODO Check for memory leaks. Some of the returned resources should be released
+;; after showing them in the big info function (contexts, devices, etc...)
 
-(def CL_DEVICE_IMAGE_PITCH_ALIGNMENT 0x104A)
-(def CL_DEVICE_MAX_GLOBAL_VARIABLE_SIZE 0x104D)
-(def CL_DEVICE_MAX_ON_DEVICE_EVENTS 0x1052)
-(def CL_DEVICE_MAX_ON_DEVICE_QUEUES 0x1051)
-(def CL_DEVICE_MAX_PIPE_ARGS 0x1055)
-(def CL_DEVICE_MAX_READ_WRITE_IMAGE_ARGS 0x104C)
-(def CL_DEVICE_PIPE_MAX_ACTIVE_RESERVATIONS 0x1056)
-(def CL_DEVICE_PIPE_MAX_PACKET_SIZE 0x1057)
-(def CL_DEVICE_PREFERRED_GLOBAL_ATOMIC_ALIGNMENT 0x1059)
-(def CL_DEVICE_PREFERRED_LOCAL_ATOMIC_ALIGNMENT 0x105A)
-(def CL_DEVICE_PREFERRED_PLATFORM_ATOMIC_ALIGNMENT 0x1058)
-(def CL_DEVICE_QUEUE_ON_DEVICE_MAX_SIZE 0x1050)
-(def CL_DEVICE_QUEUE_ON_DEVICE_PREFERRED_SIZE 0x104F)
-(def CL_DEVICE_QUEUE_ON_DEVICE_PROPERTIES 0x104E)
-(def CL_DEVICE_QUEUE_ON_HOST_PROPERTIES 0x102A)
-(def CL_DEVICE_SPIR_VERSIONS 0x40E0)
-(def CL_DEVICE_SVM_CAPABILITIES 0x1053)
-(def CL_DEVICE_SVM_COARSE_GRAIN_BUFFER (bit-shift-left 1 0) )
-(def CL_DEVICE_SVM_FINE_GRAIN_BUFFER (bit-shift-left 1 1));
-(def CL_DEVICE_SVM_FINE_GRAIN_SYSTEM (bit-shift-left 1 2))
-(def CL_DEVICE_SVM_ATOMICS (bit-shift-left 1 3))
-(def CL_TERMINATE_CAPABILITY_KHR 0x200F)
-
-(def CL_QUEUE_SIZE 0x1094)
-
-(def CL_MEM_USES_SVM_POINTER 0x1109)
-
-(def CL_KERNEL_ARG_TYPE_PIPE (bit-shift-left 1 3))
-(def CL_PROGRAM_BUILD_GLOBAL_VARIABLE_TOTAL_SIZE 0x1185)
 ;; =================== Info* utility macros ===============================
 
 (defmacro ^:private info-count*
@@ -202,16 +172,6 @@
 (defn compiler-available [device]
   (info-bool* CL/clGetDeviceInfo device CL/CL_DEVICE_COMPILER_AVAILABLE))
 
-(def fp-config
-  {:denorm CL/CL_FP_DENORM
-   :inf-nan CL/CL_FP_INF_NAN
-   :round-to-nearest CL/CL_FP_ROUND_TO_NEAREST
-   :round-to-zero CL/CL_FP_ROUND_TO_ZERO
-   :round-to-inf CL/CL_FP_ROUND_TO_INF
-   :fma CL/CL_FP_FMA
-   :correctly-rounded-divide-sqrt CL/CL_FP_CORRECTLY_ROUNDED_DIVIDE_SQRT
-   :soft-float CL/CL_FP_SOFT_FLOAT})
-
 (defn double-fp-config ^long [device]
   (info-long* CL/clGetDeviceInfo device CL/CL_DEVICE_DOUBLE_FP_CONFIG))
 
@@ -221,20 +181,11 @@
 (defn error-correction-support [device]
   (info-bool* CL/clGetDeviceInfo device CL/CL_DEVICE_ERROR_CORRECTION_SUPPORT))
 
-(def exec-capabilities
-  {:kernel CL/CL_EXEC_KERNEL
-   :native-kernel CL/CL_EXEC_NATIVE_KERNEL})
-
 (defn execution-capabilities ^long [device]
   (info-long* CL/clGetDeviceInfo device CL/CL_DEVICE_EXECUTION_CAPABILITIES))
 
 (defn global-mem-cache-size ^long [device]
   (info-long* CL/clGetDeviceInfo device CL/CL_DEVICE_GLOBAL_MEM_CACHE_SIZE))
-
-(def device-mem-cache-type
-  {:none CL/CL_NONE
-   :read-only CL/CL_READ_ONLY_CACHE
-   :read-write CL/CL_READ_WRITE_CACHE})
 
 (defn global-mem-cache-type ^long [device]
   (info-long* CL/clGetDeviceInfo device CL/CL_DEVICE_GLOBAL_MEM_CACHE_TYPE))
@@ -284,11 +235,6 @@
 
 (defn local-mem-size ^long [device]
   (info-long* CL/clGetDeviceInfo device CL/CL_DEVICE_LOCAL_MEM_SIZE))
-
-(def cl-local-mem-type
-  {:local CL/CL_LOCAL
-   :global CL/CL_GLOBAL
-   :none CL/CL_NONE})
 
 (defn local-mem-type ^long [device]
   (info-long* CL/clGetDeviceInfo device
@@ -390,14 +336,6 @@
                                     nil)]
         (with-check err parent)))))
 
-(def affinity-domain
-  {:numa CL/CL_DEVICE_AFFINITY_DOMAIN_NUMA
-   :l1-cache CL/CL_DEVICE_AFFINITY_DOMAIN_L1_CACHE
-   :l2-cache CL/CL_DEVICE_AFFINITY_DOMAIN_L2_CACHE
-   :l3-cache CL/CL_DEVICE_AFFINITY_DOMAIN_L3_CACHE
-   :l4-cache CL/CL_DEVICE_AFFINITY_DOMAIN_L4_CACHE
-   :next-partitionable CL/CL_DEVICE_AFFINITY_DOMAIN_NEXT_PARTITIONABLE})
-
 (defn partition-affinity-domain ^long [device]
   (info-long* CL/clGetDeviceInfo device
               CL/CL_DEVICE_PARTITION_AFFINITY_DOMAIN))
@@ -405,28 +343,20 @@
 (defn partition-max-sub-devices ^long [device]
   (info-int* CL/clGetDeviceInfo device CL/CL_DEVICE_PARTITION_MAX_SUB_DEVICES))
 
-(defn partition-property [^long code]
-  (case code
-    0x1086 :partition-equally
-    0x1087 :partition-by-counts
-    0x1088 :partition-by-affinity-domain))
-
 (defn partition-properties [device]
-  (map partition-property
-       (info-long* CL/clGetDeviceInfo device
-                   CL/CL_DEVICE_PARTITION_PROPERTIES
-                   (info-count* CL/clGetDeviceInfo device
-                              CL/CL_DEVICE_PARTITION_PROPERTIES
-                              Sizeof/cl_long))))
+  (info-long* CL/clGetDeviceInfo device
+              CL/CL_DEVICE_PARTITION_PROPERTIES
+              (info-count* CL/clGetDeviceInfo device
+                           CL/CL_DEVICE_PARTITION_PROPERTIES
+                           Sizeof/cl_long)))
 
 ;;TODO
 (defn partition-type [device]
-  (map partition-property
-       (info-long* CL/clGetDeviceInfo device
-                   CL/CL_DEVICE_PARTITION_TYPE
-                   (info-count* CL/clGetDeviceInfo device
-                              CL/CL_DEVICE_PARTITION_TYPE
-                              Sizeof/cl_long))) )
+  (info-long* CL/clGetDeviceInfo device
+              CL/CL_DEVICE_PARTITION_TYPE
+              (info-count* CL/clGetDeviceInfo device
+                           CL/CL_DEVICE_PARTITION_TYPE
+                           Sizeof/cl_long)) )
 
 (defn pipe-max-active-reservations ^long [device]
   (info-int* CL/clGetDeviceInfo device CL_DEVICE_PIPE_MAX_ACTIVE_RESERVATIONS))
@@ -487,10 +417,6 @@
 (defn queue-on-device-preferred-size ^long [device]
   (info-int* CL/clGetDeviceInfo device CL_DEVICE_QUEUE_ON_DEVICE_PREFERRED_SIZE))
 
-(def queue-properties
-  {:out-of-order-exec-mode CL/CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE
-   :profiling CL/CL_QUEUE_PROFILING_ENABLE})
-
 (defn queue-on-device-properties ^long [device]
   (info-long* CL/clGetDeviceInfo device CL_DEVICE_QUEUE_ON_DEVICE_PROPERTIES))
 
@@ -503,25 +429,11 @@
 (defn spir-versions [device]
   (to-set (info-string* CL/clGetDeviceInfo device CL_DEVICE_SPIR_VERSIONS)))
 
-(def svm-capabilities-table
-  {:coarse-grain-buffer CL_DEVICE_SVM_COARSE_GRAIN_BUFFER
-   :fine-grain-buffer CL_DEVICE_SVM_FINE_GRAIN_BUFFER
-   :fine-grain-system CL_DEVICE_SVM_FINE_GRAIN_SYSTEM
-   :svm-atomics CL_DEVICE_SVM_ATOMICS})
-
 (defn svm-capabilities ^long [device]
   (info-long* CL/clGetDeviceInfo device CL_DEVICE_SVM_CAPABILITIES))
 
 (defn terminate-capability-khr ^long [device]
   (info-long* CL/clGetDeviceInfo device CL_TERMINATE_CAPABILITY_KHR))
-
-(def cl-device-type
-  {:gpu CL/CL_DEVICE_TYPE_GPU
-   :cpu CL/CL_DEVICE_TYPE_CPU
-   :all CL/CL_DEVICE_TYPE_ALL
-   :default CL/CL_DEVICE_TYPE_DEFAULT
-   :accelerator CL/CL_DEVICE_TYPE_ACCELERATOR
-   :custom CL/CL_DEVICE_TYPE_CUSTOM})
 
 (defn device-type ^long [device]
   (info-long* CL/clGetDeviceInfo device CL/CL_DEVICE_TYPE))
@@ -637,15 +549,15 @@
         :available (available d)
         :built-in-kernels (built-in-kernels d)
         :compiler-available (compiler-available d)
-        :double-fp-config (unmask fp-config (double-fp-config d))
+        :double-fp-config (unmask cl-device-fp-config (double-fp-config d))
         :endian-little (endian-little d)
         :error-correction-support (error-correction-support d)
         :execution-capabilities
-        (set (unmask exec-capabilities (execution-capabilities d)))
+        (set (unmask cl-device-exec-capabilities (execution-capabilities d)))
         :extensions (extensions d)
         :global-mem-cache-size (global-mem-cache-size d)
         :global-mem-cache-type
-        (unmask1 device-mem-cache-type (global-mem-cache-type d))
+        (unmask1 cl-device-mem-cache-type (global-mem-cache-type d))
         :global-mem-cacheline-size (global-mem-cacheline-size d)
         :global-mem-size (global-mem-size d)
         :global-variable-preferred-total-size
@@ -693,10 +605,10 @@
         :opencl-c-version (opencl-c-version d)
         :parent-device (parent-device d)
         :partition-affinity-domain
-        (set (unmask affinity-domain (partition-affinity-domain d)))
+        (set (unmask cl-device-affinity-domain (partition-affinity-domain d)))
         :partition-max-sub-devices (partition-max-sub-devices d)
-        :partition-properties (partition-properties d)
-        :partition-type (partition-type d)
+        :partition-properties (map dec-device-partition-property (partition-properties d))
+        :partition-type (map dec-device-partition-property (partition-type d))
         :pipe-max-active-reservations (pipe-max-active-reservations d)
         :pipe-max-packet-size (pipe-max-packet-size d)
         :platform (platform d)
@@ -717,22 +629,22 @@
         :queue-on-device-max-size (queue-on-device-max-size d)
         :queue-on-device-preferred-size (queue-on-device-preferred-size d)
         :queue-on-device-properties
-        (set (unmask queue-properties (queue-on-device-properties d)))
+        (set (unmask cl-command-queue-properties (queue-on-device-properties d)))
         :queue-on-host-properties
-        (set (unmask queue-properties (queue-on-host-properties d)))
+        (set (unmask cl-command-queue-properties (queue-on-host-properties d)))
         :reference-count (reference-count d)
         :single-fp-config
-        (set (unmask fp-config (single-fp-config d)))
+        (set (unmask cl-device-fp-config (single-fp-config d)))
         :spir-versions (spir-versions d)
         :svm-capabilities
-        (set (unmask svm-capabilities-table (svm-capabilities d)))
+        (set (unmask cl-device-svm-capabilities (svm-capabilities d)))
         :terminate-capability-khr (terminate-capability-khr d)
         :device-type
         (unmask1 cl-device-type (device-type d))
         :vendor (vendor d)
         :vendor-id (vendor-id d)
         :device-version (device-version d)
-        "driver-version" (driver-version d)
+        :driver-version (driver-version d)
         nil)))
     ([d]
      (->DeviceInfo
@@ -743,10 +655,10 @@
       (maybe (double-fp-config d))
       (maybe (endian-little d))
       (maybe (error-correction-support d))
-      (maybe (set (unmask exec-capabilities (execution-capabilities d))))
+      (maybe (set (unmask cl-device-exec-capabilities (execution-capabilities d))))
       (maybe (extensions d))
       (maybe (global-mem-cache-size d))
-      (maybe (unmask1 device-mem-cache-type (global-mem-cache-type d)))
+      (maybe (unmask1 cl-device-mem-cache-type (global-mem-cache-type d)))
       (maybe (global-mem-cacheline-size d))
       (maybe (global-mem-size d))
       (maybe (global-variable-preferred-total-size d))
@@ -791,10 +703,10 @@
       (maybe (native-vector-width-half d))
       (maybe (opencl-c-version d))
       (maybe (parent-device d))
-      (maybe (set (unmask affinity-domain (partition-affinity-domain d))))
+      (maybe (set (unmask cl-device-affinity-domain (partition-affinity-domain d))))
       (maybe (partition-max-sub-devices d))
-      (maybe (partition-properties d))
-      (maybe (partition-type d))
+      (maybe (map dec-device-partition-property (partition-properties d)))
+      (maybe (map dec-device-partition-property (partition-type d)))
       (maybe (pipe-max-active-reservations d))
       (maybe (pipe-max-packet-size d))
       (maybe (platform d))
@@ -814,12 +726,14 @@
       (maybe (profiling-timer-resolution d))
       (maybe (queue-on-device-max-size d))
       (maybe (queue-on-device-preferred-size d))
-      (maybe (set (unmask queue-properties (queue-on-device-properties d))))
-      (maybe (set (unmask queue-properties (queue-on-host-properties d))))
+      (maybe (set (unmask cl-command-queue-properties
+                          (queue-on-device-properties d))))
+      (maybe (set (unmask cl-command-queue-properties
+                          (queue-on-host-properties d))))
       (maybe (reference-count d))
-      (maybe (set (unmask fp-config (single-fp-config d))))
+      (maybe (set (unmask cl-device-fp-config (single-fp-config d))))
       (maybe (spir-versions d))
-      (maybe (set (unmask svm-capabilities-table (svm-capabilities d))))
+      (maybe (set (unmask cl-device-svm-capabilities (svm-capabilities d))))
       (maybe (terminate-capability-khr d))
       (maybe (unmask1 cl-device-type (device-type d)))
       (maybe (vendor d))
@@ -853,11 +767,6 @@
   (vec (info-native* CL/clGetContextInfo context CL/CL_CONTEXT_DEVICES
                      cl_device_id Sizeof/cl_device_id)))
 
-(defn context-property [^long code]
-  (case code
-    0x1004 :platform
-    0x1005 :interop-user-sync))
-
 (defrecord ContextInfo [num-devices num-reference-count devices properties])
 
 (extend-type cl_context
@@ -869,21 +778,20 @@
         :num-devices (num-devices-in-context c)
         :num-reference-count (num-reference-count c)
         :devices (devices-in-context c)
-        :properties (properties c)
+        :properties (map dec-context-properties (properties c))
         nil)))
     ([c]
      (->ContextInfo (maybe (num-devices-in-context c))
                     (maybe (num-reference-count c))
                     (maybe (devices-in-context c))
-                    (maybe (properties c)))))
+                    (maybe (map dec-context-properties (properties c))))))
   InfoProperties
   (properties [c]
-    (map context-property
-         (info-long* CL/clGetContextInfo c
-                     CL/CL_CONTEXT_PROPERTIES
-                     (info-count* CL/clGetContextInfo c
-                                CL/CL_CONTEXT_PROPERTIES
-                                Sizeof/cl_long)))))
+    (info-long* CL/clGetContextInfo c
+                CL/CL_CONTEXT_PROPERTIES
+                (info-count* CL/clGetContextInfo c
+                             CL/CL_CONTEXT_PROPERTIES
+                             Sizeof/cl_long))))
 
 ;; =================== Command Queue =======================================
 
@@ -909,12 +817,6 @@
 (defrecord CommandQueueInfo [context device reference-count
                              properties size])
 
-(def queue-properties
-  {:out-of-order-exec-mode CL/CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE
-   :profiling CL/CL_QUEUE_PROFILING_ENABLE
-   :queue-on-device CL_QUEUE_ON_DEVICE
-   :queue-on-device-default CL_QUEUE_ON_DEVICE_DEFAULT})
-
 (extend-type cl_command_queue
   Info
   (info
@@ -924,13 +826,14 @@
         :context (queue-context cq)
         :device (queue-device cq)
         :reference-count (reference-count cq)
-        :properties (unmask queue-properties (properties cq))
+        :properties (unmask cl-command-queue-properties (properties cq))
         :size (queue-size cq)
         nil)))
     ([cq]
      (->CommandQueueInfo (maybe (queue-context cq)) (maybe (queue-device cq))
                          (maybe (reference-count cq))
-                         (maybe (unmask queue-properties (properties cq)))
+                         (maybe (unmask cl-command-queue-properties
+                                        (properties cq)))
                          (maybe (queue-size cq)))))
   InfoReferenceCount
   (reference-count [cq]
@@ -958,46 +861,11 @@
     (with-check err c)))
 
 (defn command-type [event]
-  (case (info-int* CL/clGetEventInfo event CL/CL_EVENT_COMMAND_TYPE)
-    0x11F0 :ndrange-kernel
-    0x11F1 :task
-    0x11F2 :native-kernel
-    0x11F3 :read-buffer
-    0x11F4 :write-buffer
-    0x11F5 :copy-buffer
-    0x11F6 :read-image
-    0x11F7 :write-image
-    0x11F8 :copy-image
-    0x11F9 :copy-image-to-buffer
-    0x11FA :copy-buffer-to-image
-    0x11FB :map-buffer
-    0x11FC :map-image
-    0x11FD :unmap-mem-object
-    0x11FE :marker
-    0x11FF :acquire-gl-objects
-    0x1200 :release-gl-objects
-    0x1201 :read-buffer-rect
-    0x1202 :write-buffer-rect
-    0x1203 :copy-buffer-rect
-    0x1204 :user
-    0x1205 :barrier
-    0x1206 :migrate-mem-objects
-    0x1207 :fill-buffer
-    0x1208 :fill-image
-    0x1209 :svm-free
-    0x120A :svm-memcpy
-    0x120B :svm-memfill
-    0x120C :svm-map
-    0x120D :svm-unmap
-    0x200D :gl-fence-sync-object-khr))
+  (info-int* CL/clGetEventInfo event CL/CL_EVENT_COMMAND_TYPE))
 
 (defn execution-status [event]
-  (case (info-int* CL/clGetEventInfo event
-                   CL/CL_EVENT_COMMAND_EXECUTION_STATUS)
-    0x0 :complete
-    0x1 :running
-    0x2 :submitted
-    0x3 :queued))
+  (info-int* CL/clGetEventInfo event
+             CL/CL_EVENT_COMMAND_EXECUTION_STATUS))
 
 (defrecord EventInfo [command-queue context command-type
                       execution-status reference-count])
@@ -1010,13 +878,14 @@
       (case info-type
         :command-queue (event-command-queue e)
         :context (event-context e)
-        :command-type (command-type e)
-        :execution-status (execution-status e)
+        :command-type (dec-command-type (command-type e))
+        :execution-status (dec-command-execution-status (execution-status e))
         :reference-count (reference-count e)
         nil)))
     ([e]
      (->EventInfo (maybe (event-command-queue e)) (maybe (event-context e))
-                  (maybe (command-type e)) (maybe (execution-status e))
+                  (maybe (dec-command-type (command-type e)))
+                  (maybe (dec-command-execution-status (execution-status e)))
                   (maybe (reference-count e)))))
   InfoReferenceCount
   (reference-count [e]
@@ -1136,35 +1005,14 @@
 
 ;; ----------- Kernel Arg Info functions -------------------------------------
 
-(defn cl-kernel-arg-address-qualifier [^long code]
-  (case code
-    0x119B :global
-    0x119C :local
-    0x119D :constant
-    0x119E :private))
-
 (defn arg-address-qualifier ^long [kernel arg]
   (arg-info-long* kernel arg CL/CL_KERNEL_ARG_ADDRESS_QUALIFIER))
-
-(defn cl-kernel-arg-access-qualifier [^long code]
-  (case code
-    0x11A0 :read-only
-    0x11A1 :write-only
-    0x11A2 :read-write
-    0x11A3 :none))
 
 (defn arg-access-qualifier ^long [kernel arg]
   (arg-info-long* kernel arg CL/CL_KERNEL_ARG_ACCESS_QUALIFIER))
 
 (defn arg-type-name ^long [kernel arg]
   (arg-info-string* kernel arg CL/CL_KERNEL_ARG_TYPE_NAME))
-
-(def cl-kernel-arg-type-qualifier
-  {:const CL/CL_KERNEL_ARG_TYPE_CONST
-   :restrict CL/CL_KERNEL_ARG_TYPE_RESTRICT
-   :volatile CL/CL_KERNEL_ARG_TYPE_VOLATILE
-   :pipe CL_KERNEL_ARG_TYPE_PIPE
-   :none CL/CL_KERNEL_ARG_TYPE_NONE})
 
 (defn arg-type-qualifier ^long [kernel arg]
   (arg-info-long* kernel arg CL/CL_KERNEL_ARG_TYPE_QUALIFIER))
@@ -1180,18 +1028,18 @@
    (maybe
     (case info-type
       :address-qualifier
-      (cl-kernel-arg-address-qualifier (arg-address-qualifier kernel arg))
+      (dec-kernel-arg-address-qualifier (arg-address-qualifier kernel arg))
       :access-qualifier
-      (cl-kernel-arg-access-qualifier (arg-access-qualifier kernel arg))
+      (dec-kernel-arg-access-qualifier (arg-access-qualifier kernel arg))
       :type-name (arg-type-name kernel arg)
       :type-qualifier
       (unmask cl-kernel-arg-type-qualifier (arg-type-qualifier kernel arg))
       :name (arg-name kernel arg)
       nil)))
   ([kernel arg]
-   (->KernelArgInfo (maybe (cl-kernel-arg-address-qualifier
+   (->KernelArgInfo (maybe (dec-kernel-arg-address-qualifier
                             (arg-address-qualifier kernel arg)))
-                    (maybe (cl-kernel-arg-access-qualifier
+                    (maybe (dec-kernel-arg-access-qualifier
                             (arg-access-qualifier kernel arg)))
                     (maybe (arg-type-name kernel arg))
                     (maybe (unmask cl-kernel-arg-type-qualifier
@@ -1210,30 +1058,8 @@
 
 ;; ===================== Mem Object ===========================================
 
-(defn cl-mem-object-type [^long code]
-  (case code
-    0x10F0 :buffer
-    0x10F1 :image2d
-    0x10F2 :image3d
-    0x10F3 :image2d-array
-    0x10F4 :image1d
-    0x10F5 :image1d-array
-    0x10F6 :image1d-buffer
-    0x10F7 :pipe))
-
 (defn mem-type ^long [mo]
   (info-int* CL/clGetMemObjectInfo mo CL/CL_MEM_TYPE))
-
-(def cl-mem-flags
-  {:read-write CL/CL_MEM_READ_WRITE
-   :write-only CL/CL_MEM_WRITE_ONLY
-   :read-only CL/CL_MEM_READ_ONLY
-   :use-host-ptr CL/CL_MEM_USE_HOST_PTR
-   :alloc-host-ptr CL/CL_MEM_ALLOC_HOST_PTR
-   :copy-host-ptr CL/CL_MEM_COPY_HOST_PTR
-   :host-write-only CL/CL_MEM_HOST_WRITE_ONLY
-   :host-read-only CL/CL_MEM_HOST_READ_ONLY
-   :host-no-access CL/CL_MEM_HOST_NO_ACCESS})
 
 (defn flags ^long [mo]
   (info-long* CL/clGetMemObjectInfo mo CL/CL_MEM_FLAGS))
@@ -1276,7 +1102,7 @@
     ([mo info-type]
      (maybe
       (case info-type
-        :type (cl-mem-object-type (type mo))
+        :type (dec-mem-object-type (type mo))
         :flags (unmask cl-mem-flags (flags mo))
         :size (mem-size mo)
         :map-count (map-count mo)
@@ -1287,7 +1113,7 @@
         :uses-svm-pointer (uses-svm-pointer mo)
         nil)))
     ([mo]
-     (->MemObjectInfo (maybe (cl-mem-object-type (mem-type mo)))
+     (->MemObjectInfo (maybe (dec-mem-object-type (mem-type mo)))
                       (maybe (unmask cl-mem-flags (flags mo)))
                       (maybe (mem-size mo)) (maybe (map-count mo))
                       (maybe (reference-count mo)) (maybe (mem-context mo))
@@ -1337,13 +1163,6 @@
 
 ;; -- Program Build Info functions --------------------------------------------
 
-(defn cl-build-status [^long code]
-  (case code
-    0 :success
-    -1 :none
-    -2 :error
-    -3 :in-progress))
-
 (defn build-status ^long [program device]
   (pb-info-long* program device CL/CL_PROGRAM_BUILD_STATUS))
 
@@ -1352,14 +1171,6 @@
 
 (defn build-log [program device]
   (pb-info-string* program device CL/CL_PROGRAM_BUILD_LOG))
-
-(defn cl-program-binary-type [^long code]
-  (case code
-    0x0 :none
-    0x1 :compiled-object
-    0x2 :library
-    0x4 :executable
-    0x40E1 :intermediate))
 
 (defn binary-type ^long [program device]
   (pb-info-long* program device CL/CL_PROGRAM_BINARY_TYPE))
@@ -1374,16 +1185,16 @@
   ([program device info-type]
    (maybe
     (case info-type
-      :status (cl-build-status (build-status program device))
+      :status (dec-build-status (build-status program device))
       :options (build-options program device)
       :log (build-log program device)
-      :binary-type (cl-program-binary-type (binary-type program device))
+      :binary-type (dec-program-binary-type (binary-type program device))
       :global-variable-total-size (global-variable-total-size program device))))
   ([program device]
-   (->ProgramBuildInfo (maybe (cl-build-status (build-status program device)))
+   (->ProgramBuildInfo (maybe (dec-build-status (build-status program device)))
                        (maybe (build-options program device))
                        (maybe (build-log program device))
-                       (maybe (cl-program-binary-type
+                       (maybe (dec-program-binary-type
                                (binary-type program device)))
                        (maybe (global-variable-total-size program device)))))
 

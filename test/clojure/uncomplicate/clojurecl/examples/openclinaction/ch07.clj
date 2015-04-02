@@ -37,10 +37,5 @@
 
           (durations (profiling-info prof-event))
 
-          (info prog)
-
-
-
-
-
-          )))))
+          (map info [*platform* dev *context* cqueue (cl-mem data-buffer) prog kern])
+)))))

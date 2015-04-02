@@ -1,10 +1,9 @@
 (ns uncomplicate.clojurecl.core
   (:require [uncomplicate.clojurecl
+             [constants :refer :all]
              [utils :refer [with-check with-check-arr]]
              [info :refer [info]]]
-            [clojure.string :as str]
-            [uncomplicate.fluokitten jvm
-             [core :refer [fmap]]])
+            [clojure.string :as str])
   (:import [org.jocl CL cl_platform_id cl_context_properties cl_device_id
             cl_context cl_command_queue cl_mem cl_program cl_kernel cl_sampler
             cl_event
@@ -15,29 +14,8 @@
 (def ^:dynamic *context*)
 (def ^:dynamic *command-queue*)
 
-(def device-types
-  {:gpu CL/CL_DEVICE_TYPE_GPU
-   :cpu CL/CL_DEVICE_TYPE_CPU
-   :all CL/CL_DEVICE_TYPE_ALL
-   :default CL/CL_DEVICE_TYPE_DEFAULT
-   :accelerator CL/CL_DEVICE_TYPE_ACCELERATOR
-   :custom CL/CL_DEVICE_TYPE_CUSTOM})
+;; =============== Release CL Resources ==================================
 
-;;TODO update for JOCL 2.0
-(def context-prop-table
-  {:platform CL/CL_CONTEXT_PLATFORM
-   :interop-user-sync CL/CL_CONTEXT_INTEROP_USER_SYNC
-   :gl-context-khr CL/CL_GL_CONTEXT_KHR
-   :cgl-sharegroup-khr CL/CL_CGL_SHAREGROUP_KHR
-   :egl-display-khr CL/CL_EGL_DISPLAY_KHR
-   :glx-display-khr CL/CL_GLX_DISPLAY_KHR
-   :wgl-hdc-khr CL/CL_WGL_HDC_KHR})
-
-(def command-queue-prop-table
-  {:out-of-order-exec CL/CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE
-   :profiling CL/CL_QUEUE_PROFILING_ENABLE})
-
-;; =============== Release Functions  ===============================
 (defprotocol Releaseable
   (close [this]))
 
@@ -81,7 +59,7 @@
   (close [s]
     (with-check (CL/clReleaseSampler s) true)))
 
-(defn close-seq [cl]
+(defn ^:private close-seq [cl]
   (cond
    (instance? uncomplicate.clojurecl.core.Releaseable cl) (close cl)
    (sequential? cl) (map close-seq cl)) )
@@ -100,6 +78,7 @@
                  "with-release only allows Symbols in bindings"))))
 
 ;; =============== Platform =========================================
+
 (defn num-platforms []
   (let [res (int-array 1)
         err (CL/clGetPlatformIDs 0 nil res)]
@@ -120,63 +99,67 @@
 
 ;; =============== Device ==========================================
 
-(defn ^:private num-devices*
-  [platform ^long device-type]
+(defn num-devices* ^long [platform ^long device-type]
   (let [res (int-array 1)
         err (CL/clGetDeviceIDs platform device-type 0 nil res)]
-    (with-check err
-      (aget res 0))))
+    (with-check err (aget res 0))))
 
 (defn num-devices
   ([platform device-type]
-   (num-devices* platform (device-types device-type)))
+   (num-devices* platform (cl-device-type device-type)))
   ([x]
-   (if (integer? x)
+   (if (keyword? x)
      (num-devices *platform* x)
-     (num-devices x CL/CL_DEVICE_TYPE_ALL)))
+     (num-devices* x CL/CL_DEVICE_TYPE_ALL)))
   ([]
-   (num-devices *platform* CL/CL_DEVICE_TYPE_ALL)))
+   (num-devices* *platform* CL/CL_DEVICE_TYPE_ALL)))
 
-(defn ^:private devices* [platform ^long device-type]
+(defn devices* [platform ^long device-type]
   (let [num-devices (num-devices* platform device-type)
         res (make-array cl_device_id num-devices)
-        err (CL/clGetDeviceIDs platform device-type
-                               num-devices res nil)]
+        err (CL/clGetDeviceIDs platform device-type num-devices res nil)]
     (with-check err res)))
 
 (defn devices
   ([platform device-type]
-   (vec (devices* platform (device-types device-type))))
+   (vec (devices* platform (cl-device-type device-type))))
   ([x]
-   (if (integer? x)
+   (if (keyword? x)
      (devices *platform* x)
      (vec (devices* x CL/CL_DEVICE_TYPE_ALL))))
   ([]
-   (devices *platform*)))
+   (devices* *platform* CL/CL_DEVICE_TYPE_ALL)))
 
 ;; ========================= Context ===========================================
+
+;; TODO Check for memory leaks! (devices) are used in creating the context, but
+;; then forgotten to roam around freely!!!
+
 (defn context-properties [props]
   (reduce (fn [^cl_context_properties cp [p v]]
-            (doto cp (.addProperty (context-prop-table p) v)))
+            (.addProperty cp (cl-context-properties p) v))
           (cl_context_properties.)
           props))
 
 ;;TODO Callback function
-(defn ^:private context* [^objects devices ^objects properties]
+(defn context* [^"[Lorg.jocl.cl_device_id;" devices notify user-data properties]
   (let [err (int-array 1)
         res (CL/clCreateContext properties
                                 (alength devices) devices
-                                nil nil err)]
+                                notity user-data err)]
     (with-check-arr err res)))
 
 (defn context
   ([devices properties]
-   (context* (into-array devices) (context-properties properties)))
+   (context* (into-array ^cl_device_id devices) nil nil (context-properties properties)))
   ([devices]
-   (context* (into-array devices) nil)))
+   (context devices nil nil nil))
+  ([]
+   (with-release [devs (devices)]
+     (context devs)))) ;; TODO Test whether this solution for memory leaks works as expected
 
 (defn context-info []
-  ( info *context*))
+  (info *context*))
 
 ;;TODO assert
 (defmacro with-context [context & body]
@@ -290,6 +273,7 @@
     (Pointer/toBuffer this)))
 
 ;; ============= Program ==========================================
+
 (defn program-with-source
   ([context source]
    (let [err (int-array 1)
@@ -306,6 +290,7 @@
     (with-check err program)))
 
 ;; ============== Kernel =========================================
+
 (defn num-kernels [program]
   (let [res (int-array 1)
         err (CL/clCreateKernelsInProgram program 0 nil res)]
@@ -339,7 +324,9 @@
   (cl_event.))
 
 ;; ============== Command Queue ===============================
-;; TODO clCreateCommandQueue is deprecated in JOCL 0.2.0 use ccqWithProperties
+
+;; TODO Opencl 2.0  clCreateCommandQueue is deprecated in JOCL 0.2.0
+;; use ccqWithProperties
 (defn command-queue
   ([context device properties]
    (let [err (int-array 1)

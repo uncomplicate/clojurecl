@@ -7,7 +7,6 @@
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :dependencies [[org.clojure/clojure "1.7.0-alpha5"]
                  [org.jocl/jocl "0.1.9"]
-                 [uncomplicate/fluokitten "0.3.0"]
                  [vertigo "0.1.3"]]
 
   :codox {:src-dir-uri "http://github.com/uncomplicate/clojurecl/blob/master/"
