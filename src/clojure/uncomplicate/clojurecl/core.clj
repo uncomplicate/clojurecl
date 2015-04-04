@@ -1,13 +1,14 @@
 (ns uncomplicate.clojurecl.core
   (:require [uncomplicate.clojurecl
              [constants :refer :all]
-             [utils :refer [with-check with-check-arr]]
+             [utils :refer [with-check with-check-arr mask]]
              [info :refer [info]]]
-            [clojure.string :as str])
+            [clojure.string :as str]
+            [clojure.core.async :refer [go >!]])
   (:import [org.jocl CL cl_platform_id cl_context_properties cl_device_id
             cl_context cl_command_queue cl_mem cl_program cl_kernel cl_sampler
             cl_event
-            Sizeof Pointer CreateContextFunction]
+            Sizeof Pointer CreateContextFunction EventCallbackFunction]
            [java.nio ByteBuffer ByteOrder]))
 
 (def ^:dynamic *platform*)
@@ -59,7 +60,7 @@
   (close [s]
     (with-check (CL/clReleaseSampler s) true)))
 
-(defn ^:private close-seq [cl]
+(defn close-seq [cl]
   (cond
    (instance? uncomplicate.clojurecl.core.Releaseable cl) (close cl)
    (sequential? cl) (map close-seq cl)) )
@@ -142,18 +143,20 @@
           props))
 
 ;;TODO Callback function
-(defn context* [^"[Lorg.jocl.cl_device_id;" devices notify user-data properties]
+;; Perhaps write all errors to a sliding async channel that is going to be read
+;; by an error reporting go block?
+(defn context* [^objects devices notify user-data properties]
   (let [err (int-array 1)
         res (CL/clCreateContext properties
                                 (alength devices) devices
-                                notity user-data err)]
+                                notify user-data err)]
     (with-check-arr err res)))
 
 (defn context
   ([devices properties]
    (context* (into-array ^cl_device_id devices) nil nil (context-properties properties)))
   ([devices]
-   (context devices nil nil nil))
+   (context devices nil))
   ([]
    (with-release [devs (devices)]
      (context devs)))) ;; TODO Test whether this solution for memory leaks works as expected
@@ -168,6 +171,7 @@
           (finally (close *context*)))))
 
 ;; =========================== Memory  =========================================
+
 (defprotocol CLMem ;;TODO add context to memory?
   (cl-mem [this])
   (cl-mem* [this])
@@ -194,13 +198,19 @@
   (set-arg [_ kernel n]
     (with-check (CL/clSetKernelArg kernel n Sizeof/cl_mem cl*) kernel)))
 
-(defn cl-buffer
+(defn cl-buffer*
   ([context ^long size ^long flags]
    (let [err (int-array 1)
          res (CL/clCreateBuffer context flags size nil err)]
      (with-check-arr err (->CLBuffer res (Pointer/to ^cl_mem res) size))))
   ([^long size ^long flags]
    (cl-buffer *context* size flags)))
+
+(defn cl-buffer
+  ([context size flag & flags]
+   (cl-buffer* context size (mask cl-mem-flags flag flags)))
+  ([^long size flag]
+   (cl-buffer* *context* size (cl-mem-flags flag))))
 
 (extend-type (Class/forName "[F")
   HostMem
@@ -272,6 +282,86 @@
   (ptr [this]
     (Pointer/toBuffer this)))
 
+;; ============== Events ==========================================
+
+(defn event []
+  (cl_event.))
+
+(defn host-event
+  ([]
+   (host-event *context*))
+  ([context]
+   (let [err (int-array 1)
+         res (CL/clCreateUserEvent context err)]
+     (with-check-arr err res))))
+
+(defn events
+  ([]
+   (make-array cl_event 0))
+  ([e]
+   (doto ^objects (make-array cl_event 1)
+         (aset 0 e)))
+  ([e0 e1]
+   (doto ^objects (make-array cl_event 2)
+         (aset 0 e0)
+         (aset 1 e1)))
+  ([e0 e1 e2]
+   (doto ^objects (make-array cl_event 3)
+         (aset 0 e0)
+         (aset 1 e1)
+         (aset 2 e2)))
+  ([e0 e1 e2 e3]
+   (doto ^objects (make-array cl_event 4)
+         (aset 0 e0)
+         (aset 1 e1)
+         (aset 2 e2)
+         (aset 3 e3)))
+  ([e0 e1 e2 e3 e4]
+   (doto ^objects (make-array cl_event 5)
+         (aset 0 e0)
+         (aset 1 e1)
+         (aset 2 e2)
+         (aset 3 e3)
+         (aset 4 e4)))
+  ([e0 e1 e2 e3 e4 & es]
+   (let [len (+ 5 (long (count es)))
+         res (doto ^objects (make-array cl_event len)
+                   (aset 0 e0)
+                   (aset 1 e1)
+                   (aset 2 e2)
+                   (aset 3 e3)
+                   (aset 4 e4))]
+     (loop [i 5 es es]
+       (if (< i len)
+         (do (aset res i (first es))
+             (recur (inc i) (rest es)))
+         res)))))
+
+(defrecord EventCallbackInfo [event status data])
+
+(deftype EventCallback [ch]
+  EventCallbackFunction
+  (function [this event status data]
+    (go (>! ch (->EventCallbackInfo
+                event (dec-command-execution-status status) data)))))
+
+(defn set-event-callback
+  ([channel e ^long callback-type data]
+   (with-check
+     (CL/clSetEventCallback e callback-type (->EventCallback channel) data)
+     channel))
+  ([channel e]
+   (set-event-callback channel e CL/CL_COMPLETE nil)))
+
+(defn follow
+  ([channel e callback-type data]
+   (set-event-callback channel e
+                       (cl-command-execution-status callback-type) data))
+  ([channel e data]
+   (set-event-callback channel e CL/CL_COMPLETE data))
+  ([channel e]
+   (set-event-callback channel e CL/CL_COMPLETE nil)))
+
 ;; ============= Program ==========================================
 
 (defn program-with-source
@@ -319,79 +409,112 @@
              memories)
       kernel))
 
-;; ============== Events ======================================
-(defn event []
-  (cl_event.))
-
 ;; ============== Command Queue ===============================
 
 ;; TODO Opencl 2.0  clCreateCommandQueue is deprecated in JOCL 0.2.0
 ;; use ccqWithProperties
+(defn command-queue* [context device ^long properties]
+  (let [err (int-array 1)
+        res (CL/clCreateCommandQueue context device properties err)]
+    (with-check-arr err res)))
+
 (defn command-queue
-  ([context device properties]
-   (let [err (int-array 1)
-         res (CL/clCreateCommandQueue context device properties err)]
-     (with-check-arr err res)))
-  ([device properties]
-   (command-queue *context* device properties)))
+  ([context device prop1 prop2 & properties]
+   (command-queue* context device
+                   (apply mask cl-command-queue-properties
+                          prop1 prop2 properties)))
+  ([context device prop]
+   (command-queue* context device (cl-command-queue-properties prop)))
+  ([device prop]
+   (command-queue* *context* device (cl-command-queue-properties prop)))
+  ([device]
+   (command-queue* *context* device 0)))
 
 ;; TODO use *command-queue* in enqueueXXX functions
 (defn enqueue-nd-range
-  [queue kernel work-dim
-     global-work-offset global-work-size local-work-size
-     num-events-in-wait-list event-wait-list event]
-  (with-check
-    (CL/clEnqueueNDRangeKernel queue kernel work-dim
-                               global-work-offset
-                               global-work-size
-                               local-work-size
-                               num-events-in-wait-list
-                               event-wait-list
-                               event)
-    queue))
+  ([queue kernel ^longs global-work-offset ^longs global-work-size
+    ^longs local-work-size ^objects wait-events event]
+   (with-check
+     (CL/clEnqueueNDRangeKernel queue kernel (alength global-work-size)
+                                global-work-offset global-work-size
+                                local-work-size
+                                (if wait-events (alength wait-events) 0)
+                                wait-events event)
+     event))
+  ([queue kernel global-work-size local-work-size wait-events]
+   (enqueue-nd-range queue kernel nil global-work-size local-work-size
+                     wait-events (event)))
+  ([queue kernel global-work-size local-work-size]
+   (enqueue-nd-range queue kernel nil global-work-size local-work-size
+                     nil (event)))
+  ([kernel global-work-size local-work-size]
+   (enqueue-nd-range *command-queue* kernel nil global-work-size local-work-size
+                     nil (event))))
 
 (defn enqueue-read
-  ([queue cl host blocking-read num-events-in-wait-list
-    event-wait-list event]
+  ([queue cl host blocking offset ^objects wait-events event]
    (with-check
-     (CL/clEnqueueReadBuffer queue (cl-mem cl) blocking-read 0
+     (CL/clEnqueueReadBuffer queue (cl-mem cl) blocking offset
                              (size cl) (ptr host)
-                             num-events-in-wait-list event-wait-list event)
-     queue))
+                             (if wait-events (alength wait-events) 0)
+                             wait-events event)
+     event))
+  ([queue cl host wait-events]
+   (enqueue-read queue cl host false 0 wait-events (event)))
   ([queue cl host]
-   (enqueue-read queue cl host CL/CL_TRUE 0 nil nil)))
+   (enqueue-read queue cl host false 0 nil (event)))
+  ([cl host]
+   (enqueue-read *command-queue* cl host false 0 nil (event))))
 
 (defn enqueue-write
-  ([queue cl host blocking-write num-events-in-wait-list
-    event-wait-list event]
+  ([queue cl host blocking offset ^objects wait-events event]
    (with-check
-     (CL/clEnqueueWriteBuffer queue (cl-mem cl) blocking-write 0
-                             (size cl) (ptr host)
-                             num-events-in-wait-list event-wait-list event)
-     queue))
+     (CL/clEnqueueWriteBuffer queue (cl-mem cl) blocking offset
+                              (size cl) (ptr host)
+                              (if wait-events (alength wait-events) 0)
+                              wait-events event)
+     event))
+  ([queue cl host wait-events]
+   (enqueue-write queue cl host false 0 wait-events (event)))
   ([queue cl host]
-   (enqueue-write queue cl host CL/CL_TRUE 0 nil nil)))
+   (enqueue-write queue cl host false 0 nil (event))))
+
+(defn enqueue-map-buffer* [queue cl blocking offset flags
+                           ^longs wait-events event]
+  (let [err (int-array 1)
+        res (CL/clEnqueueMapBuffer queue (cl-mem cl) blocking flags offset
+                                   (size cl)
+                                   (if wait-events (alength wait-events) 0)
+                                   wait-events event err)]
+    (with-check-arr err (.order res (ByteOrder/nativeOrder)))))
 
 (defn enqueue-map-buffer
-  ([queue cl blocking flags num-events
-    wait-list event]
-   (let [err (int-array 1)
-         res (CL/clEnqueueMapBuffer queue (cl-mem cl) blocking flags 0
-                                    (size cl) num-events
-                                    wait-list event err)]
-     (with-check-arr err (.order res (ByteOrder/nativeOrder)))))
-  ([queue cl flags]
-   (enqueue-map-buffer queue cl CL/CL_TRUE flags 0 nil nil)))
+  ([queue cl blocking offset flags ^longs wait-events event]
+   (enqueue-map-buffer* queue cl blocking offset (mask cl-map-flags flags)
+                       wait-events event))
+  ([queue cl flag wait-events event]
+   (enqueue-map-buffer* queue cl false 0 (cl-map-flags flag) wait-events event))
+  ([queue cl flag event]
+   (enqueue-map-buffer* queue cl false 0 (cl-map-flags flag) nil event))
+  ([queue cl flag]
+   (enqueue-map-buffer* queue cl true 0 (cl-map-flags flag) nil nil))
+  ([cl flag]
+   (enqueue-map-buffer* *command-queue* cl true 0 (cl-map-flags flag) nil nil)))
 
 ;; TODO with-mapping
 
 (defn enqueue-unmap-mem-object
-  ([queue cl host num-events-in-event-list wait-list event]
+  ([queue cl host ^longs wait-events event]
    (let [err (CL/clEnqueueUnmapMemObject queue (cl-mem cl) host
-                                         num-events-in-event-list wait-list event)]
-     (with-check err queue)))
+                                         (if wait-events (alength wait-events) 0)
+                                         wait-events event)]
+     (with-check err event)))
+  ([queue cl host wait-events]
+   (enqueue-unmap-mem-object queue cl host wait-events (event)))
   ([queue cl host]
-   (enqueue-unmap-mem-object queue cl host 0 nil nil)))
+   (enqueue-unmap-mem-object queue cl host nil (event)))
+  ([cl host]
+   (enqueue-unmap-mem-object *command-queue* cl host nil (event))))
 
 (defmacro with-queue [queue & body]
   `(binding [*command-queue* ~queue]

@@ -110,6 +110,7 @@
     -1000 "CL_INVALID_GL_SHAREGROUP_REFERENCE_KHR"
     -1001 "CL_PLATFORM_NOT_FOUND_KHR"
     "UNKNOWN OpenCL ERROR!"))
+
 ;; ==================== Keyword mapping ======================================
 
 (def cl-device-type
@@ -209,6 +210,11 @@
     0x10F6 :image1d-buffer
     0x10F7 :pipe))
 
+(def cl-map-flags
+  {:read CL/CL_MAP_READ
+   :write CL/CL_MAP_WRITE
+   :write-invalidate-region CL/CL_MAP_WRITE_INVALIDATE_REGION})
+
 (defn dec-program-binary-type [^long code]
   (case code
     0x0 :none
@@ -285,3 +291,9 @@
     0x1 :running
     0x2 :submitted
     0x3 :queued))
+
+(def cl-command-execution-status
+  {:complete CL/CL_COMPLETE
+   :running CL/CL_RUNNING
+   :submitted CL/CL_SUBMITTED
+   :queued CL/CL_QUEUED})

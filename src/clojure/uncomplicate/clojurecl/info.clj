@@ -778,13 +778,13 @@
         :num-devices (num-devices-in-context c)
         :num-reference-count (num-reference-count c)
         :devices (devices-in-context c)
-        :properties (map dec-context-properties (properties c))
+        :properties (map dec-context-properties (remove zero? (properties c)))
         nil)))
     ([c]
      (->ContextInfo (maybe (num-devices-in-context c))
                     (maybe (num-reference-count c))
                     (maybe (devices-in-context c))
-                    (maybe (map dec-context-properties (properties c))))))
+                    (maybe (map dec-context-properties (remove zero? (properties c)))))))
   InfoProperties
   (properties [c]
     (info-long* CL/clGetContextInfo c
@@ -811,6 +811,7 @@
                                       nil)]
     (with-check err d)))
 
+;; TODO this throws an exception...
 (defn queue-size ^long [queue]
   (info-int* CL/clGetCommandQueueInfo queue CL_QUEUE_SIZE))
 
@@ -1074,7 +1075,7 @@
 (defn map-count ^long [mo]
   (info-int* CL/clGetMemObjectInfo mo CL/CL_MEM_MAP_COUNT))
 
-(defn ^:private aget-first-np [^"[Lorg.jocl.NativePointerObject;" npa]
+(defn ^:private aget-first-np [^objects npa]
   (aget npa 0))
 
 (defn mem-context [mo]
@@ -1102,7 +1103,7 @@
     ([mo info-type]
      (maybe
       (case info-type
-        :type (dec-mem-object-type (type mo))
+        :type (dec-mem-object-type (mem-type mo))
         :flags (unmask cl-mem-flags (flags mo))
         :size (mem-size mo)
         :map-count (map-count mo)

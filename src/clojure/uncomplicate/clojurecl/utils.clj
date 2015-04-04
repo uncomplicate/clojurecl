@@ -5,8 +5,13 @@
 
 ;; ========= Bitfild masks ========================================
 
-(defn mask ^long [table flags]
-  (apply bit-or (map table flags)))
+(defn mask ^long
+  ([table flag1 flag2 flags]
+   (apply bit-or (table flag1) (table flag2) (map table flags)))
+  ([table flag flags]
+   (apply bit-or 0 (table flag) (map table flags)))
+  ([table flags]
+   (apply bit-or 0 0 (map table flags))))
 
 (defn unmask [table ^long mask]
   (filter identity
