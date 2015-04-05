@@ -7,8 +7,8 @@
             [clojure.core.async :refer [go >!]])
   (:import [org.jocl CL cl_platform_id cl_context_properties cl_device_id
             cl_context cl_command_queue cl_mem cl_program cl_kernel cl_sampler
-            cl_event
-            Sizeof Pointer CreateContextFunction EventCallbackFunction]
+            cl_event Sizeof Pointer CreateContextFunction EventCallbackFunction
+            BuildProgramFunction]
            [java.nio ByteBuffer ByteOrder]))
 
 (def ^:dynamic *platform*)
@@ -334,7 +334,7 @@
      (loop [i 5 es es]
        (if (< i len)
          (do (aset res i (first es))
-             (recur (inc i) (rest es)))
+             (recur (inc i) (next es)))
          res)))))
 
 (defrecord EventCallbackInfo [event status data])
@@ -364,6 +364,13 @@
 
 ;; ============= Program ==========================================
 
+(defrecord BuildCallbackInfo [program data])
+
+(deftype BuildCallback [ch]
+  BuildProgramFunction
+  (function [this program data]
+    (go (>! ch (->BuildCallbackInfo program data)))))
+
 (defn program-with-source
   ([context source]
    (let [err (int-array 1)
@@ -374,10 +381,26 @@
   ([source]
    (program-with-source *context* source)))
 
-;; TODO Callback function
-(defn build-program! [program]
-  (let [err (CL/clBuildProgram program 0 nil nil nil nil)]
-    (with-check err program)))
+(defn build-program!
+  ([ch program devices options user-data]
+   (with-check (CL/clBuildProgram program (count devices)
+                                  (if devices
+                                    (into-array cl_device_id devices)
+                                    nil)
+                                  options
+                                  (if ch (->BuildCallback ch) nil)
+                                  user-data)
+     ch))
+  ([ch program devices options]
+   (build-program! ch program devices options nil))
+  ([ch program options]
+   (build-program! ch program nil options nil))
+  ([ch program]
+   (build-program! ch program nil nil nil))
+  ([program]
+   (do
+     (build-program! nil program nil nil nil)
+     program)))
 
 ;; ============== Kernel =========================================
 
@@ -387,7 +410,7 @@
     (with-check err (aget res 0))))
 
 (defn kernels
-  ([program ^String name]
+  ([program name]
    (let [err (int-array 1)
          res (CL/clCreateKernel program name err)]
      (with-check-arr err res)))
@@ -397,17 +420,29 @@
          err (CL/clCreateKernelsInProgram program nk res nil)]
      (vec (with-check err res)))))
 
-(defn set-arg! [kernel ^long n memory]
-  (set-arg memory kernel n))
+(defn set-arg! [kernel n cl-mem]
+  (set-arg cl-mem kernel n))
 
-(defn set-args! [kernel & memories]
-  (do (reduce (fn [^long i mem]
-               (do
-                 (set-arg! kernel i mem)
-                 (inc i)))
-             0
-             memories)
-      kernel))
+(defn set-args!
+  ([kernel cl-mem]
+   (set-arg! kernel 0 cl-mem))
+  ([kernel cl-mem-0 cl-mem-1]
+   (-> (set-arg! kernel 0 cl-mem-0)
+       (set-arg! 1 cl-mem-1)))
+  ([kernel cl-mem-0 cl-mem-1 cl-mem-2]
+   (-> (set-arg! kernel 0 cl-mem-0)
+       (set-arg! 1 cl-mem-1)
+       (set-arg! 2 cl-mem-2)))
+  ([kernel cl-mem-0 cl-mem-1 cl-mem-2 cl-mem-3 & cl-mems]
+   (let [ker (-> (set-arg! kernel 0 cl-mem-0)
+                 (set-arg! 1 cl-mem-1)
+                 (set-arg! 2 cl-mem-2)
+                 (set-arg! 3 cl-mem-3))]
+     (loop [i 4 cl-mems cl-mems]
+       (if-let [mem (first cl-mems)]
+         (do (set-arg! ker i mem)
+             (recur (inc i) (next cl-mems)))
+         ker)))))
 
 ;; ============== Command Queue ===============================
 
