@@ -3,37 +3,31 @@
             [clojure.core.async :refer :all]
             [uncomplicate.clojurecl
              [core :refer :all]
-             [info :refer [info]]]
+             [info :refer [profiling-info durations]]]
             [vertigo.bytes :refer [direct-buffer]]))
 
-(def program-source (slurp "test/opencl/examples/openclinaction/ch07/profile-read.cl"))
-(def bytesize (Math/pow 2 20))
-(def num-iterations 1)
-(def global-work-size (long-array [1]))
-(def local-work-size (long-array [1]))
+(let [program-source
+      (slurp "test/opencl/examples/openclinaction/ch07/profile-read.cl")
+      bytesize (Math/pow 2 20)
+      notifications (chan)
+      data-host (direct-buffer bytesize)
+      ia (int-array [(/ (long bytesize) 16)])
+      num-iterations 1
+      work-sizes (work-size [1])
+      platform (first (platforms))]
+  (with-release [dev (first (devices platform))
+                 ctx (context [dev])
+                 cqueue (command-queue ctx dev :profiling)
+                 dev-buffer (cl-buffer ctx bytesize :write-only)
+                 prog (build-program! (program-with-source ctx [program-source]))
+                 profile-read (kernel prog "profile_read")
+                 profile-event (event)]
+    (facts
 
-(def ch (chan))
+     (set-args! profile-read dev-buffer ia) => profile-read
 
-(with-platform (first (platforms))
-  (with-release [devs (devices)
-                 dev (first devs)]
-    (with-context (context devs)
-      (let [data-host (direct-buffer bytesize)]
-        (with-release [cqueue (command-queue dev :profiling)
-                       dev-buffer (cl-buffer bytesize :write-only)
-                       prog (build-program! (program-with-source [program-source]))
-                       profile-read (kernel prog "profile_read")]
-
-          (facts
-
-           (set-args! profile-read dev-buffer (int-array [(/ (long bytesize) 16)]))
-           => profile-read
-
-           ;;(dotimes [n num-iterations]
-           (follow ch (enqueue-nd-range cqueue profile-read
-                                        global-work-size local-work-size))
-           => ch
-
-           (follow ch (enqueue-read cqueue dev-buffer data-host)) => ch
-
-           (println (info (:event (<!! ch))) "\n" (info (:event (<!! ch))))))))))
+     ;;(dotimes [n num-iterations]
+     (enqueue-nd-range cqueue profile-read work-sizes) => cqueue
+     (enqueue-read cqueue dev-buffer data-host profile-event) => cqueue
+     (follow notifications profile-event) => notifications
+     (durations (profiling-info (:event (<!! notifications)))) => profile-event)))

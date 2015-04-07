@@ -154,7 +154,8 @@
 
 (defn context
   ([devices properties]
-   (context* (into-array ^cl_device_id devices) nil nil (context-properties properties)))
+   (context* (into-array ^cl_device_id devices) nil nil
+             (context-properties properties)))
   ([devices]
    (context devices nil))
   ([]
@@ -454,6 +455,32 @@
              (recur (inc i) (next cl-mems)))
          ker)))))
 
+;; ============== Work Size ==================================
+
+(defrecord WorkSize [^long workdim ^longs global ^longs local ^longs offset])
+
+(defn work-size
+  ([global local offset]
+   (let [global-array (long-array global)
+         local-array (long-array local)
+         offset-array (long-array offset)
+         dim (alength global-array)]
+     (if (= dim (alength local-array) (alength offset-array))
+       (->WorkSize dim global-array local-array offset-array)
+       (throw (IllegalArgumentException.
+               "All work-sizes must have the same work-dimension.")))))
+  ([global local]
+   (let [global-array (long-array global)
+         local-array (long-array local)
+         dim (alength global-array)]
+     (if (= dim (alength local-array))
+       (->WorkSize dim global-array local-array nil)
+       (throw (IllegalArgumentException.
+               "All work-sizes must have the same work-dimension.")))))
+  ([sizes]
+   (let [sizes-array (long-array sizes)]
+     (->WorkSize (alength sizes-array) sizes-array sizes-array nil))))
+
 ;; ============== Command Queue ===============================
 
 ;; TODO Opencl 2.0  clCreateCommandQueue is deprecated in JOCL 0.2.0
@@ -477,21 +504,17 @@
 
 ;; TODO use *command-queue* in enqueueXXX functions
 (defn enqueue-nd-range
-  ([queue kernel ^longs global-work-offset ^longs global-work-size
-    ^longs local-work-size ^objects wait-events event]
+  ([queue kernel ^WorkSize work-size ^objects wait-events event]
    (with-check
-     (CL/clEnqueueNDRangeKernel queue kernel (alength global-work-size)
-                                global-work-offset global-work-size
-                                local-work-size
+     (CL/clEnqueueNDRangeKernel queue kernel (.workdim work-size) (.offset work-size)
+                                (.global work-size) (.local work-size)
                                 (if wait-events (alength wait-events) 0)
                                 wait-events event)
      queue))
-  ([queue kernel global-work-size local-work-size]
-   (enqueue-nd-range queue kernel nil global-work-size local-work-size
-                     nil nil))
-  ([kernel global-work-size local-work-size]
-   (enqueue-nd-range *command-queue* kernel nil global-work-size local-work-size
-                     nil nil)))
+  ([queue kernel work-size]
+   (enqueue-nd-range queue kernel work-size nil nil))
+  ([kernel work-size]
+   (enqueue-nd-range *command-queue* kernel work-size nil nil)))
 
 (defn enqueue-read
   ([queue cl host blocking offset ^objects wait-events event]
@@ -505,6 +528,8 @@
    (enqueue-read queue cl host false 0 wait-events event))
   ([queue cl host event]
    (enqueue-read queue cl host false 0 nil event))
+  ([queue cl host]
+   (enqueue-read queue cl host true 0 nil nil))
   ([cl host]
    (enqueue-read *command-queue* cl host false 0 nil nil)))
 
@@ -520,6 +545,8 @@
    (enqueue-write queue cl host false 0 wait-events event))
   ([queue cl host event]
    (enqueue-write queue cl host false 0 nil event))
+  ([queue cl host]
+   (enqueue-write queue cl host true 0 nil nil))
   ([cl host]
    (enqueue-write *command-queue* cl host false 0 nil nil)))
 
@@ -536,7 +563,7 @@
   ([queue cl blocking offset flags ^longs wait-events event]
    (enqueue-map-buffer* queue cl blocking offset (mask cl-map-flags flags)
                        wait-events event))
-  ([queue cl flag wait-events event]
+  ([queue cl flag wait-events queue]
    (enqueue-map-buffer* queue cl false 0 (cl-map-flags flag) wait-events event))
   ([queue cl flag event]
    (enqueue-map-buffer* queue cl false 0 (cl-map-flags flag) nil event))
@@ -552,9 +579,11 @@
    (let [err (CL/clEnqueueUnmapMemObject queue (cl-mem cl) host
                                          (if wait-events (alength wait-events) 0)
                                          wait-events event)]
-     (with-check err event)))
-  ([queue cl host event]
+     (with-check err queue)))
+  ([queue cl host cqueue]
    (enqueue-unmap-mem-object queue cl host nil event))
+  ([queue cl host]
+   (enqueue-unmap-mem-object queue cl host nil nil))
   ([cl host]
    (enqueue-unmap-mem-object *command-queue* cl host nil nil)))
 
