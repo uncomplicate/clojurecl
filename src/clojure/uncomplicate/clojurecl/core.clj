@@ -18,52 +18,52 @@
 ;; =============== Release CL Resources ==================================
 
 (defprotocol Releaseable
-  (close [this]))
+  (release [this]))
 
 (extend-type cl_command_queue
   Releaseable
-  (close [q]
+  (release [q]
     (with-check (CL/clReleaseCommandQueue q) true)))
 
 (extend-type cl_context
   Releaseable
-  (close [c]
+  (release [c]
     (with-check (CL/clReleaseContext c) true)))
 
 (extend-type cl_device_id
   Releaseable
-  (close [d]
+  (release [d]
     (with-check (CL/clReleaseDevice d) true)))
 
 (extend-type cl_event
   Releaseable
-  (close [e]
+  (release [e]
     (with-check (CL/clReleaseEvent e) true)))
 
 (extend-type cl_kernel
   Releaseable
-  (close [k]
+  (release [k]
     (with-check (CL/clReleaseKernel k) true)))
 
 (extend-type cl_mem
   Releaseable
-  (close [m]
+  (release [m]
     (with-check (CL/clReleaseMemObject m) true)))
 
 (extend-type cl_program
   Releaseable
-  (close [p]
+  (release [p]
     (with-check (CL/clReleaseProgram p) true)))
 
 (extend-type cl_sampler
   Releaseable
-  (close [s]
+  (release [s]
     (with-check (CL/clReleaseSampler s) true)))
 
-(defn close-seq [cl]
-  (cond
-   (instance? uncomplicate.clojurecl.core.Releaseable cl) (close cl)
-   (sequential? cl) (map close-seq cl)) )
+(defn release-seq [cl]
+  (if (sequential? cl)
+    (map release-seq cl)
+    (release cl)))
 
 (defmacro with-release [bindings & body]
   (assert (vector? bindings) "a vector for its binding")
@@ -74,7 +74,7 @@
                              (try
                                (with-release ~(subvec bindings 2) ~@body)
                                (finally
-                                 (close-seq ~(bindings 0)))))
+                                 (release-seq ~(bindings 0)))))
    :else (throw (IllegalArgumentException.
                  "with-release only allows Symbols in bindings"))))
 
@@ -168,7 +168,7 @@
 (defmacro with-context [context & body]
   `(binding [*context* ~context]
      (try ~@body
-          (finally (close *context*)))))
+          (finally (release *context*)))))
 
 ;; =========================== Memory  =========================================
 
@@ -185,8 +185,8 @@
 
 (deftype CLBuffer [^cl_mem cl ^Pointer cl* s]
   Releaseable
-  (close [_]
-    (close cl))
+  (release [_]
+    (release cl))
   CLMem
   (cl-mem [_]
     cl)
@@ -204,7 +204,7 @@
          res (CL/clCreateBuffer context flags size nil err)]
      (with-check-arr err (->CLBuffer res (Pointer/to ^cl_mem res) size))))
   ([^long size ^long flags]
-   (cl-buffer *context* size flags)))
+   (cl-buffer* *context* size flags)))
 
 (defn cl-buffer
   ([context size flag & flags]
@@ -275,6 +275,16 @@
   (set-arg [this kernel n]
     (with-check (CL/clSetKernelArg kernel n (* Short/BYTES (alength ^shorts this))
                                    (Pointer/to ^shorts this))
+      kernel)))
+
+(extend-type (Class/forName "[C")
+  HostMem
+  (ptr [this]
+    (Pointer/to ^chars this))
+  Argument
+  (set-arg [this kernel n]
+    (with-check (CL/clSetKernelArg kernel n (* Character/BYTES (alength ^chars this))
+                                   (Pointer/to ^chars this))
       kernel)))
 
 (extend-type ByteBuffer
@@ -409,7 +419,7 @@
         err (CL/clCreateKernelsInProgram program 0 nil res)]
     (with-check err (aget res 0))))
 
-(defn kernels
+(defn kernel
   ([program name]
    (let [err (int-array 1)
          res (CL/clCreateKernel program name err)]
@@ -459,9 +469,9 @@
                    (apply mask cl-command-queue-properties
                           prop1 prop2 properties)))
   ([context device prop]
-   (command-queue* context device (cl-command-queue-properties prop)))
+   (command-queue* context device (get cl-command-queue-properties prop 0)))
   ([device prop]
-   (command-queue* *context* device (cl-command-queue-properties prop)))
+   (command-queue* *context* device (get cl-command-queue-properties prop 0)))
   ([device]
    (command-queue* *context* device 0)))
 
@@ -475,16 +485,13 @@
                                 local-work-size
                                 (if wait-events (alength wait-events) 0)
                                 wait-events event)
-     event))
-  ([queue kernel global-work-size local-work-size wait-events]
-   (enqueue-nd-range queue kernel nil global-work-size local-work-size
-                     wait-events (event)))
+     queue))
   ([queue kernel global-work-size local-work-size]
    (enqueue-nd-range queue kernel nil global-work-size local-work-size
-                     nil (event)))
+                     nil nil))
   ([kernel global-work-size local-work-size]
    (enqueue-nd-range *command-queue* kernel nil global-work-size local-work-size
-                     nil (event))))
+                     nil nil)))
 
 (defn enqueue-read
   ([queue cl host blocking offset ^objects wait-events event]
@@ -493,13 +500,13 @@
                              (size cl) (ptr host)
                              (if wait-events (alength wait-events) 0)
                              wait-events event)
-     event))
-  ([queue cl host wait-events]
-   (enqueue-read queue cl host false 0 wait-events (event)))
-  ([queue cl host]
-   (enqueue-read queue cl host false 0 nil (event)))
+     queue))
+  ([queue cl host wait-events event]
+   (enqueue-read queue cl host false 0 wait-events event))
+  ([queue cl host event]
+   (enqueue-read queue cl host false 0 nil event))
   ([cl host]
-   (enqueue-read *command-queue* cl host false 0 nil (event))))
+   (enqueue-read *command-queue* cl host false 0 nil nil)))
 
 (defn enqueue-write
   ([queue cl host blocking offset ^objects wait-events event]
@@ -508,11 +515,13 @@
                               (size cl) (ptr host)
                               (if wait-events (alength wait-events) 0)
                               wait-events event)
-     event))
-  ([queue cl host wait-events]
-   (enqueue-write queue cl host false 0 wait-events (event)))
-  ([queue cl host]
-   (enqueue-write queue cl host false 0 nil (event))))
+     queue))
+  ([queue cl host wait-events event]
+   (enqueue-write queue cl host false 0 wait-events event))
+  ([queue cl host event]
+   (enqueue-write queue cl host false 0 nil event))
+  ([cl host]
+   (enqueue-write *command-queue* cl host false 0 nil nil)))
 
 (defn enqueue-map-buffer* [queue cl blocking offset flags
                            ^longs wait-events event]
@@ -544,14 +553,12 @@
                                          (if wait-events (alength wait-events) 0)
                                          wait-events event)]
      (with-check err event)))
-  ([queue cl host wait-events]
-   (enqueue-unmap-mem-object queue cl host wait-events (event)))
-  ([queue cl host]
-   (enqueue-unmap-mem-object queue cl host nil (event)))
+  ([queue cl host event]
+   (enqueue-unmap-mem-object queue cl host nil event))
   ([cl host]
-   (enqueue-unmap-mem-object *command-queue* cl host nil (event))))
+   (enqueue-unmap-mem-object *command-queue* cl host nil nil)))
 
 (defmacro with-queue [queue & body]
   `(binding [*command-queue* ~queue]
      (try ~@body
-          (finally (close *command-queue*)))))
+          (finally (release *command-queue*)))))

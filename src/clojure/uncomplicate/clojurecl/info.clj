@@ -757,8 +757,6 @@
     (info-int* CL/clGetDeviceInfo d CL/CL_DEVICE_REFERENCE_COUNT)))
 
 ;; =================== Context =============================================
-(defn num-reference-count ^long [context]
-  (info-int* CL/clGetContextInfo context CL/CL_CONTEXT_REFERENCE_COUNT))
 
 (defn num-devices-in-context ^long [context]
   (info-int* CL/clGetContextInfo context CL/CL_CONTEXT_NUM_DEVICES))
@@ -767,7 +765,7 @@
   (vec (info-native* CL/clGetContextInfo context CL/CL_CONTEXT_DEVICES
                      cl_device_id Sizeof/cl_device_id)))
 
-(defrecord ContextInfo [num-devices num-reference-count devices properties])
+(defrecord ContextInfo [num-devices reference-count devices properties])
 
 (extend-type cl_context
   Info
@@ -776,13 +774,13 @@
      (maybe
       (case info-type
         :num-devices (num-devices-in-context c)
-        :num-reference-count (num-reference-count c)
+        :reference-count (reference-count c)
         :devices (devices-in-context c)
         :properties (map dec-context-properties (remove zero? (properties c)))
         nil)))
     ([c]
      (->ContextInfo (maybe (num-devices-in-context c))
-                    (maybe (num-reference-count c))
+                    (maybe (reference-count c))
                     (maybe (devices-in-context c))
                     (maybe (map dec-context-properties (remove zero? (properties c)))))))
   InfoProperties
@@ -791,7 +789,10 @@
                 CL/CL_CONTEXT_PROPERTIES
                 (info-count* CL/clGetContextInfo c
                              CL/CL_CONTEXT_PROPERTIES
-                             Sizeof/cl_long))))
+                             Sizeof/cl_long)))
+  InfoReferenceCount
+  (reference-count [c]
+    (info-int* CL/clGetContextInfo c CL/CL_CONTEXT_REFERENCE_COUNT)))
 
 ;; =================== Command Queue =======================================
 
