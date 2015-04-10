@@ -393,7 +393,7 @@
    (program-with-source *context* source)))
 
 (defn build-program!
-  ([ch program devices options user-data]
+  ([program devices options ch user-data]
    (with-check (CL/clBuildProgram program (count devices)
                                   (if devices
                                     (into-array cl_device_id devices)
@@ -401,17 +401,15 @@
                                   options
                                   (if ch (->BuildCallback ch) nil)
                                   user-data)
-     ch))
-  ([ch program devices options]
-   (build-program! ch program devices options nil))
-  ([ch program options]
-   (build-program! ch program nil options nil))
-  ([ch program]
-   (build-program! ch program nil nil nil))
+     program))
+  ([program devices options ch]
+   (build-program! program devices options ch nil))
+  ([program options ch]
+   (build-program! program nil options ch nil))
+  ([program ch]
+   (build-program! program nil nil ch nil))
   ([program]
-   (do
-     (build-program! nil program nil nil nil)
-     program)))
+   (build-program! program nil nil nil nil)))
 
 ;; ============== Kernel =========================================
 
@@ -586,6 +584,9 @@
    (enqueue-unmap-mem-object queue cl host nil nil))
   ([cl host]
    (enqueue-unmap-mem-object *command-queue* cl host nil nil)))
+
+(defn finish [queue]
+  (with-check (CL/clFinish queue) queue))
 
 (defmacro with-queue [queue & body]
   `(binding [*command-queue* ~queue]

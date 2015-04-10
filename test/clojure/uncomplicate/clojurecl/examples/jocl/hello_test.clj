@@ -1,4 +1,4 @@
-(ns uncomplicate.clojurecl.hello-test
+(ns uncomplicate.clojurecl.examples.jocl.hello-test
   (:require [midje.sweet :refer :all]
             [uncomplicate.clojurecl.core :refer :all])
   (:import [java.nio ByteBuffer]))
@@ -32,7 +32,7 @@
          (enqueue-read (mem-objects 2) dest-array))
      => cqueue
 
-     (CL/clFinish cqueue)
+     (finish cqueue)
      (seq dest-array) => (map float (range 0 200 2)))
 
     (with-release [mem-object-a (cl-buffer ctx bytesize :read-only)
@@ -41,10 +41,12 @@
 
       (let [src-buffer-a (enqueue-map-buffer cqueue mem-object-a :write)]
         (.putFloat ^ByteBuffer src-buffer-a 0 46)
+        (.putFloat ^ByteBuffer src-buffer-a 4 100)
         (enqueue-unmap-mem-object cqueue mem-object-a src-buffer-a))
 
       (let [src-buffer-b (enqueue-map-buffer cqueue mem-object-b :write)]
         (.putFloat ^ByteBuffer src-buffer-b 0 56)
+        (.putFloat ^ByteBuffer src-buffer-b 4 200)
         (enqueue-unmap-mem-object cqueue mem-object-b src-buffer-b))
 
       (facts
@@ -56,4 +58,5 @@
 
        (let [dest-buffer (enqueue-map-buffer cqueue mem-object-dest :read)]
          (.getFloat ^ByteBuffer dest-buffer 0) => 102.0
+         (.getFloat ^ByteBuffer dest-buffer 4) => 300.0
          (enqueue-unmap-mem-object cqueue mem-object-dest dest-buffer) => cqueue)))))

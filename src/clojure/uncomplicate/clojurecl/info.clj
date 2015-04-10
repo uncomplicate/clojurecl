@@ -1144,9 +1144,9 @@
          (with-check err#
            (String. res# 0 (dec (alength res#))))))))
 
-(defmacro ^:private pb-info-long* [program device info]
-  `(let [res# (long-array 1)
-         err# (CL/clGetProgramBuildInfo ~program ~device ~info Sizeof/cl_long
+(defmacro ^:private pb-info-int* [program device info]
+  `(let [res# (int-array 1)
+         err# (CL/clGetProgramBuildInfo ~program ~device ~info Sizeof/cl_int
                                      (Pointer/to res#) nil)]
      (with-check err# (aget res# 0))))
 
@@ -1166,7 +1166,7 @@
 ;; -- Program Build Info functions --------------------------------------------
 
 (defn build-status ^long [program device]
-  (pb-info-long* program device CL/CL_PROGRAM_BUILD_STATUS))
+  (pb-info-int* program device CL/CL_PROGRAM_BUILD_STATUS))
 
 (defn build-options [program device]
   (pb-info-string* program device CL/CL_PROGRAM_BUILD_OPTIONS))
@@ -1175,7 +1175,7 @@
   (pb-info-string* program device CL/CL_PROGRAM_BUILD_LOG))
 
 (defn binary-type ^long [program device]
-  (pb-info-long* program device CL/CL_PROGRAM_BINARY_TYPE))
+  (pb-info-int* program device CL/CL_PROGRAM_BINARY_TYPE))
 
 (defn global-variable-total-size ^long [program device]
   (pb-info-size* program device CL_PROGRAM_BUILD_GLOBAL_VARIABLE_TOTAL_SIZE))
