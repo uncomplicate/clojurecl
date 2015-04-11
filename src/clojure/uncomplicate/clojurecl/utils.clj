@@ -31,10 +31,13 @@
 
 ;; ========== Error handling ======================================
 
-(defn error [err-code]
-  (let [err (dec-error err-code)]
-    (ex-info (format "OpenCL error: %s." err)
-             {:name err :code err-code :type :opencl-error})))
+(defn error
+  ([err-code details]
+   (let [err (dec-error err-code)]
+     (ex-info (format "OpenCL error: %s." err)
+              {:name err :code err-code :type :opencl-error :details details})))
+  ([err-code]
+   (error err-code nil)))
 
 (defmacro with-check-arr [err-code form]
   `(with-check (aget (ints ~err-code) 0) ~form))

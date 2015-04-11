@@ -911,17 +911,15 @@
 
 (defn profiling-info
   (^long [event info]
-         (maybe
-          (case info
-            :queued (queued event)
-            :submit (submit event)
-            :start (start event)
-            :end (end event)
-            nil)))
+         (case info
+           :queued (queued event)
+           :submit (submit event)
+           :start (start event)
+           :end (end event)
+           nil))
 
   ([event]
-   (->ProfilingInfo (maybe (queued event)) (maybe (submit event))
-                    (maybe (start event)) (maybe (end event)))))
+   (->ProfilingInfo  (queued event) (submit event) (start event) (end event))))
 
 (defn durations [^ProfilingInfo pi]
   (->ProfilingInfo 0

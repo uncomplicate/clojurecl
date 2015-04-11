@@ -1,8 +1,8 @@
 (ns uncomplicate.clojurecl.core
   (:require [uncomplicate.clojurecl
              [constants :refer :all]
-             [utils :refer [with-check with-check-arr mask]]
-             [info :refer [info]]]
+             [utils :refer [with-check with-check-arr mask error]]
+             [info :refer [info build-info program-devices]]]
             [clojure.string :as str]
             [clojure.core.async :refer [go >!]])
   (:import [org.jocl CL cl_platform_id cl_context_properties cl_device_id
@@ -165,7 +165,6 @@
 (defn context-info []
   (info *context*))
 
-;;TODO assert
 (defmacro with-context [context & body]
   `(binding [*context* ~context]
      (try ~@body
@@ -356,22 +355,40 @@
     (go (>! ch (->EventCallbackInfo
                 event (dec-command-execution-status status) data)))))
 
-(defn set-event-callback
-  ([channel e ^long callback-type data]
+(defn event-callback [ch]
+  (->EventCallback ch))
+
+(defn set-event-callback!
+  ([e ^EventCallback callback ^long callback-type data]
    (with-check
-     (CL/clSetEventCallback e callback-type (->EventCallback channel) data)
-     channel))
-  ([channel e]
-   (set-event-callback channel e CL/CL_COMPLETE nil)))
+     (CL/clSetEventCallback e callback-type callback data)
+     (.ch callback)))
+  ([e ^EventCallback callback]
+   (set-event-callback! e callback CL/CL_COMPLETE nil)))
 
 (defn follow
-  ([channel e callback-type data]
-   (set-event-callback channel e
-                       (cl-command-execution-status callback-type) data))
-  ([channel e data]
-   (set-event-callback channel e CL/CL_COMPLETE data))
-  ([channel e]
-   (set-event-callback channel e CL/CL_COMPLETE nil)))
+  ([channel callback-type]
+   (let [callback (->EventCallback channel)
+         callb-type (if callback-type
+                      (cl-command-execution-status callback-type)
+                      CL/CL_COMPLETE)]
+     (fn
+       ([e callback-type data]
+        (set-event-callback! e callback
+                            (cl-command-execution-status callback-type) data))
+       ([e data]
+        (set-event-callback! e callback callb-type data))
+       ([e]
+        (set-event-callback! e callback callb-type nil)))))
+  ([channel]
+   (follow channel nil)))
+
+(defn set-status* [ev ^long status]
+  (let [err (CL/clSetUserEventStatus ev status)]
+    (with-check err ev)))
+
+(defn set-status! [ev status]
+  (set-status* ev (cl-command-execution-status status)))
 
 ;; ============= Program ==========================================
 
@@ -394,14 +411,19 @@
 
 (defn build-program!
   ([program devices options ch user-data]
-   (with-check (CL/clBuildProgram program (count devices)
-                                  (if devices
-                                    (into-array cl_device_id devices)
-                                    nil)
-                                  options
-                                  (if ch (->BuildCallback ch) nil)
-                                  user-data)
-     program))
+   (let [err (CL/clBuildProgram program (count devices)
+                                (if devices
+                                  (into-array cl_device_id devices)
+                                  nil)
+                                options
+                                (if ch (->BuildCallback ch) nil)
+                                user-data)]
+     (if (= CL/CL_SUCCESS err)
+       program
+       (throw (error err (map (partial build-info program)
+                              (if devices
+                                devices
+                                (program-devices program))))))))
   ([program devices options ch]
    (build-program! program devices options ch nil))
   ([program options ch]
@@ -500,8 +522,8 @@
   ([device]
    (command-queue* *context* device 0)))
 
-;; TODO use *command-queue* in enqueueXXX functions
-(defn enqueue-nd-range
+;; TODO use *command-queue* in enqXXX functions
+(defn enq-nd!
   ([queue kernel ^WorkSize work-size ^objects wait-events event]
    (with-check
      (CL/clEnqueueNDRangeKernel queue kernel (.workdim work-size) (.offset work-size)
@@ -510,11 +532,11 @@
                                 wait-events event)
      queue))
   ([queue kernel work-size]
-   (enqueue-nd-range queue kernel work-size nil nil))
+   (enq-nd! queue kernel work-size nil nil))
   ([kernel work-size]
-   (enqueue-nd-range *command-queue* kernel work-size nil nil)))
+   (enq-nd! *command-queue* kernel work-size nil nil)))
 
-(defn enqueue-read
+(defn enq-read!
   ([queue cl host blocking offset ^objects wait-events event]
    (with-check
      (CL/clEnqueueReadBuffer queue (cl-mem cl) blocking offset
@@ -523,15 +545,15 @@
                              wait-events event)
      queue))
   ([queue cl host wait-events event]
-   (enqueue-read queue cl host false 0 wait-events event))
+   (enq-read! queue cl host false 0 wait-events event))
   ([queue cl host event]
-   (enqueue-read queue cl host false 0 nil event))
+   (enq-read! queue cl host false 0 nil event))
   ([queue cl host]
-   (enqueue-read queue cl host true 0 nil nil))
+   (enq-read! queue cl host true 0 nil nil))
   ([cl host]
-   (enqueue-read *command-queue* cl host false 0 nil nil)))
+   (enq-read! *command-queue* cl host false 0 nil nil)))
 
-(defn enqueue-write
+(defn enq-write!
   ([queue cl host blocking offset ^objects wait-events event]
    (with-check
      (CL/clEnqueueWriteBuffer queue (cl-mem cl) blocking offset
@@ -540,15 +562,15 @@
                               wait-events event)
      queue))
   ([queue cl host wait-events event]
-   (enqueue-write queue cl host false 0 wait-events event))
+   (enq-write! queue cl host false 0 wait-events event))
   ([queue cl host event]
-   (enqueue-write queue cl host false 0 nil event))
+   (enq-write! queue cl host false 0 nil event))
   ([queue cl host]
-   (enqueue-write queue cl host true 0 nil nil))
+   (enq-write! queue cl host true 0 nil nil))
   ([cl host]
-   (enqueue-write *command-queue* cl host false 0 nil nil)))
+   (enq-write! *command-queue* cl host false 0 nil nil)))
 
-(defn enqueue-map-buffer* [queue cl blocking offset flags
+(defn enq-map-buffer* [queue cl blocking offset flags
                            ^longs wait-events event]
   (let [err (int-array 1)
         res (CL/clEnqueueMapBuffer queue (cl-mem cl) blocking flags offset
@@ -557,35 +579,56 @@
                                    wait-events event err)]
     (with-check-arr err (.order res (ByteOrder/nativeOrder)))))
 
-(defn enqueue-map-buffer
+(defn enq-map-buffer!
   ([queue cl blocking offset flags ^longs wait-events event]
-   (enqueue-map-buffer* queue cl blocking offset (mask cl-map-flags flags)
+   (enq-map-buffer* queue cl blocking offset (mask cl-map-flags flags)
                        wait-events event))
   ([queue cl flag wait-events queue]
-   (enqueue-map-buffer* queue cl false 0 (cl-map-flags flag) wait-events event))
+   (enq-map-buffer* queue cl false 0 (cl-map-flags flag) wait-events event))
   ([queue cl flag event]
-   (enqueue-map-buffer* queue cl false 0 (cl-map-flags flag) nil event))
+   (enq-map-buffer* queue cl false 0 (cl-map-flags flag) nil event))
   ([queue cl flag]
-   (enqueue-map-buffer* queue cl true 0 (cl-map-flags flag) nil nil))
+   (enq-map-buffer* queue cl true 0 (cl-map-flags flag) nil nil))
   ([cl flag]
-   (enqueue-map-buffer* *command-queue* cl true 0 (cl-map-flags flag) nil nil)))
+   (enq-map-buffer* *command-queue* cl true 0 (cl-map-flags flag) nil nil)))
 
 ;; TODO with-mapping
 
-(defn enqueue-unmap-mem-object
+(defn enq-unmap!
   ([queue cl host ^longs wait-events event]
    (let [err (CL/clEnqueueUnmapMemObject queue (cl-mem cl) host
                                          (if wait-events (alength wait-events) 0)
                                          wait-events event)]
      (with-check err queue)))
   ([queue cl host cqueue]
-   (enqueue-unmap-mem-object queue cl host nil event))
+   (enq-unmap! queue cl host nil event))
   ([queue cl host]
-   (enqueue-unmap-mem-object queue cl host nil nil))
+   (enq-unmap! queue cl host nil nil))
   ([cl host]
-   (enqueue-unmap-mem-object *command-queue* cl host nil nil)))
+   (enq-unmap! *command-queue* cl host nil nil)))
 
-(defn finish [queue]
+(defn enq-marker!
+  ([queue ev]
+   (with-check (CL/clEnqueueMarker queue ev) queue))
+  ([queue ^objects wait-events ev]
+   (with-check
+     (CL/clEnqueueMarkerWithWaitList queue (alength wait-events) wait-events ev)
+     queue)))
+
+(defn enq-wait! [queue ^objects wait-events]
+  (with-check
+    (CL/clEnqueueWaitForEvents queue (alength wait-events) wait-events)
+    queue))
+
+(defn enq-barrier!
+  ([queue]
+   (with-check (CL/clEnqueueBarrier queue) queue))
+  ([queue ^objects wait-events ev]
+   (with-check
+     (CL/clEnqueueBarrierWithWaitList queue (alength wait-events) wait-events ev)
+     queue)))
+
+(defn finish! [queue]
   (with-check (CL/clFinish queue) queue))
 
 (defmacro with-queue [queue & body]

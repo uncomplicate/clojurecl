@@ -22,8 +22,8 @@
                     op-test-kernel (kernel prog "op_test")]
 
        (set-args! op-test-kernel cl-output) => op-test-kernel
-       (enqueue-nd-range cqueue op-test-kernel work-sizes) => cqueue
-       (enqueue-read cqueue cl-output host-output) => cqueue
+       (enq-nd! cqueue op-test-kernel work-sizes) => cqueue
+       (enq-read! cqueue cl-output host-output) => cqueue
        (vec host-output) => [-1 0 0 4])))
 
   (facts
@@ -37,8 +37,8 @@
                     id-check-kernel (kernel prog "id_check")]
 
        (set-args! id-check-kernel cl-output) => id-check-kernel
-       (enqueue-nd-range cqueue id-check-kernel work-sizes) => cqueue
-       (enqueue-read cqueue cl-output host-output) => cqueue
+       (enq-nd! cqueue id-check-kernel work-sizes) => cqueue
+       (enq-read! cqueue cl-output host-output) => cqueue
        (seq host-output)
        => (just (roughly 35.0) (roughly 45.1) (roughly 55.2)
                 (roughly 65.0) (roughly 75.1) (roughly 85.2)
@@ -68,11 +68,11 @@
        (set-args! mod-round-kernel cl-mod-input cl-mod-output
                   cl-round-input cl-round-output)
        => mod-round-kernel
-       (enqueue-write cqueue cl-mod-input host-mod-input) => cqueue
-       (enqueue-write cqueue cl-round-input host-round-input) => cqueue
-       (enqueue-nd-range cqueue mod-round-kernel work-sizes) => cqueue
-       (enqueue-read cqueue cl-mod-output host-mod-output) => cqueue
-       (enqueue-read cqueue cl-round-output host-round-output) => cqueue
+       (enq-write! cqueue cl-mod-input host-mod-input) => cqueue
+       (enq-write! cqueue cl-round-input host-round-input) => cqueue
+       (enq-nd! cqueue mod-round-kernel work-sizes) => cqueue
+       (enq-read! cqueue cl-mod-output host-mod-output) => cqueue
+       (enq-read! cqueue cl-round-output host-round-output) => cqueue
        (seq host-mod-output) => '(18.0 -5.0)
        (vec host-round-output) => [6.0 -4.0 4.0 6.0
                                    7.0 -4.0 4.0 7.0
@@ -99,11 +99,11 @@
 
        (set-args! polar-rect-kernel cl-rvals cl-angles cl-xcoords cl-ycoords)
        => polar-rect-kernel
-       (enqueue-write cqueue cl-rvals rvals) => cqueue
-       (enqueue-write cqueue cl-angles angles) => cqueue
-       (enqueue-nd-range cqueue polar-rect-kernel work-sizes) => cqueue
-       (enqueue-read cqueue cl-xcoords xcoords) => cqueue
-       (enqueue-read cqueue cl-ycoords ycoords) => cqueue
+       (enq-write! cqueue cl-rvals rvals) => cqueue
+       (enq-write! cqueue cl-angles angles) => cqueue
+       (enq-nd! cqueue polar-rect-kernel work-sizes) => cqueue
+       (enq-read! cqueue cl-xcoords xcoords) => cqueue
+       (enq-read! cqueue cl-ycoords ycoords) => cqueue
        (seq xcoords) => (just (roughly 0.76536685) (roughly -0.70710677)
                               (roughly -1.4999998) (roughly 3.4641013))
        (seq ycoords) => (just (roughly 1.847759) (roughly 0.70710677)
@@ -120,27 +120,25 @@
                     mad-test-kernel (kernel prog "mad_test")]
 
        (set-args! mad-test-kernel cl-output) => mad-test-kernel
-       (enqueue-nd-range cqueue mad-test-kernel work-sizes) => cqueue
-       (enqueue-read cqueue cl-output output) => cqueue
+       (enq-nd! cqueue mad-test-kernel work-sizes) => cqueue
+       (enq-read! cqueue cl-output output) => cqueue
        (vec output) => [-396694989 1118792])))
 
   (facts
    "Listing 5.6, Page 116."
-   (let [s1 (float-array 8)
-         s2 (byte-array 16)
+   (let [s1 (float-array 4)
+         s2 (byte-array 2)
          work-sizes (work-size [1])
          program-source
-         (slurp "test/opencl/examples/openclinaction/ch05/shuffle-test.cl")]
-     (with-release [cl-s1 (cl-buffer ctx (* 8 Float/BYTES) :write-only)
-                    cl-s2 (cl-buffer ctx 16 :write-only)
+         (slurp "test/opencl/examples/openclinaction/ch05/select-test.cl")]
+     (with-release [cl-s1 (cl-buffer ctx (* 4 Float/BYTES) :write-only)
+                    cl-s2 (cl-buffer ctx 8 :write-only)
                     prog (build-program! (program-with-source ctx [program-source]))
-                    shuffle-test-kernel (kernel prog "shuffle_test")]
+                    select-test-kernel (kernel prog "select_test")]
 
-       (set-args! shuffle-test-kernel cl-s1 cl-s2) => shuffle-test-kernel
-       (enqueue-nd-range cqueue shuffle-test-kernel work-sizes) => cqueue
-       (enqueue-read cqueue cl-s1 s1) => cqueue
-       (enqueue-read cqueue cl-s2 s2) => cqueue
-       (vec s1) => [0.5 0.75 0.25 0.5 1.0 0.5 0.75 1.0]
-       (apply str (map char s2)) => "shuffle2function")))
-
-  )
+       (set-args! select-test-kernel cl-s1 cl-s2) => select-test-kernel
+       (enq-nd! cqueue select-test-kernel work-sizes) => cqueue
+       (enq-read! cqueue cl-s1 s1) => cqueue
+       (enq-read! cqueue cl-s2 s2) => cqueue
+       (vec s1) => [1.25 0.5 1.75 1.0]
+       (vec s2) => [2r00100111 2r00011011]))))
