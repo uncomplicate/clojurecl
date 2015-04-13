@@ -17,8 +17,7 @@
          notifications (chan)
          follow (follow notifications)
          v (direct-buffer (* Float/BYTES 4))
-         work-sizes (work-size [1])
-         platform (first (platforms))]
+         work-sizes (work-size [1])]
      (with-release [cl-v (cl-buffer ctx (* 4 Float/BYTES) :write-only)
                     prog (build-program! (program-with-source ctx [program-source]))
                     user-event-kernel (kernel prog "user_event")
@@ -45,9 +44,7 @@
          follow (follow notifications)
          data (direct-buffer bytesize)
          num (int-array [(/ (long bytesize) 16)])
-         num-iterations 2
-         work-sizes (work-size [1])
-         platform (first (platforms))]
+         work-sizes (work-size [1])]
      (with-release [cl-data (cl-buffer ctx bytesize :write-only)
                     prog (build-program! (program-with-source ctx [program-source]))
                     profile-read (kernel prog "profile_read")
@@ -72,8 +69,7 @@
          data (int-array (range num-ints))
          notifications (chan)
          follow (follow notifications)
-         work-sizes (work-size [512] [1])
-         platform (first (platforms))]
+         work-sizes (work-size [512] [1])]
      (with-release [cl-x (cl-buffer ctx (* num-ints Integer/BYTES 4) :write-only)
                     prog (build-program! (program-with-source ctx [program-source]))
                     profile-items (kernel prog "profile_items")

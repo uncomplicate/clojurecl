@@ -212,6 +212,12 @@
   ([^long size flag]
    (cl-buffer* *context* size (cl-mem-flags flag))))
 
+(extend-type Number
+  Argument
+  (set-arg [this kernel n]
+    (with-check (CL/clSetKernelArg kernel n (long this) nil)
+      kernel)))
+
 (extend-type (Class/forName "[F")
   HostMem
   (ptr [this]
