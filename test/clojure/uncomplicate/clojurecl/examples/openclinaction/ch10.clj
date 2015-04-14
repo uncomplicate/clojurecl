@@ -66,13 +66,13 @@
                  (-> (<!! notifications) :event profiling-info durations :end))
         (long (first partial-output)) => workgroup-size
         ;; =============== Vector reduction ==================================
-        (set-args! reduction-vector cl-data (* 4 cl-partial-sums) cl-partial-output)
+        (set-args! reduction-vector cl-data cl-partial-sums cl-partial-output)
         => reduction-vector
         (enq-nd! cqueue reduction-vector
                  (work-size [(/ num-items 4)] [workgroup-size])
                  nil profile-event1)
         (follow profile-event1)
-        (set-args! reduction-vector cl-partial-output (* 4 cl-partial-sums) cl-partial-output)
+        (set-args! reduction-vector cl-partial-output cl-partial-sums cl-partial-output)
         => reduction-vector
         (enq-nd! cqueue reduction-vector
                  (work-size [(/ num-items 4 workgroup-size 4)] [workgroup-size])

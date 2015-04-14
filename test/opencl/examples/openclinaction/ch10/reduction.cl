@@ -45,7 +45,7 @@ __kernel void reduction_vector(__global float4* data,
         if(lid < i) {
             partial_sums[lid] += partial_sums[lid + i];
         }
-        barrier(CLK_LOCAL_MEM_FENCE);
+          barrier(CLK_LOCAL_MEM_FENCE);
     }
 
     if(lid == 0) {
