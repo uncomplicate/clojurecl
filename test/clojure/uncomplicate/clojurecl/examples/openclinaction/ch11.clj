@@ -19,7 +19,6 @@
                 (map byte
                      (slurp "test/opencl/examples/openclinaction/ch11/kafka.txt")))
          text-size (alength kafka)
-         workgroup-size 256
          local-size (info dev :max-work-group-size)
          global-size (* local-size (info dev :max-compute-units))
          work-size (work-size [global-size] [local-size])
@@ -38,9 +37,7 @@
         => string-search
         (enq-write! cqueue cl-text kafka) => cqueue
         (enq-write! cqueue cl-result result) => cqueue
-        (enq-nd! cqueue string-search work-size)
-        => cqueue
-        #_(enq-barrier! cqueue)
+        (enq-nd! cqueue string-search work-size) => cqueue
         (enq-read! cqueue cl-result result) => cqueue
         (finish! cqueue) => cqueue
         (vec result) => [330 237 110 116])))))

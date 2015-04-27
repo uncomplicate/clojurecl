@@ -7,7 +7,7 @@
             [clojure.core.async :refer [go >!]])
   (:import [org.jocl CL cl_platform_id cl_context_properties cl_device_id
             cl_context cl_command_queue cl_mem cl_program cl_kernel cl_sampler
-            cl_event Sizeof Pointer CreateContextFunction EventCallbackFunction
+            cl_event cl_buffer_region Sizeof Pointer CreateContextFunction EventCallbackFunction
             BuildProgramFunction]
            [java.nio ByteBuffer ByteOrder]))
 
@@ -211,6 +211,21 @@
    (cl-buffer* context size (mask cl-mem-flags flag flags)))
   ([^long size flag]
    (cl-buffer* *context* size (cl-mem-flags flag))))
+
+(defn cl-sub-buffer*
+  ([^cl_mem cl-mem ^long flags ^long create-type ^cl_buffer_region info]
+   (let [err (int-array 1)
+         res (CL/clCreateSubBuffer cl-mem flags
+                                   (int create-type)
+                                   info err)]
+     (with-check-arr err (->CLBuffer res (Pointer/to ^cl_mem res) size))))
+  ([cl-mem ^long flags info]
+   (cl-sub-buffer* cl-mem flags CL/CL_BUFFER_CREATE_TYPE_REGION info)))
+
+(defn cl-sub-buffer
+  ([buffer origin size flag & flags]
+   (cl-sub-buffer* (cl-mem buffer) (mask cl-mem-flags flag flags)
+                   (cl_buffer_region. origin size))))
 
 (extend-type Number
   Argument

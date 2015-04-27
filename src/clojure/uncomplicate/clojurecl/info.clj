@@ -62,9 +62,9 @@
                         (~pointer-to-buffer res#)
                         nil)]
       (with-check err#
-        (wrap-byte-seq (if (= 4 Sizeof/size_t)
-                         int32
-                         int64)
+        (wrap-byte-seq (if (= 8 Sizeof/size_t)
+                         int64
+                         int32)
                        (byte-seq res#)))))
   ([method clobject info]
    `(first (info-size* ~method ~clobject ~info 1))))
