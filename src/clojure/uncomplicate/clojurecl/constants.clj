@@ -1,44 +1,8 @@
 (ns uncomplicate.clojurecl.constants
   (:import org.jocl.CL))
 
-;; TODO ========= OpenCL 2.0 Constants ======================================
-
-(def CL_DEVICE_GLOBAL_VARIABLE_PREFERRED_TOTAL_SIZE 0x1054)
-(def CL_DEVICE_IMAGE_BASE_ADDRESS_ALIGNMENT 0x104B)
-(def CL_DEVICE_IMAGE_PITCH_ALIGNMENT 0x104A)
-(def CL_DEVICE_MAX_GLOBAL_VARIABLE_SIZE 0x104D)
-(def CL_DEVICE_MAX_ON_DEVICE_EVENTS 0x1052)
-(def CL_DEVICE_MAX_ON_DEVICE_QUEUES 0x1051)
-(def CL_DEVICE_MAX_PIPE_ARGS 0x1055)
-(def CL_DEVICE_MAX_READ_WRITE_IMAGE_ARGS 0x104C)
-(def CL_DEVICE_PIPE_MAX_ACTIVE_RESERVATIONS 0x1056)
-(def CL_DEVICE_PIPE_MAX_PACKET_SIZE 0x1057)
-(def CL_DEVICE_PREFERRED_GLOBAL_ATOMIC_ALIGNMENT 0x1059)
-(def CL_DEVICE_PREFERRED_LOCAL_ATOMIC_ALIGNMENT 0x105A)
-(def CL_DEVICE_PREFERRED_PLATFORM_ATOMIC_ALIGNMENT 0x1058)
-(def CL_DEVICE_QUEUE_ON_DEVICE_MAX_SIZE 0x1050)
-(def CL_DEVICE_QUEUE_ON_DEVICE_PREFERRED_SIZE 0x104F)
-(def CL_DEVICE_QUEUE_ON_DEVICE_PROPERTIES 0x104E)
-(def CL_DEVICE_QUEUE_ON_HOST_PROPERTIES 0x102A)
+;; ===== OpenCL defines this, but JOCL 0.2.0 still misses it.
 (def CL_DEVICE_SPIR_VERSIONS 0x40E0)
-(def CL_DEVICE_SVM_CAPABILITIES 0x1053)
-(def CL_DEVICE_SVM_COARSE_GRAIN_BUFFER (bit-shift-left 1 0) )
-(def CL_DEVICE_SVM_FINE_GRAIN_BUFFER (bit-shift-left 1 1));
-(def CL_DEVICE_SVM_FINE_GRAIN_SYSTEM (bit-shift-left 1 2))
-(def CL_DEVICE_SVM_ATOMICS (bit-shift-left 1 3))
-
-(def CL_KERNEL_ARG_TYPE_PIPE (bit-shift-left 1 3))
-
-(def CL_MEM_USES_SVM_POINTER 0x1109)
-(def CL_MEM_SVM_FINE_GRAIN_BUFFER (bit-shift-left 1 10))
-(def CL_MEM_SVM_ATOMICS (bit-shift-left 1 11))
-
-(def CL_PROGRAM_BUILD_GLOBAL_VARIABLE_TOTAL_SIZE 0x1185)
-
-(def CL_QUEUE_ON_DEVICE (bit-shift-left 1 2))
-(def CL_QUEUE_ON_DEVICE_DEFAULT (bit-shift-left 1 3))
-(def CL_QUEUE_SIZE 0x1094)
-
 (def CL_TERMINATE_CAPABILITY_KHR 0x200F)
 
 ;; ============= Error Codes ===================================================
@@ -148,8 +112,8 @@
 (def cl-command-queue-properties
   {:out-of-order-exec-mode CL/CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE
    :profiling CL/CL_QUEUE_PROFILING_ENABLE
-   :queue-on-device CL_QUEUE_ON_DEVICE
-   :queue-on-device-default CL_QUEUE_ON_DEVICE_DEFAULT})
+   :queue-on-device CL/CL_QUEUE_ON_DEVICE
+   :queue-on-device-default CL/CL_QUEUE_ON_DEVICE_DEFAULT})
 
 (def cl-context-properties
   {:platform CL/CL_CONTEXT_PLATFORM
@@ -181,10 +145,10 @@
    :next-partitionable CL/CL_DEVICE_AFFINITY_DOMAIN_NEXT_PARTITIONABLE})
 
 (def cl-device-svm-capabilities
-  {:coarse-grain-buffer CL_DEVICE_SVM_COARSE_GRAIN_BUFFER
-   :fine-grain-buffer CL_DEVICE_SVM_FINE_GRAIN_BUFFER
-   :fine-grain-system CL_DEVICE_SVM_FINE_GRAIN_SYSTEM
-   :atomics CL_DEVICE_SVM_ATOMICS})
+  {:coarse-grain-buffer CL/CL_DEVICE_SVM_COARSE_GRAIN_BUFFER
+   :fine-grain-buffer CL/CL_DEVICE_SVM_FINE_GRAIN_BUFFER
+   :fine-grain-system CL/CL_DEVICE_SVM_FINE_GRAIN_SYSTEM
+   :atomics CL/CL_DEVICE_SVM_ATOMICS})
 
 (def cl-mem-flags
   {:read-write CL/CL_MEM_READ_WRITE
@@ -196,8 +160,8 @@
    :host-write-only CL/CL_MEM_HOST_WRITE_ONLY
    :host-read-only CL/CL_MEM_HOST_READ_ONLY
    :host-no-access CL/CL_MEM_HOST_NO_ACCESS
-   :fine-grain-buffer CL_MEM_SVM_FINE_GRAIN_BUFFER
-   :atomics CL_MEM_SVM_ATOMICS})
+   :fine-grain-buffer CL/CL_MEM_SVM_FINE_GRAIN_BUFFER
+   :atomics CL/CL_MEM_SVM_ATOMICS})
 
 (defn dec-mem-object-type [^long code]
   (case code
@@ -248,7 +212,7 @@
   {:const CL/CL_KERNEL_ARG_TYPE_CONST
    :restrict CL/CL_KERNEL_ARG_TYPE_RESTRICT
    :volatile CL/CL_KERNEL_ARG_TYPE_VOLATILE
-   :pipe CL_KERNEL_ARG_TYPE_PIPE
+   :pipe CL/CL_KERNEL_ARG_TYPE_PIPE
    :none CL/CL_KERNEL_ARG_TYPE_NONE})
 
 (defn dec-command-type [^long code]

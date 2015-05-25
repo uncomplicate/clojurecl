@@ -1,12 +1,12 @@
 (defproject uncomplicate/clojurecl "0.1.0-SNAPSHOT"
-  :description "ClojureCL is a Clojure library for OpenCL computations."
+  :description "ClojureCL is a Clojure library for parallel computations with OpenCL."
   :url "https://github.com/uncomplicate/clojurecl"
   :scm {:name "git"
         :url "https://github.com/uncomplicate/clojurecl"}
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
-  :dependencies [[org.clojure/clojure "1.7.0-beta1"]
-                 [org.jocl/jocl "0.1.9"]
+  :dependencies [[org.clojure/clojure "1.7.0-RC1"]
+                 [org.jocl/jocl "0.2.0-alpha01"]
                  [vertigo "0.1.3"]
                  [org.clojure/core.async "0.1.346.0-17112a-alpha"]]
 
@@ -19,13 +19,13 @@
   :jvm-opts ^:replace ["-XX:MaxDirectMemorySize=16g" "-XX:+UseLargePages"];;also replaces lein's default JVM argument TieredStopAtLevel=1
 
   :profiles {:dev {:plugins [[lein-midje "3.1.3"]
-                             [lein-marginalia "0.8.0"]
-                             [codox "0.8.10"]]
+                             [bilus/lein-marginalia "0.8.8"]
+                             [codox "0.8.12"]]
                    :global-vars {*warn-on-reflection* true
                                  *assert* true
                                  *unchecked-math* :warn-on-boxed
                                  *print-length* 128}
-                   :dependencies [[midje "1.6.3"]
+                   :dependencies [[midje "1.7.0-beta1"]
                                   [criterium "0.4.3"]]}}
 
   :javac-options ["-target" "1.6" "-source" "1.6" "-Xlint:-options"]

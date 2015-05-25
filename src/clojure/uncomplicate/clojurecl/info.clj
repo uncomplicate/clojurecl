@@ -198,7 +198,7 @@
 
 (defn global-variable-preferred-total-size ^long [device]
   (info-size* CL/clGetDeviceInfo device
-              CL_DEVICE_GLOBAL_VARIABLE_PREFERRED_TOTAL_SIZE))
+              CL/CL_DEVICE_GLOBAL_VARIABLE_PREFERRED_TOTAL_SIZE))
 
 (defn image2d-max-height ^long [device]
   (info-size* CL/clGetDeviceInfo device CL/CL_DEVICE_IMAGE2D_MAX_HEIGHT))
@@ -216,7 +216,7 @@
   (info-size* CL/clGetDeviceInfo device CL/CL_DEVICE_IMAGE3D_MAX_WIDTH))
 
 (defn image-base-address-alignment ^long [device]
-  (info-int* CL/clGetDeviceInfo device CL_DEVICE_IMAGE_BASE_ADDRESS_ALIGNMENT))
+  (info-int* CL/clGetDeviceInfo device CL/CL_DEVICE_IMAGE_BASE_ADDRESS_ALIGNMENT))
 
 (defn image-max-array-size ^long [device]
   (info-size* CL/clGetDeviceInfo device CL/CL_DEVICE_IMAGE_MAX_ARRAY_SIZE))
@@ -225,7 +225,7 @@
   (info-size* CL/clGetDeviceInfo device CL/CL_DEVICE_IMAGE_MAX_BUFFER_SIZE))
 
 (defn image-pitch-alignment ^long [device]
-  (info-int* CL/clGetDeviceInfo device CL_DEVICE_IMAGE_PITCH_ALIGNMENT))
+  (info-int* CL/clGetDeviceInfo device CL/CL_DEVICE_IMAGE_PITCH_ALIGNMENT))
 
 (defn image-support [device]
   (info-bool* CL/clGetDeviceInfo device CL/CL_DEVICE_IMAGE_SUPPORT))
@@ -253,28 +253,28 @@
   (info-long* CL/clGetDeviceInfo device CL/CL_DEVICE_MAX_CONSTANT_BUFFER_SIZE))
 
 (defn max-global-variable-size ^long [device]
-  (info-size* CL/clGetDeviceInfo device CL_DEVICE_MAX_GLOBAL_VARIABLE_SIZE))
+  (info-size* CL/clGetDeviceInfo device CL/CL_DEVICE_MAX_GLOBAL_VARIABLE_SIZE))
 
 (defn max-mem-aloc-size ^long [device]
   (info-long* CL/clGetDeviceInfo device CL/CL_DEVICE_MAX_MEM_ALLOC_SIZE))
 
 (defn max-on-device-events ^long [device]
-  (info-int* CL/clGetDeviceInfo device CL_DEVICE_MAX_ON_DEVICE_EVENTS))
+  (info-int* CL/clGetDeviceInfo device CL/CL_DEVICE_MAX_ON_DEVICE_EVENTS))
 
 (defn max-on-device-queues ^long [device]
-  (info-int* CL/clGetDeviceInfo device CL_DEVICE_MAX_ON_DEVICE_QUEUES))
+  (info-int* CL/clGetDeviceInfo device CL/CL_DEVICE_MAX_ON_DEVICE_QUEUES))
 
 (defn max-parameter-size ^long [device]
   (info-size* CL/clGetDeviceInfo device CL/CL_DEVICE_MAX_PARAMETER_SIZE))
 
 (defn max-pipe-args ^long [device]
-  (info-int* CL/clGetDeviceInfo device CL_DEVICE_MAX_PIPE_ARGS))
+  (info-int* CL/clGetDeviceInfo device CL/CL_DEVICE_MAX_PIPE_ARGS))
 
 (defn max-read-image-args ^long [device]
   (info-int* CL/clGetDeviceInfo device CL/CL_DEVICE_MAX_READ_IMAGE_ARGS))
 
 (defn max-read-write-image-args ^long [device]
-  (info-int* CL/clGetDeviceInfo device CL_DEVICE_MAX_READ_WRITE_IMAGE_ARGS))
+  (info-int* CL/clGetDeviceInfo device CL/CL_DEVICE_MAX_READ_WRITE_IMAGE_ARGS))
 
 (defn max-samplers ^long [device]
   (info-int* CL/clGetDeviceInfo device CL/CL_DEVICE_MAX_SAMPLERS))
@@ -359,10 +359,10 @@
                            Sizeof/cl_long)) )
 
 (defn pipe-max-active-reservations ^long [device]
-  (info-int* CL/clGetDeviceInfo device CL_DEVICE_PIPE_MAX_ACTIVE_RESERVATIONS))
+  (info-int* CL/clGetDeviceInfo device CL/CL_DEVICE_PIPE_MAX_ACTIVE_RESERVATIONS))
 
 (defn pipe-max-packet-size ^long [device]
-  (info-long* CL/clGetDeviceInfo device CL_DEVICE_PIPE_MAX_PACKET_SIZE))
+  (info-long* CL/clGetDeviceInfo device CL/CL_DEVICE_PIPE_MAX_PACKET_SIZE))
 
 (defn platform [device]
   (let [p (cl_platform_id.)
@@ -373,16 +373,16 @@
     (with-check err p)))
 
 (defn preferred-global-atomic-alignment ^long [device]
-  (info-int* CL/clGetDeviceInfo device CL_DEVICE_PREFERRED_GLOBAL_ATOMIC_ALIGNMENT))
+  (info-int* CL/clGetDeviceInfo device CL/CL_DEVICE_PREFERRED_GLOBAL_ATOMIC_ALIGNMENT))
 
 (defn preferred-interop-user-sync [device]
   (info-bool* CL/clGetDeviceInfo device CL/CL_DEVICE_PREFERRED_INTEROP_USER_SYNC))
 
 (defn preferred-local-atomic-alignment ^long [device]
-  (info-int* CL/clGetDeviceInfo device CL_DEVICE_PREFERRED_LOCAL_ATOMIC_ALIGNMENT))
+  (info-int* CL/clGetDeviceInfo device CL/CL_DEVICE_PREFERRED_LOCAL_ATOMIC_ALIGNMENT))
 
 (defn preferred-platform-atomic-alignment ^long [device]
-  (info-int* CL/clGetDeviceInfo device CL_DEVICE_PREFERRED_PLATFORM_ATOMIC_ALIGNMENT))
+  (info-int* CL/clGetDeviceInfo device CL/CL_DEVICE_PREFERRED_PLATFORM_ATOMIC_ALIGNMENT))
 
 (defn preferred-vector-width-char ^long [device]
   (info-int* CL/clGetDeviceInfo device CL/CL_DEVICE_PREFERRED_VECTOR_WIDTH_CHAR))
@@ -412,16 +412,16 @@
   (info-size* CL/clGetDeviceInfo device CL/CL_DEVICE_PROFILING_TIMER_RESOLUTION))
 
 (defn queue-on-device-max-size ^long [device]
-  (info-int* CL/clGetDeviceInfo device CL_DEVICE_QUEUE_ON_DEVICE_MAX_SIZE))
+  (info-int* CL/clGetDeviceInfo device CL/CL_DEVICE_QUEUE_ON_DEVICE_MAX_SIZE))
 
 (defn queue-on-device-preferred-size ^long [device]
-  (info-int* CL/clGetDeviceInfo device CL_DEVICE_QUEUE_ON_DEVICE_PREFERRED_SIZE))
+  (info-int* CL/clGetDeviceInfo device CL/CL_DEVICE_QUEUE_ON_DEVICE_PREFERRED_SIZE))
 
 (defn queue-on-device-properties ^long [device]
-  (info-long* CL/clGetDeviceInfo device CL_DEVICE_QUEUE_ON_DEVICE_PROPERTIES))
+  (info-long* CL/clGetDeviceInfo device CL/CL_DEVICE_QUEUE_ON_DEVICE_PROPERTIES))
 
 (defn queue-on-host-properties ^long [device]
-  (info-long* CL/clGetDeviceInfo device CL_DEVICE_QUEUE_ON_HOST_PROPERTIES))
+  (info-long* CL/clGetDeviceInfo device CL/CL_DEVICE_QUEUE_ON_HOST_PROPERTIES))
 
 (defn single-fp-config ^long [device]
   (info-long* CL/clGetDeviceInfo device CL/CL_DEVICE_SINGLE_FP_CONFIG))
@@ -430,7 +430,7 @@
   (to-set (info-string* CL/clGetDeviceInfo device CL_DEVICE_SPIR_VERSIONS)))
 
 (defn svm-capabilities ^long [device]
-  (info-long* CL/clGetDeviceInfo device CL_DEVICE_SVM_CAPABILITIES))
+  (info-long* CL/clGetDeviceInfo device CL/CL_DEVICE_SVM_CAPABILITIES))
 
 (defn terminate-capability-khr ^long [device]
   (info-long* CL/clGetDeviceInfo device CL_TERMINATE_CAPABILITY_KHR))
@@ -814,7 +814,7 @@
 
 ;; TODO this throws an exception...
 (defn queue-size ^long [queue]
-  (info-int* CL/clGetCommandQueueInfo queue CL_QUEUE_SIZE))
+  (info-int* CL/clGetCommandQueueInfo queue CL/CL_QUEUE_SIZE))
 
 (defrecord CommandQueueInfo [context device reference-count
                              properties size])
@@ -1090,7 +1090,7 @@
   (info-size* CL/clGetMemObjectInfo mo CL/CL_MEM_OFFSET))
 
 (defn uses-svm-pointer [mo]
-  (info-bool* CL/clGetMemObjectInfo mo CL_MEM_USES_SVM_POINTER))
+  (info-bool* CL/clGetMemObjectInfo mo CL/CL_MEM_USES_SVM_POINTER))
 
 (defrecord MemObjectInfo [type flags size map-count reference-count
                           context associated-memobject offset
@@ -1176,7 +1176,7 @@
   (pb-info-int* program device CL/CL_PROGRAM_BINARY_TYPE))
 
 (defn global-variable-total-size ^long [program device]
-  (pb-info-size* program device CL_PROGRAM_BUILD_GLOBAL_VARIABLE_TOTAL_SIZE))
+  (pb-info-size* program device CL/CL_PROGRAM_BUILD_GLOBAL_VARIABLE_TOTAL_SIZE))
 
 (defrecord ProgramBuildInfo [build-status build-options build-log
                              binary-type global-variable-total-size])
