@@ -1,19 +1,48 @@
-(ns uncomplicate.clojurecl.utils
-  (:require [clojure.string :as str]
-            [uncomplicate.clojurecl.constants :refer [dec-error]])
+(ns ^{:author "Dragan Djuric"}
+  uncomplicate.clojurecl.utils
+  "Utility functions used as helpers in other clojurecl namespaces.
+  The user of the ClojureCL library would probably not need to use
+  any of the functions defined here."
+  (:require [uncomplicate.clojurecl.constants :refer [dec-error]])
   (:import clojure.lang.ExceptionInfo))
 
 ;; ========= Bitfild masks ========================================
 
-(defn mask ^long
-  ([table flag1 flag2 flags]
-   (apply bit-or (table flag1) (table flag2) (map table flags)))
-  ([table flag flags]
-   (apply bit-or 0 (table flag) (map table flags)))
-  ([table flags]
-   (apply bit-or 0 0 (map table flags))))
+(defn mask
+  "Converts keywords to a bitfield mask.
 
-(defn unmask [table ^long mask]
+  Given one or more keyword flags, creates a long bitmask
+  that can be consumed by jocl functions. Needs a hashmap table that
+  contains possible long mappings, 0-2 keywords, and a (possibly empty)
+  list of additional keywords.
+  If called with nil table or unknown keyword, throws Illegalargumentexception.
+  The inverse function is unmask.
+
+  Examples:
+
+  (mask {:a 1 :b 2 :c 4} [:a :c]) => 5
+  (mask {:a 1 :b 2 :c 4} :a [:c]) => 5
+  (mask {:a 1 :b 2 :c 4} :a :c []) => 5
+  "
+  (^long [table flag1 flag2 flags]
+         (apply bit-or (table flag1) (table flag2) (map table flags)))
+  (^long [table flag flags]
+         (apply bit-or 0 (table flag) (map table flags)))
+  (^long [table flags]
+         (apply bit-or 0 0 (map table flags))))
+
+(defn unmask
+  "Converts a bitfield mask to keywords.
+
+  Given a mapping table and a bitfield mask, returns a lazy sequence
+  with decoded keyword flags contained in the bitmask.
+  The reverse function is mask.
+
+  Examples:
+
+  (unmask {:a 1 :b 2 :c 4} 5) =>  '(:a :c)
+  "
+  [table ^long mask]
   (filter identity
           (map (fn [[k v]]
                  (if (= 0 (bit-and mask (long v)))
@@ -21,7 +50,20 @@
                    k))
                table)))
 
-(defn unmask1 [table ^long mask]
+(defn unmask1
+  "Converts a bitfield mask to one keyword.
+
+  Given a mapping table and a bitfield mask, returns the first decoded keyword
+  that is contained in the bitmask. This is useful when we know that just
+  one of the values in the table fits the bitmask, so the result of unmask
+  would contain one element anyway.
+  The reverse function is mask.
+
+  Examples:
+
+  (unmask1 {:a 1 :b 2 :c 4} 2) => :b
+  "
+  [table ^long mask]
   (some identity
         (map (fn [[k v]]
                (if (= 0 (bit-and mask (long v)))
@@ -32,22 +74,67 @@
 ;; ========== Error handling ======================================
 
 (defn error
-  ([err-code details]
+  "Converts an OpenCL error code to an ex-info with richer user-friendly
+  information.
+
+  Accepts a long err-code that should be one of the codes defined in
+  OpenCL standard, and an optional details field that could be anything that you
+  think is informative.
+
+  See the available codes in constants/dec-error.
+  Also see the discussion at
+  http://streamcomputing.eu/blog/2013-04-28/opencl-1-2-error-codes/
+
+  Examples:
+
+  (error 0) => an ExceptionInfo instance
+  (error -5 {:comment \"Why here?\"\"}) => and ExceptionInfo instance
+  "
+  ([^long err-code details]
    (let [err (dec-error err-code)]
      (ex-info (format "OpenCL error: %s." err)
               {:name err :code err-code :type :opencl-error :details details})))
   ([err-code]
    (error err-code nil)))
 
-(defmacro with-check-arr [err-code form]
-  `(with-check (aget (ints ~err-code) 0) ~form))
+(defmacro with-check
+  "Evaluates form if err-code is not zero (CL_SUCCESS), otherwise throws
+  an appropriate ex-info with decoded informative details.
+  It helps fith jocl methods that return error codes directly, while
+  returning computation results through side-effects in parameters.
 
-(defmacro with-check [err-code form]
+  Example:
+
+  (with-check (some-jocl-call-that-returns-error-code) result)
+  "
+  [err-code form]
   `(if (= 0 ~err-code)
      ~form
      (throw (error ~err-code))))
 
-(defmacro maybe [form]
+(defmacro with-check-arr
+  "Evaluates form if the integer in the err-code primitive int array is zero,
+  Otherwise throws an exception.
+  Similar to with-check, but with the error code being held in an array instead
+  of being a primitive number. It helps with jocl methods that return results
+  directly, and signal errors through side-effects in a primitive array parameter.
+
+  (let [err (int-array 1)
+        res (some-jocl-call err)]
+     (with-checl-arr err res))
+  "
+  [err-code form]
+  `(with-check (aget (ints ~err-code) 0) ~form))
+
+(defmacro maybe
+  "Evaluates form in try; if OpenCL-related exception is caught, the result is
+  substituted with the ex-info object.
+
+  Non-OpenCL exceptions are rethrown. Useful when we do not want to let a minor
+  OpenCL error due to a driver incompatibility with the standard
+  or an unimplemented feature in the actual driver crash the application.
+  An ex-info object will be put in place of the expected result."
+  [form]
   `(try ~form
          (catch ExceptionInfo ex-info#
            (if (= :opencl-error (:type (ex-data ex-info#)))

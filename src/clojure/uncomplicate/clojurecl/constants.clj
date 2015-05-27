@@ -1,4 +1,24 @@
-(ns uncomplicate.clojurecl.constants
+(ns ^{:author "Dragan Djuric"}
+    uncomplicate.clojurecl.constants
+  "Defines constants and mappings from/to OpenCL constants.
+
+  OpenCL API defines and uses numerous int/long C-style constants as arguments
+in functions calls, mostly for configuring various options. Clojure uses keywords
+as an user friendly alternative. ClojureCL's core namespace contains primitive
+functions marked with asterisk (*), which still accept the low level constants
+ defined in org.jocl.CL java class, but the preferred, easier, and natural way
+is to use keywords. Another benefit of that method is that you can easily view
+available options by printing te appropriate hash-map from this namespace.
+
+  The mapping is two-way. Hashmaps that convert keywords to number codes
+are named cl-something-clish, while functions that convert numbers to keywords
+are named dec-something-clish. You can see which keywords are available for
+certain property by evaluate appropriate cl-something-clish hashmap. All hashmaps
+and functions contain brief doc and a web link to appropriate online OpenCL
+documentation with detailed explanations
+
+Also see the summary at
+http://www.khronos.org/registry/cl/sdk/2.0/docs/man/xhtml/enums.html"
   (:import org.jocl.CL))
 
 ;; ===== OpenCL defines this, but JOCL 0.2.0 still misses it.
@@ -7,7 +27,14 @@
 
 ;; ============= Error Codes ===================================================
 
-(defn dec-error [^long code]
+(defn dec-error
+  "Decodes OpenCL error code to a meaningful string.
+  If called with a number that is not recognized as an existing OpenCL error,
+  returns \"UNKNOWN OpenCL ERROR!\"
+
+  Also see the discussion at
+  http://streamcomputing.eu/blog/2013-04-28/opencl-1-2-error-codes/"
+  [^long code]
   (case code
     0 "CL_SUCCESS"
     -1 "CL_DEVICE_NOT_FOUND"
@@ -77,7 +104,9 @@
 
 ;; ==================== Keyword mapping ======================================
 
-(def cl-device-type
+(def ^{:doc "Types of OpenCL devices defined in OpenCL standard.
+See http://www.khronos.org/registry/cl/sdk/2.0/docs/man/xhtml/clGetDeviceIDs.html"}
+  cl-device-type
   {:gpu CL/CL_DEVICE_TYPE_GPU
    :cpu CL/CL_DEVICE_TYPE_CPU
    :default CL/CL_DEVICE_TYPE_DEFAULT
@@ -85,7 +114,9 @@
    :custom CL/CL_DEVICE_TYPE_CUSTOM
    :all CL/CL_DEVICE_TYPE_ALL})
 
-(def cl-device-fp-config
+(def ^{:doc "Floating point capabilities of the device defined in OpenCL standard.
+See http://www.khronos.org/registry/cl/sdk/2.0/docs/man/xhtml/clGetDeviceInfo.html"}
+  cl-device-fp-config
   {:denorm CL/CL_FP_DENORM
    :inf-nan CL/CL_FP_INF_NAN
    :round-to-nearest CL/CL_FP_ROUND_TO_NEAREST
@@ -95,27 +126,38 @@
    :correctly-rounded-divide-sqrt CL/CL_FP_CORRECTLY_ROUNDED_DIVIDE_SQRT
    :soft-float CL/CL_FP_SOFT_FLOAT})
 
-(def cl-device-mem-cache-type
+(def
+  ^{:doc "Types of global memory cache defined in OpenCL standard.
+See http://www.khronos.org/registry/cl/sdk/2.0/docs/man/xhtml/clGetDeviceInfo.html"}
+  cl-device-mem-cache-type
   {:none CL/CL_NONE
    :read-only CL/CL_READ_ONLY_CACHE
    :read-write CL/CL_READ_WRITE_CACHE})
 
-(def cl-local-mem-type
+(def ^{:doc "Types of local memory defined in OpenCL standard.
+See http://www.khronos.org/registry/cl/sdk/2.0/docs/man/xhtml/clGetDeviceInfo.html"}
+  cl-local-mem-type
   {:local CL/CL_LOCAL
    :global CL/CL_GLOBAL
    :none CL/CL_NONE})
 
-(def cl-device-exec-capabilities
+(def ^{:doc "The execution capabilities of the device defined in OpenCL standard.
+See http://www.khronos.org/registry/cl/sdk/2.0/docs/man/xhtml/clGetDeviceInfo.html"}
+  cl-device-exec-capabilities
   {:kernel CL/CL_EXEC_KERNEL
    :native-kernel CL/CL_EXEC_NATIVE_KERNEL})
 
-(def cl-command-queue-properties
+(def ^{:doc "On device command-queue properties defined in OpenCL standard.
+See http://www.khronos.org/registry/cl/sdk/2.0/docs/man/xhtml/clGetDeviceInfo.html"}
+  cl-command-queue-properties
   {:out-of-order-exec-mode CL/CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE
    :profiling CL/CL_QUEUE_PROFILING_ENABLE
    :queue-on-device CL/CL_QUEUE_ON_DEVICE
    :queue-on-device-default CL/CL_QUEUE_ON_DEVICE_DEFAULT})
 
-(def cl-context-properties
+(def ^{:doc "Context properties defined in OpenCL standard.
+See http://www.khronos.org/registry/cl/sdk/2.0/docs/man/xhtml/clGetDeviceInfo.html"}
+  cl-context-properties
   {:platform CL/CL_CONTEXT_PLATFORM
    :interop-user-sync CL/CL_CONTEXT_INTEROP_USER_SYNC
    :gl-context-khr CL/CL_GL_CONTEXT_KHR
@@ -124,19 +166,27 @@
    :glx-display-khr CL/CL_GLX_DISPLAY_KHR
    :wgl-hdc-khr CL/CL_WGL_HDC_KHR})
 
-(defn dec-context-properties [^long code]
+(defn dec-context-properties
+  "Converts cl_context_properties code from number to keyword.
+See http://www.khronos.org/registry/cl/sdk/2.0/docs/man/xhtml/clGetDeviceInfo.html"
+  [^long code]
   (case code
     0x1004 :platform
     0x1005 :interop-user-sync))
 
-(defn dec-device-partition-property [^long code]
+(defn dec-device-partition-property
+  "Converts cl_device_partition_property code from number to keyword.
+See http://www.khronos.org/registry/cl/sdk/2.0/docs/man/xhtml/clGetDeviceInfo.html"
+  [^long code]
   (case code
     0x1086 :equally
     0x1087 :by-counts
     0x0 :by-counts-list-end
     0x1088 :by-affinity-domain))
 
-(def cl-device-affinity-domain
+(def ^{:doc "Affinity domains for partitioning the device defined in OpenCL standard.
+See http://www.khronos.org/registry/cl/sdk/2.0/docs/man/xhtml/clGetDeviceInfo.html"}
+  cl-device-affinity-domain
   {:numa CL/CL_DEVICE_AFFINITY_DOMAIN_NUMA
    :l1-cache CL/CL_DEVICE_AFFINITY_DOMAIN_L1_CACHE
    :l2-cache CL/CL_DEVICE_AFFINITY_DOMAIN_L2_CACHE
@@ -144,13 +194,17 @@
    :l4-cache CL/CL_DEVICE_AFFINITY_DOMAIN_L4_CACHE
    :next-partitionable CL/CL_DEVICE_AFFINITY_DOMAIN_NEXT_PARTITIONABLE})
 
-(def cl-device-svm-capabilities
+(def ^{:doc "Context properties defined in OpenCL standard.
+See http://www.khronos.org/registry/cl/sdk/2.0/docs/man/xhtml/clGetDeviceInfo.html"}
+  cl-device-svm-capabilities
   {:coarse-grain-buffer CL/CL_DEVICE_SVM_COARSE_GRAIN_BUFFER
    :fine-grain-buffer CL/CL_DEVICE_SVM_FINE_GRAIN_BUFFER
    :fine-grain-system CL/CL_DEVICE_SVM_FINE_GRAIN_SYSTEM
    :atomics CL/CL_DEVICE_SVM_ATOMICS})
 
-(def cl-mem-flags
+(def ^{:doc "Memory allocation and usage information defined in OpenCL standard.
+See http://www.khronos.org/registry/cl/sdk/2.0/docs/man/xhtml/clCreateBuffer.html"}
+  cl-mem-flags
   {:read-write CL/CL_MEM_READ_WRITE
    :write-only CL/CL_MEM_WRITE_ONLY
    :read-only CL/CL_MEM_READ_ONLY
@@ -163,7 +217,10 @@
    :fine-grain-buffer CL/CL_MEM_SVM_FINE_GRAIN_BUFFER
    :atomics CL/CL_MEM_SVM_ATOMICS})
 
-(defn dec-mem-object-type [^long code]
+(defn dec-mem-object-type
+  "Converts cl_mem_object_type code from number to keyword.
+  See http://www.khronos.org/registry/cl/sdk/2.0/docs/man/xhtml/clGetMemObjectInfo.html"
+  [^long code]
   (case code
     0x10F0 :buffer
     0x10F1 :image2d
@@ -174,12 +231,17 @@
     0x10F6 :image1d-buffer
     0x10F7 :pipe))
 
-(def cl-map-flags
+(def ^{:doc "Map flags used in enqueuing buffer mapping defined in OpenCL standard.
+See http://www.khronos.org/registry/cl/sdk/2.0/docs/man/xhtml/clEnqueueMapBuffer.html"}
+  cl-map-flags
   {:read CL/CL_MAP_READ
    :write CL/CL_MAP_WRITE
    :write-invalidate-region CL/CL_MAP_WRITE_INVALIDATE_REGION})
 
-(defn dec-program-binary-type [^long code]
+(defn dec-program-binary-type
+  "Converts cl_program_binary_type code from number to keyword.
+  See https://www.khronos.org/registry/cl/sdk/2.0/docs/man/xhtml/clGetProgramBuildInfo.html"
+    [^long code]
   (case code
     0x0 :none
     0x1 :compiled-object
@@ -187,35 +249,50 @@
     0x4 :executable
     0x40E1 :intermediate))
 
-(defn dec-build-status [^long code]
+(defn dec-build-status
+  "Converts cl_program_build_status code from number to keyword.
+  See https://www.khronos.org/registry/cl/sdk/2.0/docs/man/xhtml/clGetProgramBuildInfo.html"
+  [^long code]
   (case code
     0 :success
     -1 :none
     -2 :error
     -3 :in-progress))
 
-(defn dec-kernel-arg-address-qualifier [^long code]
+(defn
+  dec-kernel-arg-address-qualifier
+  "Converts cl_kernel_arg_address_qualifier code from number to keyword.
+  See http://www.khronos.org/registry/cl/sdk/2.0/docs/man/xhtml/clGetKernelArgInfo.html"
+  [^long code]
   (case code
     0x119B :global
     0x119C :local
     0x119D :constant
     0x119E :private))
 
-(defn dec-kernel-arg-access-qualifier [^long code]
+(defn dec-kernel-arg-access-qualifier
+  "Converts cl_kernel_arg_access_qualifier code from number to keyword.
+  See http://www.khronos.org/registry/cl/sdk/2.0/docs/man/xhtml/clGetKernelArgInfo.html"
+  [^long code]
   (case code
     0x11A0 :read-only
     0x11A1 :write-only
     0x11A2 :read-write
     0x11A3 :none))
 
-(def cl-kernel-arg-type-qualifier
+(def  ^{:doc "Type quilifiers specified for the argument, defined in OpenCL standard.
+See http://www.khronos.org/registry/cl/sdk/2.0/docs/man/xhtml/clGetKernelArgInfo.html"}
+  cl-kernel-arg-type-qualifier
   {:const CL/CL_KERNEL_ARG_TYPE_CONST
    :restrict CL/CL_KERNEL_ARG_TYPE_RESTRICT
    :volatile CL/CL_KERNEL_ARG_TYPE_VOLATILE
    :pipe CL/CL_KERNEL_ARG_TYPE_PIPE
    :none CL/CL_KERNEL_ARG_TYPE_NONE})
 
-(defn dec-command-type [^long code]
+(defn dec-command-type
+  "Converts cl_event_command_type code from number to keyword.
+  See http://www.khronos.org/registry/cl/sdk/2.0/docs/man/xhtml/clGetEventInfo.html"
+  [^long code]
   (case code
     0x11F0 :ndrange-kernel
     0x11F1 :task
@@ -249,14 +326,20 @@
     0x120D :svm-unmap
     0x200D :gl-fence-sync-object-khr))
 
-(defn dec-command-execution-status [^long code]
+(defn dec-command-execution-status
+  "Converts cl_event_command_execution_status code from number to keyword.
+  See http://www.khronos.org/registry/cl/sdk/2.0/docs/man/xhtml/clGetEventInfo.html"
+  [^long code]
   (case code
     0x0 :complete
     0x1 :running
     0x2 :submitted
     0x3 :queued))
 
-(def cl-command-execution-status
+(def
+  ^{:doc "Execution statuses of commands, defined in OpenCL standard.
+See http://www.khronos.org/registry/cl/sdk/2.0/docs/man/xhtml/clGetEventInfo.html"}
+  cl-command-execution-status
   {:complete CL/CL_COMPLETE
    :running CL/CL_RUNNING
    :submitted CL/CL_SUBMITTED
