@@ -4,33 +4,33 @@
 
   OpenCL API defines and uses numerous int/long C-style constants as arguments
 in functions calls, mostly for configuring various options. Clojure uses keywords
-as an user friendly alternative. ClojureCL's core namespace contains primitive
-functions marked with asterisk (*), which still accept the low level constants
- defined in org.jocl.CL java class, but the preferred, easier, and natural way
+as an user friendly alternative. ClojureCL's `core` namespace contains primitive
+functions suffixed with `*`, which still accept the low level constants
+defined in `org.jocl.CL` Java class, but the preferred, easier, and natural way
 is to use keywords. Another benefit of that method is that you can easily view
-available options by printing te appropriate hash-map from this namespace.
+available options by printing an appropriate hash-map from this namespace.
 
-  The mapping is two-way. Hashmaps that convert keywords to number codes
-are named cl-something-clish, while functions that convert numbers to keywords
-are named dec-something-clish. You can see which keywords are available for
-certain property by evaluate appropriate cl-something-clish hashmap. All hashmaps
-and functions contain brief doc and a web link to appropriate online OpenCL
-documentation with detailed explanations
+  Most mappings are two-way. Hashmaps that convert keywords to number codes
+  are named `cl-something-clish`, while functions that convert numbers to keywords
+  are named `dec-something-clish`. You can see which keywords are available for
+  a certain property by evaluate appropriate `cl-something-clish` hashmap.
+  All hashmaps and functions contain brief doc and a web link to appropriate
+  online OpenCL documentation with detailed explanations
 
-Also see the summary at
-http://www.khronos.org/registry/cl/sdk/2.0/docs/man/xhtml/enums.html"
+  Also see the summary at
+  http://www.khronos.org/registry/cl/sdk/2.0/docs/man/xhtml/enums.html"
   (:import org.jocl.CL))
 
 ;; ===== OpenCL defines this, but JOCL 0.2.0 still misses it.
-(def CL_DEVICE_SPIR_VERSIONS 0x40E0)
-(def CL_TERMINATE_CAPABILITY_KHR 0x200F)
+(def ^:no-doc CL_DEVICE_SPIR_VERSIONS 0x40E0)
+(def ^:no-doc CL_TERMINATE_CAPABILITY_KHR 0x200F)
 
 ;; ============= Error Codes ===================================================
 
 (defn dec-error
   "Decodes OpenCL error code to a meaningful string.
   If called with a number that is not recognized as an existing OpenCL error,
-  returns \"UNKNOWN OpenCL ERROR!\"
+  returns `\"UNKNOWN OpenCL ERROR!\"`
 
   Also see the discussion at
   http://streamcomputing.eu/blog/2013-04-28/opencl-1-2-error-codes/"
@@ -167,7 +167,7 @@ See http://www.khronos.org/registry/cl/sdk/2.0/docs/man/xhtml/clGetDeviceInfo.ht
    :wgl-hdc-khr CL/CL_WGL_HDC_KHR})
 
 (defn dec-context-properties
-  "Converts cl_context_properties code from number to keyword.
+  "Converts `cl_context_properties` code from number to keyword.
 See http://www.khronos.org/registry/cl/sdk/2.0/docs/man/xhtml/clGetDeviceInfo.html"
   [^long code]
   (case code
@@ -175,7 +175,7 @@ See http://www.khronos.org/registry/cl/sdk/2.0/docs/man/xhtml/clGetDeviceInfo.ht
     0x1005 :interop-user-sync))
 
 (defn dec-device-partition-property
-  "Converts cl_device_partition_property code from number to keyword.
+  "Converts `cl_device_partition_property` code from number to keyword.
 See http://www.khronos.org/registry/cl/sdk/2.0/docs/man/xhtml/clGetDeviceInfo.html"
   [^long code]
   (case code
@@ -218,7 +218,7 @@ See http://www.khronos.org/registry/cl/sdk/2.0/docs/man/xhtml/clCreateBuffer.htm
    :atomics CL/CL_MEM_SVM_ATOMICS})
 
 (defn dec-mem-object-type
-  "Converts cl_mem_object_type code from number to keyword.
+  "Converts `cl_mem_object_type` code from number to keyword.
   See http://www.khronos.org/registry/cl/sdk/2.0/docs/man/xhtml/clGetMemObjectInfo.html"
   [^long code]
   (case code
@@ -239,7 +239,7 @@ See http://www.khronos.org/registry/cl/sdk/2.0/docs/man/xhtml/clEnqueueMapBuffer
    :write-invalidate-region CL/CL_MAP_WRITE_INVALIDATE_REGION})
 
 (defn dec-program-binary-type
-  "Converts cl_program_binary_type code from number to keyword.
+  "Converts `cl_program_binary_type` code from number to keyword.
   See https://www.khronos.org/registry/cl/sdk/2.0/docs/man/xhtml/clGetProgramBuildInfo.html"
     [^long code]
   (case code
@@ -250,7 +250,7 @@ See http://www.khronos.org/registry/cl/sdk/2.0/docs/man/xhtml/clEnqueueMapBuffer
     0x40E1 :intermediate))
 
 (defn dec-build-status
-  "Converts cl_program_build_status code from number to keyword.
+  "Converts `cl_program_build_status` code from number to keyword.
   See https://www.khronos.org/registry/cl/sdk/2.0/docs/man/xhtml/clGetProgramBuildInfo.html"
   [^long code]
   (case code
@@ -261,7 +261,7 @@ See http://www.khronos.org/registry/cl/sdk/2.0/docs/man/xhtml/clEnqueueMapBuffer
 
 (defn
   dec-kernel-arg-address-qualifier
-  "Converts cl_kernel_arg_address_qualifier code from number to keyword.
+  "Converts `cl_kernel_arg_address_qualifier` code from number to keyword.
   See http://www.khronos.org/registry/cl/sdk/2.0/docs/man/xhtml/clGetKernelArgInfo.html"
   [^long code]
   (case code
@@ -271,7 +271,7 @@ See http://www.khronos.org/registry/cl/sdk/2.0/docs/man/xhtml/clEnqueueMapBuffer
     0x119E :private))
 
 (defn dec-kernel-arg-access-qualifier
-  "Converts cl_kernel_arg_access_qualifier code from number to keyword.
+  "Converts `cl_kernel_arg_access_qualifier` code from number to keyword.
   See http://www.khronos.org/registry/cl/sdk/2.0/docs/man/xhtml/clGetKernelArgInfo.html"
   [^long code]
   (case code
@@ -290,7 +290,7 @@ See http://www.khronos.org/registry/cl/sdk/2.0/docs/man/xhtml/clGetKernelArgInfo
    :none CL/CL_KERNEL_ARG_TYPE_NONE})
 
 (defn dec-command-type
-  "Converts cl_event_command_type code from number to keyword.
+  "Converts `cl_event_command_type` code from number to keyword.
   See http://www.khronos.org/registry/cl/sdk/2.0/docs/man/xhtml/clGetEventInfo.html"
   [^long code]
   (case code
@@ -327,7 +327,7 @@ See http://www.khronos.org/registry/cl/sdk/2.0/docs/man/xhtml/clGetKernelArgInfo
     0x200D :gl-fence-sync-object-khr))
 
 (defn dec-command-execution-status
-  "Converts cl_event_command_execution_status code from number to keyword.
+  "Converts `cl_event_command_execution_status` code from number to keyword.
   See http://www.khronos.org/registry/cl/sdk/2.0/docs/man/xhtml/clGetEventInfo.html"
   [^long code]
   (case code

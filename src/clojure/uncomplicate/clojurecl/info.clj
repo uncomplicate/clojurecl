@@ -1,4 +1,46 @@
-(ns uncomplicate.clojurecl.info
+(ns ^{:author "Dragan Djuric"}
+  uncomplicate.clojurecl.info
+  "Info functions for all OpenCL objects (platforms, devices, etc...).
+
+  The OpenCL standard defines info functions for all cl structures. Typically
+  in OpenCL C, you would have a reference to an object representing, for example,
+  platform, and then call a dedicated info function, in this case
+  [`clGetPlatformInfo`](http://www.jocl.org/doc/org/jocl/CL.html#clGetPlatformInfo-org.jocl.cl_platform_id-int-long-org.jocl.Pointer-long:A-)
+  with a parameter param_name that specifies which of the several available
+  informations you want about that object. If you need all information, then you
+  need to call this function as many times as different kinds of information there is.
+
+  ClojureCL provides many conveniences for obtaining information about
+  an cl objects:
+
+  1. **There is a universal, high-level, [[info]] function** that works for all kinds
+     of cl objects (platform, context, device, memory, etc.) and displays all available
+     information. This function also accepts a keyword argument for returning
+     only a specific kind of information, not all information. The information
+     will be converted from low-level C enums to a Clojre-friendly format that
+     uses keywords, sequences, sets, etc. If there is an OpenCL error in obtaining
+     the information, which may happen if the driver does not support that kind of
+     information, the [ExceptionInfo](http://clojuredocs.org/clojure.core/ex-info)
+     will be returned as a result for that particular information, instead of
+     raising an exception. This function is useful in when the information
+     is going to be displayed to the user.
+  2. For each information kind, there is a dedicated, low-level, function that
+     returns the raw, unconverted information. If the information is not supported,
+     the exception is raised. These functions are convenient in the parts
+     of the program where the returned info is used by other parts of the program,
+     for example to calculate some parameters for an algorithm.
+  3. Some information is not only about the objects, for example program, but
+     about the specific use of that object, for example a program build. In that
+     case, aditional X-info function is provided, for example [[build-info]].
+
+  Most keywords in the [[info]] function are exactly the same as the corresponding
+  low-level function name, except in a few cases where that would produce a clash
+  with some other functionality. You can check the available keywords in
+  the documentation of appropriate positional methods:
+  [[->PlatformInfo]], [[->DeviceInfo]], [[->CommandQueueInfo]], [[->ContextInfo]],
+  [[->KernelInfo]], [[->KernelArgInfo]], [[->ProgramInfo]], [[->ProgramBuildinfo]],
+  [[->EventInfo]], [[->Profilinginfo]], [[->MemObjectInfo]], etc...
+  "
   (:require [clojure.string :as str]
             [uncomplicate.clojurecl
              [constants :refer :all]
@@ -7,9 +49,8 @@
              [bytes :refer [buffer direct-buffer byte-seq byte-count slice]]
              [structs :refer [int32 int64 wrap-byte-seq]]])
   (:import [org.jocl CL cl_platform_id  cl_device_id cl_context cl_command_queue
-            cl_mem cl_program cl_kernel cl_sampler cl_event
-            cl_device_partition_property
-            Sizeof Pointer]
+            cl_program cl_kernel cl_sampler cl_event cl_device_partition_property
+            cl_mem Sizeof Pointer]
            [java.nio ByteBuffer]))
 
 ;; TODO Check for memory leaks. Some of the returned resources should be released
@@ -99,22 +140,22 @@
 (defprotocol Info
   (info [this info-type] [this]))
 
-(defprotocol InfoExtensions
+(defprotocol ^:no-doc InfoExtensions
   (extensions [this]))
 
-(defprotocol InfoName
+(defprotocol ^:no-doc InfoName
   (name-info [this]))
 
-(defprotocol InfoProfile
+(defprotocol ^:no-doc InfoProfile
   (profile [this]))
 
-(defprotocol InfoVendor
+(defprotocol ^:no-doc InfoVendor
   (vendor [this]))
 
-(defprotocol InfoReferenceCount
+(defprotocol ^:no-doc InfoReferenceCount
   (reference-count [this]))
 
-(defprotocol InfoProperties
+(defprotocol ^:no-doc InfoProperties
   (properties [this]))
 
 ;; =================== Platform ===================================

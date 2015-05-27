@@ -10,7 +10,8 @@
                  [vertigo "0.1.3"]
                  [org.clojure/core.async "0.1.346.0-17112a-alpha"]]
 
-  :codox {:src-dir-uri "http://github.com/uncomplicate/clojurecl/blob/master/"
+  :codox {:defaults {:doc/format :markdown}
+          :src-dir-uri "http://github.com/uncomplicate/clojurecl/blob/master/"
           :src-linenum-anchor-prefix "L"
     ;;      :exclude [uncomplicate.clojrecl.protocols]
           :output-dir "docs/codox"}
