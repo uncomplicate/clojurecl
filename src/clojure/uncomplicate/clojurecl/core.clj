@@ -1,4 +1,26 @@
-(ns uncomplicate.clojurecl.core
+(ns ^{:author "Dragan Djuric"}
+  uncomplicate.clojurecl.core
+  "Core ClojureCL functions for OpenCL **host** programming. The kernels should
+  be provided as strings (that may be stored in files), written in OpenCL C.
+
+  The OpenCL standard defines several datastructures (platform, device, etc.)
+  that support the concepts defined in four OpenCL models (Platform Model,
+  Memory Model, Execution Model, and Programming Model). ClojureCL uses
+  a low-level JNI-based library [JOCL](http://www.jocl.org) for calling
+  native OpenCL drivers - the datastructures are therefore defined in JOCL.
+  They can be found in [`org.jocl`]
+  (http://www.jocl.org/doc/org/jocl/package-tree.html) package.
+
+  ### Cheat Sheet
+
+  * resource management: TODO
+
+  * [`cl_platform_id`](http://www.jocl.org/doc/org/jocl/cl_platform_id.html):
+  [[num-platforms]], [[platforms]], [[platform-info]], [[with-platform]]
+
+  * [`cl_device_id`](http://www.jocl.org/doc/org/jocl/cl_device_id.html):
+  [[num-devices*]], [[num-devices]], [[devices*]], [[devices]]
+  "
   (:require [uncomplicate.clojurecl
              [constants :refer :all]
              [utils :refer [with-check with-check-arr mask error]]
@@ -11,14 +33,28 @@
             BuildProgramFunction]
            [java.nio ByteBuffer ByteOrder]))
 
-(def ^:dynamic *platform*)
-(def ^:dynamic *context*)
-(def ^:dynamic *command-queue*)
+(def ^{:dynamic true
+       :doc "Dynamic var for binding the default platform."}
+  *platform*)
+
+(def ^{:dynamic true
+       :doc "Dynamic var for binding the default context."}
+  *context*)
+
+(def ^{:dynamic true
+       :doc "Dynamic var for binding the default command queue."}
+  *command-queue*)
 
 ;; =============== Release CL Resources ==================================
 
 (defprotocol Releaseable
-  (release [this]))
+  "Objects that hold resources that can be released after use. For OpenCL
+  objects, releasing  means decrementing the reference count of the object.
+  "
+  (release [this]
+    "Releases the resource held by `this`. For OpenCL objects,
+calls the appropriate org.jocl.CL/clReleaseX method that decrements
+`this`'s reference count."))
 
 (extend-type cl_command_queue
   Releaseable
@@ -60,12 +96,25 @@
   (release [s]
     (with-check (CL/clReleaseSampler s) true)))
 
-(defn release-seq [cl]
+(defn release-seq
+  "if `cl` is an OpenCL object, releases it; if it is a (possibly nested)
+  sequence of OpenCL objects, calls itself on each element.
+  "
+  [cl]
   (if (sequential? cl)
     (map release-seq cl)
     (release cl)))
 
-(defmacro with-release [bindings & body]
+(defmacro with-release
+  "Binds `Releasable` elements to symbols (like `let` do), evaluates
+  `body`, and at the end releases the resources held by the bindings. The bindings
+  can also be deeply sequential (see examples) - they will be released properly.
+
+  Examples:
+
+  TODO.
+  "
+  [bindings & body]
   (assert (vector? bindings) "a vector for its binding")
   (assert (even? (count bindings)) "an even number of forms in binding vector")
   (cond
@@ -80,56 +129,150 @@
 
 ;; =============== Platform =========================================
 
-(defn num-platforms []
+(defn num-platforms
+  "The number of available OpenCL platforms.
+
+  See http://www.khronos.org/registry/cl/sdk/2.0/docs/man/xhtml/clGetPlatformIDs.html
+  and http://www.jocl.org/doc/org/jocl/CL.html#clGetPlatformIDs-int-org.jocl.cl_platform_id:A-int:A-
+  "
+  ^long []
   (let [res (int-array 1)
         err (CL/clGetPlatformIDs 0 nil res)]
     (with-check err (aget res 0))))
 
-(defn platforms []
+(defn platforms
+  "Vector of all available OpenCL platforms.
+  Platforms are represented by the [`org.jocl.platform_id`]
+(http://www.jocl.org/doc/org/jocl/cl_platform_id.html) datastructure.
+
+  See http://www.khronos.org/registry/cl/sdk/2.0/docs/man/xhtml/clGetPlatformIDs.html
+  and http://www.jocl.org/doc/org/jocl/CL.html#clGetPlatformIDs-int-org.jocl.cl_platform_id:A-int:A-
+  "
+  []
   (let [num-platforms (num-platforms)
         res (make-array cl_platform_id num-platforms)
         err (CL/clGetPlatformIDs num-platforms res nil)]
     (with-check err (vec res))))
 
-(defn platform-info []
+(defn platform-info
+  "Gets the [[info/info]] of the default platform [[*platform*]] (if it is bound).
+  If [[*platform*]] is unbound, throws `Illegalargumentexception`."
+  []
   (info *platform*))
 
-(defmacro with-platform [platform & body]
+(defmacro with-platform
+  "Dynamically binds `platform` to the default platform [[*platform*]] and
+  evaluates the body with that binding."
+  [platform & body]
   `(binding [*platform* ~platform]
     ~@body))
 
 ;; =============== Device ==========================================
 
-(defn num-devices* ^long [platform ^long device-type]
+(defn num-devices*
+  "Queries `platform` for the number of devices of a long bitfield of `device-type`s,
+  which is a number defined for each device type in the OpenCL standard.
+  Available device types are accessible through `org.jocl.CL/CL_DEVICE_TYPE_X`
+  constants. If there are no devices of that type bitfield, returns 0.
+
+  NOTE: You should prefer a higher-level [[num-devices]] function, unless you
+  already have a `device-type` in a long number form in your code.
+
+  When called with an invalid platform, throws [ExceptionInfo]
+  (http://clojuredocs.org/clojure.core/ex-info).
+
+  See http://www.khronos.org/registry/cl/sdk/2.0/docs/man/xhtml/clGetDeviceIDs.html
+  and http://www.jocl.org/doc/org/jocl/CL.html#clGetDeviceIDs-int-org.jocl.cl_device_id:A-int:A-
+  "
+  ^long [platform ^long device-type]
   (let [res (int-array 1)
         err (CL/clGetDeviceIDs platform device-type 0 nil res)]
-    (with-check err (aget res 0))))
+    (if (= CL/CL_DEVICE_NOT_FOUND err)
+      0
+      (with-check err (aget res 0)))))
 
 (defn num-devices
-  ([platform device-type]
-   (num-devices* platform (cl-device-type device-type)))
-  ([x]
-   (if (keyword? x)
-     (num-devices *platform* x)
-     (num-devices* x CL/CL_DEVICE_TYPE_ALL)))
-  ([]
-   (num-devices* *platform* CL/CL_DEVICE_TYPE_ALL)))
+  "Queries `platform` for the number of devices of one or a combination of
+  several `device-type`s:
+  `:gpu`, `:cpu`, `:all`, `:accelerator`, `:custom`, `:default`.
 
-(defn devices* [platform ^long device-type]
+  When called with only one argument `x`:
+
+  * if `x` is a keyword, returns the number of devices of type `x` in `*platform*`;
+  * otherwise returns the number of all devices on the platform `x`.
+
+  When called with no arguments, returns the number of all devices in `*platform*`.
+
+  When called with an invalid platform, throws [ExceptionInfo]
+  (http://clojuredocs.org/clojure.core/ex-info). When called with an unknown
+  device type, throws `NullPointerException`
+
+  See also [[num-devices*]].
+  "
+  ([platform device-type & device-types]
+   (num-devices* platform (mask cl-device-type device-type device-types)))
+  (^long [platform device-type]
+         (num-devices* platform (cl-device-type device-type)))
+  (^long [x]
+         (if (keyword? x)
+           (num-devices *platform* x)
+           (num-devices* x CL/CL_DEVICE_TYPE_ALL)))
+  (^long []
+         (num-devices* *platform* CL/CL_DEVICE_TYPE_ALL)))
+
+(defn devices*
+  "Queries `platform` for the devices of a long bitfield `device-type`s,
+  which is a number defined for each device type in the OpenCL standard
+  and returns them in an array.
+  Available device types are accessible through `org.jocl.CL/CL_DEVICE_TYPE_X`
+  constants. If there are no devices of that type bitfield, returns
+  a zero-length array.
+
+  NOTE: You should prefer a higher-level [[devices]] function, unless you
+  already have a `device-type` in a long number form in your code, and/or you
+  want to get resulting devices in an array rather than in a vector.
+
+  When called with an invalid platform, throws [ExceptionInfo]
+  (http://clojuredocs.org/clojure.core/ex-info).
+
+  See http://www.khronos.org/registry/cl/sdk/2.0/docs/man/xhtml/clGetDeviceIDs.html
+  and http://www.jocl.org/doc/org/jocl/CL.html#clGetDeviceIDs-int-org.jocl.cl_device_id:A-int:A-
+  "
+  [platform ^long device-type]
   (let [num-devices (num-devices* platform device-type)
-        res (make-array cl_device_id num-devices)
-        err (CL/clGetDeviceIDs platform device-type num-devices res nil)]
-    (with-check err res)))
+        res (make-array cl_device_id num-devices)]
+    (if (< 0 num-devices)
+      (let [err (CL/clGetDeviceIDs platform device-type num-devices res nil)]
+        (with-check err res))
+      res)))
 
 (defn devices
-  ([platform device-type]
-   (vec (devices* platform (cl-device-type device-type))))
+  "Queries `platform` for the devices of one or a combination of
+  several `device-type`s:
+  `:gpu`, `:cpu`, `:all`, `:accelerator`, `:custom`, `:default`,
+  and returns them in a vector.
+
+  When called with only one argument `x`:
+
+  * if `x` is a keyword, returns the devices of type `x` in `*platform*`;
+  * otherwise returns the number of all devices on the platform `x`.
+
+  When called with no arguments, returns the number of all devices in `*platform*`.
+
+  When called with an invalid platform, throws [ExceptionInfo]
+  (http://clojuredocs.org/clojure.core/ex-info). When called with an unknown
+  device type, throws `NullPointerException`
+
+  See also [[devices*]].
+  "
+  ([platform device-type & device-types]
+   (vec (devices* platform (mask cl-device-type device-type device-types))))
   ([x]
    (if (keyword? x)
      (devices *platform* x)
      (vec (devices* x CL/CL_DEVICE_TYPE_ALL))))
   ([]
-   (devices* *platform* CL/CL_DEVICE_TYPE_ALL)))
+   (vec (devices* *platform* CL/CL_DEVICE_TYPE_ALL))))
 
 ;; ========================= Context ===========================================
 

@@ -74,7 +74,8 @@
 ;; ========== Error handling ======================================
 
 (defn error
-  "Converts an OpenCL error code to an [ExceptionInfo](http://clojuredocs.org/clojure.core/ex-info)
+  "Converts an OpenCL error code to an [ExceptionInfo]
+  (http://clojuredocs.org/clojure.core/ex-info)
   with richer, user-friendly information.
 
   Accepts a long `err-code` that should be one of the codes defined in
