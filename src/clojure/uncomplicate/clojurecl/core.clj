@@ -20,6 +20,8 @@
 
   * [`cl_device_id`](http://www.jocl.org/doc/org/jocl/cl_device_id.html):
   [[num-devices*]], [[num-devices]], [[devices*]], [[devices]]
+
+  * [`cl_context`](http://www.jocl.org/doc/org/jocl/cl_context.html): [[context*]], [[context]], [[context-info]], [[with-context]], [[context-properties]]
   "
   (:require [uncomplicate.clojurecl
              [constants :refer :all]
@@ -29,8 +31,8 @@
             [clojure.core.async :refer [go >!]])
   (:import [org.jocl CL cl_platform_id cl_context_properties cl_device_id
             cl_context cl_command_queue cl_mem cl_program cl_kernel cl_sampler
-            cl_event cl_buffer_region Sizeof Pointer CreateContextFunction EventCallbackFunction
-            BuildProgramFunction]
+            cl_event cl_buffer_region Sizeof Pointer CreateContextFunction
+            EventCallbackFunction BuildProgramFunction]
            [java.nio ByteBuffer ByteOrder]))
 
 (def ^{:dynamic true
@@ -141,7 +143,9 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
     (with-check err (aget res 0))))
 
 (defn platforms
-  "Vector of all available OpenCL platforms.
+  "Returns a vector of all available OpenCL platforms (`cl_platform_id`s).
+  `cl_platform_id` objects do not need to be released explicitly.
+
   Platforms are represented by the [`org.jocl.platform_id`]
 (http://www.jocl.org/doc/org/jocl/cl_platform_id.html) datastructure.
 
@@ -170,10 +174,10 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
 ;; =============== Device ==========================================
 
 (defn num-devices*
-  "Queries `platform` for the number of devices of a long bitfield of `device-type`s,
-  which is a number defined for each device type in the OpenCL standard.
+  "Queries `platform` for the number of devices of `device-type`s. Device types
+  are given as a bitfield, where each type is defined in the OpenCL standard.
   Available device types are accessible through `org.jocl.CL/CL_DEVICE_TYPE_X`
-  constants. If there are no devices of that type bitfield, returns 0.
+  constants. If there are no such devices, returns 0.
 
   NOTE: You should prefer a higher-level [[num-devices]] function, unless you
   already have a `device-type` in a long number form in your code.
@@ -221,12 +225,13 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
          (num-devices* *platform* CL/CL_DEVICE_TYPE_ALL)))
 
 (defn devices*
-  "Queries `platform` for the devices of a long bitfield `device-type`s,
-  which is a number defined for each device type in the OpenCL standard
-  and returns them in an array.
+  "Queries `platform` for the devices of `device-type`s, and returns them as an
+  array of `cl_device_id`s. The types are given as a bitfield, where each type
+  is a number constant defined in the OpenCL standard.
   Available device types are accessible through `org.jocl.CL/CL_DEVICE_TYPE_X`
-  constants. If there are no devices of that type bitfield, returns
-  a zero-length array.
+  constants. If there are no such devices, returns a zero-length array.
+
+  Root level devices do not need to be explicitly released.
 
   NOTE: You should prefer a higher-level [[devices]] function, unless you
   already have a `device-type` in a long number form in your code, and/or you
@@ -250,14 +255,16 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
   "Queries `platform` for the devices of one or a combination of
   several `device-type`s:
   `:gpu`, `:cpu`, `:all`, `:accelerator`, `:custom`, `:default`,
-  and returns them in a vector.
+  and returns them in a vector containing `cl_device_id` objects.
 
   When called with only one argument `x`:
 
   * if `x` is a keyword, returns the devices of type `x` in `*platform*`;
-  * otherwise returns the number of all devices on the platform `x`.
+  * otherwise returns all devices on the platform `x`.
 
-  When called with no arguments, returns the number of all devices in `*platform*`.
+  When called with no arguments, returns all devices in `*platform*`.
+
+  Root level devices do not need to be explicitly released.
 
   When called with an invalid platform, throws [ExceptionInfo]
   (http://clojuredocs.org/clojure.core/ex-info). When called with an unknown
@@ -276,39 +283,78 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
 
 ;; ========================= Context ===========================================
 
-;; TODO Check for memory leaks! (devices) are used in creating the context, but
-;; then forgotten to roam around freely!!!
-
-(defn context-properties [props]
+(defn context-properties
+  "Creates `cl_context_properties` from a map of properties.
+  Currently, this is not very useful, it is only here to
+  support the full compatibility of [[context*]] function with
+  the JOCL API."
+  [props]
   (reduce (fn [^cl_context_properties cp [p v]]
-            (.addProperty cp (cl-context-properties p) v))
+            (do (.addProperty cp (cl-context-properties p) v)
+                cp))
           (cl_context_properties.)
           props))
 
-;;TODO Callback function
-;; Perhaps write all errors to a sliding async channel that is going to be read
-;; by an error reporting go block?
-(defn context* [^objects devices notify user-data properties]
+(defrecord CreateContextInfo [errinfo private-info data])
+
+(deftype CreateContextCallback [ch]
+  CreateContextFunction
+  (function [this errinfo private-info cb data]
+    (go (>! ch (->CreateContextInfo errinfo private-info data)))))
+
+(defn context*
+  "Creates `cl_context` for an array of `device`s, with optional
+  `cl_context_properties`, error reporting core.async channel `ch`
+  and user data that should accompany the error report.
+
+  If `devices` is empty, throws `ExceptionInfo`.
+
+  This is a low-level alternative to [[context]].
+
+  See http://www.khronos.org/registry/cl/sdk/2.0/docs/man/xhtml/clCreateContext.html
+  See http://www.jocl.org/doc/org/jocl/CL.html#clCreateContext-org.jocl.cl_context_properties-int-org.jocl.cl_device_id:A-
+  See [[context]].
+  "
+  [^objects devices properties ch user-data]
   (let [err (int-array 1)
         res (CL/clCreateContext properties
                                 (alength devices) devices
-                                notify user-data err)]
+                                (if ch (->CreateContextCallback ch) nil)
+                                user-data err)]
     (with-check-arr err res)))
 
 (defn context
-  ([devices properties]
-   (context* (into-array ^cl_device_id devices) nil nil
-             (context-properties properties)))
+  "Creates `cl_context` for a vector of `device`s, with optional
+  hashmap of `properties`, error reporting core.async channel `ch`
+  and user data that should accompany the error report. If called with
+  no arguments, creates a context using all devices of the default
+  platform (`*platform`).
+
+  If `devices` is empty, throws `ExceptionInfo`.
+
+  See http://www.khronos.org/registry/cl/sdk/2.0/docs/man/xhtml/clCreateContext.html
+  See http://www.jocl.org/doc/org/jocl/CL.html#clCreateContext-org.jocl.cl_context_properties-int-org.jocl.cl_device_id:A-
+  "
+  ([devices properties ch user-data]
+   (context* (into-array cl_device_id devices)
+             (context-properties properties) ch user-data))
   ([devices]
-   (context devices nil))
+   (context devices nil nil nil))
   ([]
    (with-release [devs (devices)]
-     (context devs)))) ;; TODO Test whether this solution for memory leaks works as expected
+     (context devs))))
 
-(defn context-info []
+(defn context-info
+  "Info of the default context ([[*context*]]). If [[*context*]] is unbound,
+  throws `Illegalargumentexception`.
+  "
+  []
   (info *context*))
 
-(defmacro with-context [context & body]
+(defmacro with-context
+  "Dynamically binds `context` to the default context [[*context*]].
+  and  evaluates the body with that binding."
+  [context & body]
   `(binding [*context* ~context]
      (try ~@body
           (finally (release *context*)))))
@@ -705,7 +751,7 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
    (with-check
      (CL/clEnqueueReadBuffer queue (cl-mem cl) blocking offset
                              (size cl) (ptr host)
-                             (if wait-events (alength wait-events) 0)
+ (if wait-events (alength wait-events) 0)
                              wait-events event)
      queue))
   ([queue cl host wait-events event]
