@@ -11,6 +11,14 @@
   They can be found in [`org.jocl`]
   (http://www.jocl.org/doc/org/jocl/package-tree.html) package.
 
+  Some functions are available in two versions:
+
+  * High-level, which works with clojure-friendly arguments - vectors,
+  sequences, keywords, etc. These are preferred to low-level alternatives.
+  * Low-level, suffexed by `*`, which works with primitive arguments
+  and gives primitive results. These functions are useful when you
+  already have primitive data and want to avoid unnecessary conversions
+
   ### Cheat Sheet
 
   * resource management: TODO
@@ -19,9 +27,17 @@
   [[num-platforms]], [[platforms]], [[platform-info]], [[with-platform]]
 
   * [`cl_device_id`](http://www.jocl.org/doc/org/jocl/cl_device_id.html):
-  [[num-devices*]], [[num-devices]], [[devices*]], [[devices]]
+  [[devices]], [[num-devices]], [[devices*]], [[num-devices*]]
 
-  * [`cl_context`](http://www.jocl.org/doc/org/jocl/cl_context.html): [[context*]], [[context]], [[context-info]], [[with-context]], [[context-properties]]
+  * [`cl_context`](http://www.jocl.org/doc/org/jocl/cl_context.html):
+  [[context]], [[context-info]], [[with-context]],
+  [[context-properties]], [[context*]]
+
+  * [`cl_mem`](http://www.jocl.org/doc/org/jocl/cl_mem.html):
+  [[cl-buffer]], [[cl-sub-buffer]], [[cl-buffer*]], [[cl-sub-buffer*]],
+  [[Mem]], [[CLMem]]
+
+
   "
   (:require [uncomplicate.clojurecl
              [constants :refer :all]
@@ -212,6 +228,13 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
   device type, throws `NullPointerException`
 
   See also [[num-devices*]].
+
+  Examples:
+
+      (devices)
+      (devices (first (platforms)))
+      (devices :gpu)
+      (devices (first (platforms)) :gpu :cpu :accelerator)
   "
   ([platform device-type & device-types]
    (num-devices* platform (mask cl-device-type device-type device-types)))
@@ -271,6 +294,13 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
   device type, throws `NullPointerException`
 
   See also [[devices*]].
+
+  Examples:
+
+      (devices)
+      (devices (first (platforms)))
+      (devices :gpu)
+      (devices (first (platforms)) :gpu :cpu :accelerator)
   "
   ([platform device-type & device-types]
    (vec (devices* platform (mask cl-device-type device-type device-types))))
@@ -312,8 +342,7 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
   This is a low-level alternative to [[context]].
 
   See http://www.khronos.org/registry/cl/sdk/2.0/docs/man/xhtml/clCreateContext.html
-  See http://www.jocl.org/doc/org/jocl/CL.html#clCreateContext-org.jocl.cl_context_properties-int-org.jocl.cl_device_id:A-
-  See [[context]].
+  See   throws `Illegalargumentexception`http://www.jocl.org/doc/org/jocl/CL.html#clCreateContext-org.jocl.cl_context_properties-int-org.jocl.cl_device_id:A-org.jocl.CreateContextFunction-java.lang.Object-int:A-
   "
   [^objects devices properties ch user-data]
   (let [err (int-array 1)
@@ -333,7 +362,13 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
   If `devices` is empty, throws `ExceptionInfo`.
 
   See http://www.khronos.org/registry/cl/sdk/2.0/docs/man/xhtml/clCreateContext.html
-  See http://www.jocl.org/doc/org/jocl/CL.html#clCreateContext-org.jocl.cl_context_properties-int-org.jocl.cl_device_id:A-
+  , http://www.jocl.org/doc/org/jocl/CL.html#clCreateContext-org.jocl.cl_context_properties-int-org.jocl.cl_device_id:A-org.jocl.CreateContextFunction-java.lang.Object-int:A-
+
+  Examples:
+
+        (context)
+        (context (devices (first (platforms))))
+        (context (devices (first (platforms))) {:platform p} (chan) :my-data)
   "
   ([devices properties ch user-data]
    (context* (into-array cl_device_id devices)
@@ -346,14 +381,27 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
 
 (defn context-info
   "Info of the default context ([[*context*]]). If [[*context*]] is unbound,
-  throws `Illegalargumentexception`.
+  throws `Illegalargumentexception`
+
+  See also: [[with-context]]
+
+  Example:
+
+      (with-context (context devices)
+          (context-info))
   "
   []
   (info *context*))
 
 (defmacro with-context
   "Dynamically binds `context` to the default context [[*context*]].
-  and  evaluates the body with that binding."
+  and  evaluates the body with that binding.
+
+  Example:
+
+      (with-context (context devices)
+          (context-info))
+  "
   [context & body]
   `(binding [*context* ~context]
      (try ~@body
@@ -361,26 +409,43 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
 
 ;; =========================== Memory  =========================================
 
-(defprotocol CLMem ;;TODO add context to memory?
-  (cl-mem [this])
-  (cl-mem* [this])
-  (size [this]))
+(defprotocol CLMem
+  "A wrapper for `cl_mem` objects, that also holds a `Pointer` to the cl mem
+  object, context that created it, and size in bytes. It is useful in many
+  functions that need that (redundant in Java) data because of the C background
+  of OpenCL functions."
+  (cl-mem [this]
+    "The raw JOCL `cl_mem` object.")
+  (cl-context [this]
+    "Context that created this object.")
+  (size [this]
+    "Memory size of this cl object in bytes."))
 
 (defprotocol Argument
-  (set-arg [arg kernel n]))
+  "Object that can be argument in OpenCL kernels. Built-in implementations:
+  [[CLBuffer]], java numbers, primitive arrays and `ByteBuffer`s."
+  (set-arg [arg kernel n]
+    "Specific implementation of setting the kernel arguments."))
 
-(defprotocol HostMem
-  (ptr [this]))
+(defprotocol Mem
+  "Object that represent memory that participates in OpenCL operations. It could
+  be on the device ([[CLMem]]), or on the host.  Built-in implementations:
+  cl buffer, Java primitive arrays and `ByteBuffer`s."
+  (ptr [this]
+    "JOCL `Pointer` to this object."))
 
-(deftype CLBuffer [^cl_mem cl ^Pointer cl* s]
+(deftype CLBuffer [^cl_context ctx ^cl_mem cl ^Pointer cl* s]
   Releaseable
   (release [_]
     (release cl))
+  Mem
+  (ptr [_]
+    cl*)
   CLMem
   (cl-mem [_]
     cl)
-  (cl-mem* [_]
-    cl*)
+  (cl-context [_]
+    ctx)
   (size [_]
     s)
   Argument
@@ -388,32 +453,110 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
     (with-check (CL/clSetKernelArg kernel n Sizeof/cl_mem cl*) kernel)))
 
 (defn cl-buffer*
+  "Creates a cl buffer object in `context`, given `size` in bytes and a bitfield
+  `flags` describing memory allocation usage.
+
+  Flags defined by the OpenCL standard are available as constants in the
+  [org.jocl.CL](http://www.jocl.org/doc/org/jocl/CL.html) class.
+
+  This is a low-level alternative to [[cl-buffer*]]
+  If  `context` is nil or the buffer size is invalid, throws `ExceptionInfo`.
+
+  See http://www.khronos.org/registry/cl/sdk/2.0/docs/man/xhtml/clCreateBuffer.html,
+  http://www.jocl.org/doc/org/jocl/CL.html#clCreateBuffer-org.jocl.cl_context-long-long-org.jocl.Pointer-int:A-
+
+  Examples:
+
+      (cl-buffer* 32 CL/CL_MEM_READ_WRITE)
+      (cl-buffer* ctx 24 CL/CL_MEM_READ_ONLY)
+  "
   ([context ^long size ^long flags]
    (let [err (int-array 1)
          res (CL/clCreateBuffer context flags size nil err)]
-     (with-check-arr err (->CLBuffer res (Pointer/to ^cl_mem res) size))))
-  ([^long size ^long flags]
-   (cl-buffer* *context* size flags)))
+     (with-check-arr err (->CLBuffer context res (Pointer/to ^cl_mem res) size)))))
 
 (defn cl-buffer
+  "Creates a cl buffer object ([[CLMem]]) in `context`, given `size` in bytes
+  and one or more memory allocation usage keyword flags: `:read-write`,
+  `:read-only`, `:write-only`, `:use-host-ptr`, `:alloc-host-ptr`,
+  `:copy-host-ptr`, `:host-write-only`, `:host-read-only`, `:host-no-access`.
+
+  If called with two arguments, uses the default `*context*`
+  (see [[with-context]]).
+
+  If  `context` is nil or the buffer size is invalid, throws `ExceptionInfo`.
+  If some of the flags is invalid, throws `IllegalArgumentexception`.
+
+  See http://www.khronos.org/registry/cl/sdk/2.0/docs/man/xhtml/clCreateBuffer.html,
+  http://www.jocl.org/doc/org/jocl/CL.html#clCreateBuffer-org.jocl.cl_context-long-long-org.jocl.Pointer-int:A-
+
+  Examples:
+
+      (cl-buffer 32 :read-only)
+      (cl-buffer ctx 24 :write-only)
+  "
   ([context size flag & flags]
    (cl-buffer* context size (mask cl-mem-flags flag flags)))
   ([^long size flag]
-   (cl-buffer* *context* size (cl-mem-flags flag))))
+   (cl-buffer* *context* size (cl-mem-flags flag)))
+  ([^long size]
+   (cl-buffer* *context* size 0)))
 
 (defn cl-sub-buffer*
-  ([^cl_mem cl-mem ^long flags ^long create-type ^cl_buffer_region info]
+  "Creates a cl buffer object ([[CLMem]]) that shares data with an existing
+  buffer object.
+
+  * `cl-mem` has to be a valid low-level JOCL buffer object (`cl_mem`).
+  * `flags` is a bitfield that specifies allocation usage (see [[cl-buffer*]]).
+  * `create-type` is a type of buffer object to be created (in OpenCL 2.0, only
+  `CL/CL_BUFFER_CREATE_TYPE_REGION` is supported).
+  * `region` is a `cl_buffer_region` that specifies offset and size
+  of the subbuffer.
+
+  See http://www.khronos.org/registry/cl/sdk/2.0/docs/man/xhtml/clCreateBuffer.html,
+  http://www.jocl.org/doc/org/jocl/CL.html#clCreateBuffer-org.jocl.cl_context-long-long-org.jocl.Pointer-int:A-
+
+  Examples:
+
+      (def cl-buff (cl-buffer ctx 32 :write-only))
+      (def region (cl_buffer_region. 8 16))
+      (cl-sub-buffer* cl-buff CL/CL_MEM_READ_WRITE
+                      CL/CL_BUFFER_CREATE_TYPE_REGION region)
+      (cl-sub-buffer* cl-buff CL/CL_MEM_READ_ONLY region)
+  "
+  ([^cl_mem cl-mem ^long flags ^long create-type ^cl_buffer_region region]
    (let [err (int-array 1)
          res (CL/clCreateSubBuffer cl-mem flags
                                    (int create-type)
-                                   info err)]
-     (with-check-arr err (->CLBuffer res (Pointer/to ^cl_mem res) size))))
-  ([cl-mem ^long flags info]
-   (cl-sub-buffer* cl-mem flags CL/CL_BUFFER_CREATE_TYPE_REGION info)))
+                                   region err)]
+     (with-check-arr err (->CLBuffer context res (Pointer/to ^cl_mem res) (.size region)))))
+  ([cl-mem ^long flags region]
+   (cl-sub-buffer* cl-mem flags CL/CL_BUFFER_CREATE_TYPE_REGION region)))
 
 (defn cl-sub-buffer
+  "Creates a cl buffer object ([[CLMem]]) that shares data with an existing
+  buffer object.
+
+  * `cl-mem` has to be a valid [[CLMem]] object.
+  * `origin` and `size` are numbers that denote offset and size of the
+  region in the origin buffer.
+  * `flag` and `flags` are memory allocation usage keywords same as in
+  [[cl-buffer]]
+
+  See http://www.khronos.org/registry/cl/sdk/2.0/docs/man/xhtml/clCreateSubBuffer.html,
+  http://www.jocl.org/doc/org/jocl/CL.html#clCreateSubBuffer-org.jocl.cl_mem-long-int-org.jocl.cl_buffer_region-int:A-
+
+  Examples:
+
+      (def cl-buff (cl-buffer ctx 32 :write-only))
+      (cl-sub-buffer cl-buff 8 16 :write-only)
+      (cl-sub-buffer cl-buff 8 16)
+  "
   ([buffer origin size flag & flags]
    (cl-sub-buffer* (cl-mem buffer) (mask cl-mem-flags flag flags)
+                   (cl_buffer_region. origin size)))
+  ([buffer origin size]
+   (cl-sub-buffer* (cl-mem buffer) 0
                    (cl_buffer_region. origin size))))
 
 (extend-type Number
@@ -423,7 +566,7 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
       kernel)))
 
 (extend-type (Class/forName "[F")
-  HostMem
+  Mem
   (ptr [this]
     (Pointer/to ^floats this))
   Argument
@@ -434,7 +577,7 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
       kernel)))
 
 (extend-type (Class/forName "[D")
-  HostMem
+  Mem
   (ptr [this]
     (Pointer/to ^doubles this))
   Argument
@@ -445,7 +588,7 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
       kernel)))
 
 (extend-type (Class/forName "[I")
-  HostMem
+  Mem
   (ptr [this]
     (Pointer/to ^ints this))
   Argument
@@ -456,7 +599,7 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
       kernel)))
 
 (extend-type (Class/forName "[J")
-  HostMem
+  Mem
   (ptr [this]
     (Pointer/to ^longs this))
   Argument
@@ -467,7 +610,7 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
       kernel)))
 
 (extend-type (Class/forName "[B")
-  HostMem
+  Mem
   (ptr [this]
     (Pointer/to ^bytes this))
   Argument
@@ -478,7 +621,7 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
       kernel)))
 
 (extend-type (Class/forName "[S")
-  HostMem
+  Mem
   (ptr [this]
     (Pointer/to ^shorts this))
   Argument
@@ -488,7 +631,7 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
       kernel)))
 
 (extend-type (Class/forName "[C")
-  HostMem
+  Mem
   (ptr [this]
     (Pointer/to ^chars this))
   Argument
@@ -498,7 +641,7 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
       kernel)))
 
 (extend-type ByteBuffer
-  HostMem
+  Mem
   (ptr [this]
     (Pointer/toBuffer this)))
 

@@ -2,9 +2,10 @@
   (:require [midje.sweet :refer :all]
             [uncomplicate.clojurecl
              [core :refer :all]
-             [info :refer [info reference-count]]]
+             [info :refer [info reference-count mem-base-addr-align]]]
             [clojure.core.async :refer [go >! <! <!! chan]])
-  (:import [org.jocl CL Pointer cl_device_id cl_context_properties]
+  (:import [uncomplicate.clojurecl.core CLBuffer]
+   [org.jocl CL Pointer cl_device_id cl_context_properties cl_mem]
            [clojure.lang ExceptionInfo]))
 
 ;; ================== Platform tests ========================
@@ -77,6 +78,8 @@
    (reference-count db) => 1
    (do (release da) (reference-count da)) => 1))
 
+;; ================== Context tests ========================
+
 (set! *warn-on-reflection* false)
 (facts
  "CreateContextCallback tests"
@@ -86,7 +89,6 @@
                   (Pointer/to (int-array 1)) Integer/BYTES :some-data)
        (:errinfo (<!! ch)) => "Some error")))
 (set! *warn-on-reflection* true)
-
 
 (let [p (first (platforms))]
   (with-platform p
@@ -134,4 +136,56 @@
            (release ctx) => true)
 
          (release (context devs)) => true
-         (release (context devs {:platform p} (chan) :some-data)) => true)))))
+         (release (context devs {:platform p} (chan) :some-data)) => true
+
+         (with-context (context devs)
+           (context-info))))
+
+      ;; ================== Buffer tests ========================
+
+      (facts
+       "cl-buffer tests."
+
+       (with-release [ctx (context [dev])]
+
+         (let [cl-buf (cl-buffer* ctx Float/BYTES 0)]
+           (type (cl-mem cl-buf)) => cl_mem
+           (type (ptr cl-buf)) => Pointer
+           (size cl-buf) => Float/BYTES
+           (cl-context cl-buf) => ctx
+           (release cl-buf) => true)
+
+         (let [cl-buf (cl-buffer ctx Float/BYTES :read-write)]
+           (type (cl-mem cl-buf)) => cl_mem
+           (type (ptr cl-buf)) => Pointer
+           (size cl-buf) => Float/BYTES
+           (cl-context cl-buf) => ctx
+           (release cl-buf) => true)
+
+         (cl-buffer nil 4 :read-write) => (throws ExceptionInfo)
+         (cl-buffer ctx 0 :read-write) => (throws ExceptionInfo)
+         (cl-buffer ctx 4 :unknown) => (throws NullPointerException)))
+
+      (facts
+       "cl-buffer and cl-sub-buffer reading/writing tests."
+       (let [alignment (mem-base-addr-align dev)]
+         (with-context (context [dev])
+           (with-release [cl-buf (cl-buffer (* 4 alignment Float/BYTES))
+                          cl-subbuf (cl-sub-buffer cl-buf (* alignment Float/BYTES)
+                                                   (* alignment Float/BYTES))
+                          queue (command-queue dev)]
+             (type cl-subbuf) => CLBuffer
+             (let [data-arr (float-array (range (* 4 alignment)))
+                   buf-arr (float-array (* 4 alignment))
+                   subbuf-arr (float-array alignment)]
+               (enq-write! queue cl-buf data-arr)
+               (enq-read! queue cl-buf buf-arr)
+               (enq-read! queue cl-subbuf subbuf-arr)
+               (vec buf-arr) => (vec data-arr)
+               (vec subbuf-arr) => (map float (range alignment (* 2 alignment))))))))
+
+      (facts
+       "event tests."
+       )
+
+     )))
