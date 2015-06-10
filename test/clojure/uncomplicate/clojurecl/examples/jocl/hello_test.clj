@@ -15,7 +15,7 @@
   (with-release [devs (devices (first (platforms)))
                  dev (first devs)
                  ctx (context devs)
-                 cqueue (command-queue ctx dev nil)
+                 cqueue (command-queue ctx dev)
                  mem-objects [(cl-buffer ctx bytesize :read-only)
                               (cl-buffer ctx bytesize :read-only)
                               (cl-buffer ctx bytesize :write-only)]

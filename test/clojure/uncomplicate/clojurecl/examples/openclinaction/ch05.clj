@@ -9,7 +9,7 @@
 
 (with-release [dev (first (devices (first (platforms))))
                ctx (context [dev])
-               cqueue (command-queue ctx dev nil)]
+               cqueue (command-queue ctx dev)]
 
   (facts
    "Listing 5.1, Page 96."

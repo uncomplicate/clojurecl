@@ -22,7 +22,7 @@
          bytesize (* num-items Float/BYTES)
          workgroup-size 256
          notifications (chan)
-         follow (follow notifications)
+         follow (register notifications)
          data (let [d (direct-buffer bytesize)]
                 (dotimes [n num-items]
                   (.putFloat ^java.nio.ByteBuffer d (* n Float/BYTES) 1.0))

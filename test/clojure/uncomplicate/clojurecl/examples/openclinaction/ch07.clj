@@ -15,7 +15,7 @@
    (let [program-source
          (slurp "test/opencl/examples/openclinaction/ch07/user-event.cl")
          notifications (chan)
-         follow (follow notifications)
+         follow (register notifications)
          v (direct-buffer (* Float/BYTES 4))
          work-sizes (work-size [1])]
      (with-release [cl-v (cl-buffer ctx (* 4 Float/BYTES) :write-only)
@@ -31,9 +31,8 @@
         => cqueue
         (enq-read! cqueue cl-v v (events kernel-event) read-event) => cqueue
         (follow read-event) => notifications
-        (set-status! user-event :complete) => user-event
+        (set-status! user-event) => user-event
         (:event (<!! notifications)) => read-event))))
-
 
   (facts
    "Listing 7.6. Page 155."
@@ -41,7 +40,7 @@
          (slurp "test/opencl/examples/openclinaction/ch07/profile-read.cl")
          bytesize (Math/pow 2 20)
          notifications (chan)
-         follow (follow notifications)
+         follow (register notifications)
          data (direct-buffer bytesize)
          num (int-array [(/ (long bytesize) 16)])
          work-sizes (work-size [1])]
@@ -68,7 +67,7 @@
          num-ints 65536
          data (int-array (range num-ints))
          notifications (chan)
-         follow (follow notifications)
+         follow (register notifications)
          work-sizes (work-size [512] [1])]
      (with-release [cl-x (cl-buffer ctx (* num-ints Integer/BYTES 4) :write-only)
                     prog (build-program! (program-with-source ctx [program-source]))

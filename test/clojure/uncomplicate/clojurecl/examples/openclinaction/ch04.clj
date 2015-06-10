@@ -9,11 +9,11 @@
              [structs :refer [wrap-byte-seq int8]]]))
 
 (let [notifications (chan)
-      follow (follow notifications)]
+      follow (register notifications)]
 
   (with-release [dev (first (devices (first (platforms))))
                  ctx (context [dev])
-                 cqueue (command-queue ctx dev nil)]
+                 cqueue (command-queue ctx dev)]
 
     (facts
      "Section 4.1, Page 69."

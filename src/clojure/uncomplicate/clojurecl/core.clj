@@ -22,6 +22,7 @@
   ### Cheat Sheet
 
   * resource management: TODO
+  [[with-platform]], [[with-context]], [[with-queue]], [[with-default]]
 
   * [`cl_platform_id`](http://www.jocl.org/doc/org/jocl/cl_platform_id.html):
   [[num-platforms]], [[platforms]], [[platform-info]], [[with-platform]]
@@ -37,7 +38,21 @@
   [[cl-buffer]], [[cl-sub-buffer]], [[cl-buffer*]], [[cl-sub-buffer*]],
   [[Mem]], [[CLMem]]
 
+  * [`cl_event`](http://www.jocl.org/doc/org/jocl/cl_event.html):
+  [[event]], [[host-event]], [[events]], [[register]], [[event-callback]],
+  [[set-event-callback*]], [[set-status!]]
 
+  * [`cl_program`](http://www.jocl.org/doc/org/jocl/cl_program.html):
+  [[program-with-source]], [[build-program!]]
+
+  * [`cl_kernel`](http://www.jocl.org/doc/org/jocl/cl_kernel.html):
+  [[num-kernels]], [[kernel]], [[set-arg!]], [[set-args!]], [[set-arg]]
+
+  * [`cl_command_queue`](http://www.jocl.org/doc/org/jocl/cl_kernel.html):
+  [[command-queue]], [[command-queue*]], [[work-size]], [[enq-nd!]],
+  [[enq-read!]], [[enq-write!]], [[enq-map-buffer!]], [[enq-map-buffer*]],
+  [[enq-unmap!]], [[enq-marker!]], [[enq-wait!]], [[enq-barrier!]],
+  [[finish!]], [[with-queue]]
   "
   (:require [uncomplicate.clojurecl
              [constants :refer :all]
@@ -47,8 +62,9 @@
             [clojure.core.async :refer [go >!]])
   (:import [org.jocl CL cl_platform_id cl_context_properties cl_device_id
             cl_context cl_command_queue cl_mem cl_program cl_kernel cl_sampler
-            cl_event cl_buffer_region Sizeof Pointer CreateContextFunction
-            EventCallbackFunction BuildProgramFunction]
+            cl_event cl_buffer_region cl_queue_properties
+            Sizeof Pointer CreateContextFunction EventCallbackFunction
+            BuildProgramFunction]
            [java.nio ByteBuffer ByteOrder]))
 
 (def ^{:dynamic true
@@ -339,6 +355,8 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
 
   If `devices` is empty, throws `ExceptionInfo`.
 
+  **Needs to be released after use.**
+
   This is a low-level alternative to [[context]].
 
   See http://www.khronos.org/registry/cl/sdk/2.0/docs/man/xhtml/clCreateContext.html
@@ -360,6 +378,8 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
   platform (`*platform`).
 
   If `devices` is empty, throws `ExceptionInfo`.
+
+  **Needs to be released after use.** (see [[with-context]]).
 
   See http://www.khronos.org/registry/cl/sdk/2.0/docs/man/xhtml/clCreateContext.html
   , http://www.jocl.org/doc/org/jocl/CL.html#clCreateContext-org.jocl.cl_context_properties-int-org.jocl.cl_device_id:A-org.jocl.CreateContextFunction-java.lang.Object-int:A-
@@ -395,7 +415,9 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
 
 (defmacro with-context
   "Dynamically binds `context` to the default context [[*context*]].
-  and  evaluates the body with that binding.
+  and evaluates the body with that binding. Releases the context
+  in the `finally` block. Take care *not* to release that context in
+  some other place; JVM might crash.
 
   Example:
 
@@ -459,6 +481,8 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
   Flags defined by the OpenCL standard are available as constants in the
   [org.jocl.CL](http://www.jocl.org/doc/org/jocl/CL.html) class.
 
+  **Needs to be released after use.**
+
   This is a low-level alternative to [[cl-buffer*]]
   If  `context` is nil or the buffer size is invalid, throws `ExceptionInfo`.
 
@@ -483,6 +507,8 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
 
   If called with two arguments, uses the default `*context*`
   (see [[with-context]]).
+
+  **Needs to be released after use.**
 
   If  `context` is nil or the buffer size is invalid, throws `ExceptionInfo`.
   If some of the flags is invalid, throws `IllegalArgumentexception`.
@@ -513,6 +539,8 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
   * `region` is a `cl_buffer_region` that specifies offset and size
   of the subbuffer.
 
+  **Needs to be released after use.**
+
   See http://www.khronos.org/registry/cl/sdk/2.0/docs/man/xhtml/clCreateBuffer.html,
   http://www.jocl.org/doc/org/jocl/CL.html#clCreateBuffer-org.jocl.cl_context-long-long-org.jocl.Pointer-int:A-
 
@@ -542,6 +570,8 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
   region in the origin buffer.
   * `flag` and `flags` are memory allocation usage keywords same as in
   [[cl-buffer]]
+
+  **Needs to be released after use.**
 
   See http://www.khronos.org/registry/cl/sdk/2.0/docs/man/xhtml/clCreateSubBuffer.html,
   http://www.jocl.org/doc/org/jocl/CL.html#clCreateSubBuffer-org.jocl.cl_mem-long-int-org.jocl.cl_buffer_region-int:A-
@@ -647,10 +677,25 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
 
 ;; ============== Events ==========================================
 
-(defn event []
+(defn event
+  "Creates new `cl_event`.
+
+  See http://www.jocl.org/doc/org/jocl/cl_event.html.
+  "
+  []
   (cl_event.))
 
 (defn host-event
+  "Creates new `cl_event` on the host (in OpenCL terminology,
+  known as \"user\" event.
+
+  If called without `context` argument, uses [[*context*]].
+
+  If `context` is `nil`, throws ExceptionInfo
+
+  See https://www.khronos.org/registry/cl/sdk/2.0/docs/man/xhtml/clCreateUserEvent.html,
+  http://www.jocl.org/doc/org/jocl/CL.html#clCreateUserEvent-org.jocl.cl_context-int:A-
+  "
   ([]
    (host-event *context*))
   ([context]
@@ -659,46 +704,48 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
      (with-check-arr err res))))
 
 (defn events
-  ([]
-   (make-array cl_event 0))
-  ([e]
-   (doto ^objects (make-array cl_event 1)
-         (aset 0 e)))
-  ([e0 e1]
-   (doto ^objects (make-array cl_event 2)
-         (aset 0 e0)
-         (aset 1 e1)))
-  ([e0 e1 e2]
-   (doto ^objects (make-array cl_event 3)
-         (aset 0 e0)
-         (aset 1 e1)
-         (aset 2 e2)))
-  ([e0 e1 e2 e3]
-   (doto ^objects (make-array cl_event 4)
-         (aset 0 e0)
-         (aset 1 e1)
-         (aset 2 e2)
-         (aset 3 e3)))
-  ([e0 e1 e2 e3 e4]
-   (doto ^objects (make-array cl_event 5)
-         (aset 0 e0)
-         (aset 1 e1)
-         (aset 2 e2)
-         (aset 3 e3)
-         (aset 4 e4)))
-  ([e0 e1 e2 e3 e4 & es]
-   (let [len (+ 5 (long (count es)))
-         res (doto ^objects (make-array cl_event len)
-                   (aset 0 e0)
-                   (aset 1 e1)
-                   (aset 2 e2)
-                   (aset 3 e3)
-                   (aset 4 e4))]
-     (loop [i 5 es es]
-       (if (< i len)
-         (do (aset res i (first es))
-             (recur (inc i) (next es)))
-         res)))))
+  "Creates an array of `cl_event`s. Arrays of events are
+  used in enqueuing commands, not vectors or sequences."
+  (^objects []
+            (make-array cl_event 0))
+  (^objects [e]
+            (doto ^objects (make-array cl_event 1)
+                  (aset 0 e)))
+  (^objects [e0 e1]
+            (doto ^objects (make-array cl_event 2)
+                  (aset 0 e0)
+                  (aset 1 e1)))
+  (^objects [e0 e1 e2]
+            (doto ^objects (make-array cl_event 3)
+                  (aset 0 e0)
+                  (aset 1 e1)
+                  (aset 2 e2)))
+  (^objects [e0 e1 e2 e3]
+            (doto ^objects (make-array cl_event 4)
+                  (aset 0 e0)
+                  (aset 1 e1)
+                  (aset 2 e2)
+                  (aset 3 e3)))
+  (^objects [e0 e1 e2 e3 e4]
+            (doto ^objects (make-array cl_event 5)
+                  (aset 0 e0)
+                  (aset 1 e1)
+                  (aset 2 e2)
+                  (aset 3 e3)
+                  (aset 4 e4)))
+  (^objects [e0 e1 e2 e3 e4 & es]
+            (let [len (+ 5 (long (count es)))
+                  res (doto ^objects (make-array cl_event len)
+                            (aset 0 e0)
+                            (aset 1 e1)
+                            (aset 2 e2)
+                            (aset 3 e3)
+                            (aset 4 e4))]
+              (loop [i 5 es es]
+                (if (< i len)
+                  (do (aset res i (first es))
+                      (recur (inc i) (next es)))
+                  res)))))
 
 (defrecord EventCallbackInfo [event status data])
 
@@ -708,40 +755,104 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
     (go (>! ch (->EventCallbackInfo
                 event (dec-command-execution-status status) data)))))
 
-(defn event-callback [ch]
+(defn event-callback
+  "Creates new `EventCallbackFunction` instance that puts
+  [[EventCallbackInfo]] in the core.async channel when called.
+
+  See also [[set-event-callback*]] and [[register]]"
+  ^org.jocl.EventCallbackFunction [ch]
   (->EventCallback ch))
 
-(defn set-event-callback!
+(defn set-event-callback*
+  "Registers a callback function for an event and a specific command
+  execution status. Returns the channel. MUST be called AFTER the event is
+  used in the enqueue operation.
+
+  If called without `callback-type` and `data`, registers [`CL/CL_COMPLETE`]
+  (http://www.jocl.org/doc/org/jocl/CL.html#CL_COMPLETE) status.
+
+  See [[event-callback]], [[register]], [[event]].
+  See https://www.khronos.org/registry/cl/sdk/2.0/docs/man/xhtml/clSetEventCallback.html,
+  http://www.jocl.org/doc/org/jocl/CL.html#clSetEventCallback-org.jocl.cl_event-int-org.jocl.EventCallbackFunction-java.lang.Object-
+
+  Example:
+
+      (set-event-callback* (user-event) (event-callback) CL/CL_COMPLETE :my-data)
+      (set-event-callback* (user-event) (event-callback))
+  "
   ([e ^EventCallback callback ^long callback-type data]
    (with-check
      (CL/clSetEventCallback e callback-type callback data)
      (.ch callback)))
   ([e ^EventCallback callback]
-   (set-event-callback! e callback CL/CL_COMPLETE nil)))
+   (set-event-callback* e callback CL/CL_COMPLETE nil)))
 
-(defn follow
+(defn register
+  "Creates a convenience function that registers callbacks for events.
+  It is a high-level alternative to [[set-event-callback*]]. MUST be called
+  AFTER the event is used in the enqueue operation.
+
+  * `channel` is a channel for communicating asynchronous notifications
+  * `callback-type` is an optional keyword that specifies the command execution
+  status that will be the default for the resulting function: `:complete`,
+  `:submitted`, or `running`.
+
+  Returns a function with the following arguments:
+
+  * `e` - user event that is being followed
+  * `callback-type` - optional command execution status; if ommited, the default
+  is used
+  * `data` - optional notification data
+
+  When called, the created function returns `channel` with registered callback.
+
+  See [[event-callback]], [[set-event-callback*]], [[event]].
+  See https://www.khronos.org/registry/cl/sdk/2.0/docs/man/xhtml/clSetEventCallback.html,
+  http://www.jocl.org/doc/org/jocl/CL.html#clSetEventCallback-org.jocl.cl_event-int-org.jocl.EventCallbackFunction-java.lang.Object-
+
+  Example:
+
+      (def notifications (chan))
+      (def follow (register notifications))
+      (def e (event))
+      (enq-read! comm-queue cl-object host-object e
+      (follow e)
+      (:event (<!! notifications))
+"
   ([channel callback-type]
    (let [callback (->EventCallback channel)
-         callb-type (if callback-type
-                      (cl-command-execution-status callback-type)
-                      CL/CL_COMPLETE)]
+         callb-type (get cl-command-execution-status
+                         callback-type CL/CL_COMPLETE)]
      (fn
        ([e callback-type data]
-        (set-event-callback! e callback
+        (set-event-callback* e callback
                             (cl-command-execution-status callback-type) data))
        ([e data]
-        (set-event-callback! e callback callb-type data))
+        (set-event-callback* e callback callb-type data))
        ([e]
-        (set-event-callback! e callback callb-type nil)))))
+        (set-event-callback* e callback callb-type nil)))))
   ([channel]
-   (follow channel nil)))
+   (register channel nil)))
 
-(defn set-status* [ev ^long status]
-  (let [err (CL/clSetUserEventStatus ev status)]
-    (with-check err ev)))
+(defn set-status!
+  "Sets the status of a host event to indicate whether it is complete
+  or there is an error (a negative value). It can be called only once to change
+  the status. If called with only the first argument, sets the status to
+  `CL/CL_COMPLETE`. Returns the event.
 
-(defn set-status! [ev status]
-  (set-status* ev (cl-command-execution-status status)))
+  See https://www.khronos.org/registry/cl/sdk/2.0/docs/man/xhtml/clSetUsereventstatus.html,
+  http://www.jocl.org/doc/org/jocl/CL.html#clSetUserEventStatus-org.jocl.cl_event-int-
+
+  Examples:
+
+      (set-status! ev) ;; event's status will be CL_COMPLETE
+      (set-status! ev -12) ;; indicates and error code -12
+  "
+  ([ev ^long status]
+   (let [err (CL/clSetUserEventStatus ev (if (< status 0) status CL/CL_COMPLETE))]
+     (with-check err ev)))
+  ([ev]
+   (set-status! ev CL/CL_COMPLETE)))
 
 ;; ============= Program ==========================================
 
@@ -753,6 +864,25 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
     (go (>! ch (->BuildCallbackInfo program data)))))
 
 (defn program-with-source
+  "Creates a `cl_program` for the context and loads the source code
+  specified by the text strings given in the `source` sequence.
+  When called with one argument, uses [[*context*]].
+
+  In case of OpenCL errors during the program creation, throws
+  `Exceptioninfo`.
+
+  **Needs to be released after use.**
+
+  See also [[build-program!]]
+
+  See https://www.khronos.org/registry/cl/sdk/2.0/docs/man/xhtml/clCreateProgramWithSource.html,
+  http://www.jocl.org/doc/org/jocl/CL.html#clCreateProgramWithSource-org.jocl.cl_context-int-java.lang.String:A-long:A-int:A-
+
+  Example:
+
+      (def source (slurp \"path-to-kernels/my_kernel.cl\"))
+      (program-with-source ctx [source])
+  "
   ([context source]
    (let [err (int-array 1)
          n (count source)
@@ -763,6 +893,35 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
    (program-with-source *context* source)))
 
 (defn build-program!
+  "Builds (compiles and links) a program executable; returns the program
+  changed with side effects on `program` argument.
+
+  Accepts the following arguments (nil is allowed for all optional arguments):
+
+  * `program`: previously loaded `cl_program` that contains the program
+  source or binary;
+  * `devices` (optional): an optional sequence of `cl_device`s associated with
+  the program (if not supplied, all devices are used);
+  * `options` (optional): an optional string of compiler options
+  (such as \"-Dname=value\");
+  * `ch` (optional): core.async channel for notifications. If supplied,
+  the build will be asynchronous;
+  * `user-data` (optional): passed as part of notification data.
+
+  In case of OpenCL errors during the program build, throws
+  `Exceptioninfo`.
+
+  See https://www.khronos.org/registry/cl/sdk/2.0/docs/man/xhtml/clBuildProgram.html,
+  http://www.jocl.org/doc/org/jocl/CL.html#clBuildProgram-org.jocl.cl_program-int-org.jocl.cl_device_id:A-java.lang.String-org.jocl.BuildProgramFunction-java.lang.Object-
+
+  Examples:
+
+      (build-program! program) ; synchronous
+      (build-program! program ch) ; asynchronous
+      (build-program! program \"-cl-std=CL2.0\" ch) ; asynchronous
+      (build-program! program [dev] \"-cl-std=CL2.0\" ch) ; async
+      (build-program! program [dev] \"-cl-std=CL2.0\" ch :my-data) ; async
+  "
   ([program devices options ch user-data]
    (let [err (CL/clBuildProgram program (count devices)
                                 (if devices
@@ -788,12 +947,32 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
 
 ;; ============== Kernel =========================================
 
-(defn num-kernels [program]
+(defn num-kernels
+  "Returns the number of kernels in `program` (`cl_program`).
+  "
+  ^long [program]
   (let [res (int-array 1)
         err (CL/clCreateKernelsInProgram program 0 nil res)]
     (with-check err (aget res 0))))
 
 (defn kernel
+  "Creates `cl_kernel` objects for the kernel function specified by `name`,
+  or, if the name is not specified, all kernel functions in a `program`.
+
+  **Needs to be released after use.**
+
+  In case of OpenCL errors during the program build, throws
+  `Exceptioninfo`.
+
+  See https://www.khronos.org/registry/cl/sdk/2.0/docs/man/xhtml/clCreateKernel.html,
+  https://www.khronos.org/registry/cl/sdk/2.0/docs/man/xhtml/clCreateKernelsInProgram.html,
+  http://www.jocl.org/doc/org/jocl/CL.html#clCreateKernel-org.jocl.cl_program-java.lang.String-int:A-
+  http://www.jocl.org/doc/org/jocl/CL.html#clCreateKernelsInProgram-org.jocl.cl_program-int-org.jocl.cl_kernel:A-int:A-
+  Examples:
+
+      (kernel program \"dumb_kernel\") ; `cl_kernel` object
+      (kernel program) ; all kernels in a vector
+  "
   ([program name]
    (let [err (int-array 1)
          res (CL/clCreateKernel program name err)]
@@ -804,28 +983,63 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
          err (CL/clCreateKernelsInProgram program nk res nil)]
      (vec (with-check err res)))))
 
-(defn set-arg! [kernel n cl-mem]
-  (set-arg cl-mem kernel n))
+(defn set-arg!
+  "Sets the argument value for a specific positional argument of a kernel.
+  Returns the changed `cl_kernel` object. `value` should implement [[Argument]]
+  protocol.
+
+  The arguement can be a [[Mem]] ([[CLBuffer]], [[CLImage]], Java primitive arrays),
+  or a number.
+  In the case of [[Mem]] objects, the memory object will be set as an argument.
+  In the case the argument is a number, its long value will be used as a size
+  of the local memory to be allocated on the device.
+
+  In case of OpenCL errors during the program build, throws
+  `Exceptioninfo`. if `value` is of the type that is not supported,
+  throws `IllegalArgumentexception`.
+
+  See [[kernel]], [[program]], [[Argument]], [[cl-buffer]].
+
+  See https://www.khronos.org/registry/cl/sdk/2.0/docs/man/xhtml/clSetKernelArg.html,
+  http://www.jocl.org/doc/org/jocl/CL.html#clSetKernelArg-org.jocl.cl_kernel-int-long-org.jocl.Pointer-
+
+  Examples:
+
+      (set-arg! my-kernel 0 cl-buffer0)
+      (set-arg! my-kernel 1 cl-buffer1)
+      (set-arg! my-kernel 2 (int-array 8))
+      (set-arg! my-kernel 3 42)
+"
+  [kernel n value]
+  (set-arg value kernel n))
 
 (defn set-args!
-  ([kernel cl-mem]
-   (set-arg! kernel 0 cl-mem))
-  ([kernel cl-mem-0 cl-mem-1]
-   (-> (set-arg! kernel 0 cl-mem-0)
-       (set-arg! 1 cl-mem-1)))
-  ([kernel cl-mem-0 cl-mem-1 cl-mem-2]
-   (-> (set-arg! kernel 0 cl-mem-0)
-       (set-arg! 1 cl-mem-1)
-       (set-arg! 2 cl-mem-2)))
-  ([kernel cl-mem-0 cl-mem-1 cl-mem-2 cl-mem-3 & cl-mems]
-   (let [ker (-> (set-arg! kernel 0 cl-mem-0)
-                 (set-arg! 1 cl-mem-1)
-                 (set-arg! 2 cl-mem-2)
-                 (set-arg! 3 cl-mem-3))]
-     (loop [i 4 cl-mems cl-mems]
-       (if-let [mem (first cl-mems)]
+  "Sets all arguments of `kernel`, and returns the changed `cl_kernel` object.
+  Equivalent to calling [[set-arg!]] for each argument.
+
+  Examples:
+
+      (set-args! my-kernel cl-buffer0)
+      (set-args! my-kernel cl-buffer0 cl-buffer-1 (int-array 8) 42)
+"
+  ([kernel value]
+   (set-arg! kernel 0 value))
+  ([kernel value-0 value-1]
+   (-> (set-arg! kernel 0 value-0)
+       (set-arg! 1 value-1)))
+  ([kernel value-0 value-1 value-2]
+   (-> (set-arg! kernel 0 value-0)
+       (set-arg! 1 value-1)
+       (set-arg! 2 value-2)))
+  ([kernel value-0 value-1 value-2 value-3 & values]
+   (let [ker (-> (set-arg! kernel 0 value-0)
+                 (set-arg! 1 value-1)
+                 (set-arg! 2 value-2)
+                 (set-arg! 3 value-3))]
+     (loop [i 4 values values]
+       (if-let [mem (first values)]
          (do (set-arg! ker i mem)
-             (recur (inc i) (next cl-mems)))
+             (recur (inc i) (next values)))
          ker)))))
 
 ;; ============== Work Size ==================================
@@ -833,6 +1047,18 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
 (defrecord WorkSize [^long workdim ^longs global ^longs local ^longs offset])
 
 (defn work-size
+  "Creates a [[WorkSize]] record, that sets global, local and offset
+  parameters in enqueuing ND kernels. All arguments are sequences,
+  holding as many arguments, as there are dimensions in the appropriate
+  ND kernel. In OpenCL 2.0, it is usually 1, 2, or 3, depending on the device.
+
+  See [[enq-nd!]]
+  Examples:
+
+      (work-size [102400 25600] [1024 128] [4 8])
+      (work-size [1024 256] [16 16])
+      (work-size [256])
+"
   ([global local offset]
    (let [global-array (long-array global)
          local-array (long-array local)
@@ -856,26 +1082,102 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
 
 ;; ============== Command Queue ===============================
 
-;; TODO Opencl 2.0  clCreateCommandQueue is deprecated in JOCL 0.2.0
-;; use ccqWithProperties
-(defn command-queue* [context device ^long properties]
-  (let [err (int-array 1)
-        res (CL/clCreateCommandQueue context device properties err)]
-    (with-check-arr err res)))
+(defn command-queue*
+  "Creates a host or device command queue on a specific device.
+
+  It is important to take care which version of this method to use,
+  depending on the OpenCL platform you have installed. If you run
+  the wrong version, you may crash the virtual machine.
+
+  * 3 - argument version supports **pre-2.0 OpenCL**;
+  * 4 - argument version supports **OpenCL 2.0**;
+
+  Arguments are:
+
+  * `context` - the `cl_context` for the queue;
+  * `device` - the `cl_device_id` for the queue;
+  * `size` - the size of the (on device) queue;
+  * `properties` - long bitmask containing properties, defined by the OpenCL
+  standard are available as constants in the org.jocl.CL class.
+
+  This is a low-level version of [[command-queue]].
+
+  If called with invalid context or device, throws `ExceptionInfo`.
+
+  See https://www.khronos.org/registry/cl/sdk/2.0/docs/man/xhtml/clCreateCommandQueueWithProperties.html,
+  https://www.khronos.org/registry/cl/sdk/1.2/docs/man/xhtml/clCreateCommandQueue.html,
+  http://www.jocl.org/doc/org/jocl/CL.html#clCreateCommandQueueWithProperties-org.jocl.cl_context-org.jocl.cl_device_id-org.jocl.cl_queue_properties-int:A-
+  http://www.jocl.org/doc/org/jocl/CL.html#clCreateCommandQueue-org.jocl.cl_context-org.jocl.cl_device_id-long-int:A-
+
+  Examples:
+      ;; OpenCL 2.0
+      (command-queue* ctx dev 524288  (bit-or CL/CL_QUEUE_PROFILING_ENABLED
+                                              CL/CL_QUEUE_ON_DEVICE))
+      ;; OpenCL 1.0, 1.1, 1.2
+      (command-queue* ctx dev CL/CL_QUEUE_PROFILING_ENABLED)
+  "
+  ([context device ^long properties]
+   (let [err (int-array 1)
+         res (CL/clCreateCommandQueue context device properties err)]
+     (with-check-arr err res)))
+  ([context device ^long size ^long properties]
+   (let [err (int-array 1)
+         props (let [clqp (cl_queue_properties.)]
+                 (when (< 0 properties)
+                   (.addProperty clqp CL/CL_QUEUE_PROPERTIES properties))
+                 (when (< 0 size)
+                   (.addProperty clqp CL/CL_QUEUE_SIZE size))
+                 clqp)
+         res (CL/clCreateCommandQueueWithProperties context device props err)]
+     (with-check-arr err res))))
 
 (defn command-queue
-  ([context device prop1 prop2 & properties]
-   (command-queue* context device
-                   (apply mask cl-command-queue-properties
-                          prop1 prop2 properties)))
-  ([context device prop]
-   (command-queue* context device (get cl-command-queue-properties prop 0)))
-  ([device prop]
-   (command-queue* *context* device (get cl-command-queue-properties prop 0)))
-  ([device]
-   (command-queue* *context* device 0)))
+  "Creates a host or device command queue on a specific device.
 
-;; TODO use *command-queue* in enqXXX functions
+  **This method supports only OpenCL 2.0 and higher.** If you have an older
+  platform, calling this method may crash the Java virtual machine.
+  For older versions, use [[command-queue*]].
+
+  Arguments are:
+
+  * `context` - the `cl_context` for the queue;
+  * `device` - the `cl_device_id` for the queue;
+  * `x` - if integer, the size of the (on device) queue, otherwise treated
+  as property;
+  * `properties` - additional optional keyword properties: `:profiling`,
+  `:queue-on-device`, `:out-of-order-exec-mode`, and`queue-on-device-default`;
+
+  **Needs to be released after use.**
+
+  See also [[command-queue*]].
+
+  If called with invalid context or device, throws `ExceptionInfo`.
+  If called with any invalid property, throws NullPointerexception.
+
+  See https://www.khronos.org/registry/cl/sdk/2.0/docs/man/xhtml/clCreateCommandQueueWithProperties.html,
+  https://www.khronos.org/registry/cl/sdk/1.2/docs/man/xhtml/clCreateCommandQueue.html,
+  http://www.jocl.org/doc/org/jocl/CL.html#clCreateCommandQueueWithProperties-org.jocl.cl_context-org.jocl.cl_device_id-org.jocl.cl_queue_properties-int:A-
+  http://www.jocl.org/doc/org/jocl/CL.html#clCreateCommandQueue-org.jocl.cl_context-org.jocl.cl_device_id-long-int:A-
+
+  Examples:
+
+       (command-queue ctx)
+       (command-queue ctx dev)
+       (command-queue ctx dev :profiling :queue-on-device :out-of-order-execution-mode)
+       (command-queue ctx dev 524288 :queue-on-device)
+
+  "
+  ([context device x & properties]
+   (if (integer? x)
+     (command-queue* context device x
+                     (mask cl-command-queue-properties properties))
+     (command-queue* context device 0
+                     (mask cl-command-queue-properties x properties))))
+  ([context device]
+   (command-queue* context device 0 0))
+  ([device]
+   (command-queue* *context* device 0 0)))
+
 (defn enq-nd!
   ([queue kernel ^WorkSize work-size ^objects wait-events event]
    (with-check
@@ -904,7 +1206,7 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
   ([queue cl host]
    (enq-read! queue cl host true 0 nil nil))
   ([cl host]
-   (enq-read! *command-queue* cl host false 0 nil nil)))
+   (enq-read! *command-queue* cl host true 0 nil nil)))
 
 (defn enq-write!
   ([queue cl host blocking offset ^objects wait-events event]
@@ -921,7 +1223,7 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
   ([queue cl host]
    (enq-write! queue cl host true 0 nil nil))
   ([cl host]
-   (enq-write! *command-queue* cl host false 0 nil nil)))
+   (enq-write! *command-queue* cl host true 0 nil nil)))
 
 (defn enq-map-buffer* [queue cl blocking offset flags
                            ^longs wait-events event]
@@ -988,3 +1290,10 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
   `(binding [*command-queue* ~queue]
      (try ~@body
           (finally (release *command-queue*)))))
+
+(defmacro with-default [& body]
+  `(with-platform (first (platforms))
+     (let [dev# (first (devices))]
+       (with-context (context [dev#])
+         (with-queue (command-queue dev#)
+           ~@body)))))

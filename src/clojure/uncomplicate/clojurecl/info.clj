@@ -84,7 +84,7 @@
   [[printf-buffer-size]], [[profiling-timer-resolution]], [[queue-on-device-max-size]],
   [[queue-on-device-properties]], [[queue-on-host-properties]],
   [[single-fp-config]], [[spir-versions]], [[svm-capabilities]],
-  [[terminate-capability-khr]], [[device-type]], [[vendor-id]], [[device-version]],
+  [[device-type]], [[vendor-id]], [[device-version]],
   [[driver-version]], [[extensions]], [[name-info]], [[profile]], [[vendor]],
   [[reference-count]]
 
@@ -565,9 +565,6 @@
 (defn svm-capabilities ^long [device]
   (info-long* CL/clGetDeviceInfo device CL/CL_DEVICE_SVM_CAPABILITIES))
 
-(defn terminate-capability-khr ^long [device]
-  (info-long* CL/clGetDeviceInfo device CL_TERMINATE_CAPABILITY_KHR))
-
 (defn device-type ^long [device]
   (info-long* CL/clGetDeviceInfo device CL/CL_DEVICE_TYPE))
 
@@ -665,7 +662,6 @@
      single-fp-config
      spir-versions
      svm-capabilities
-     terminate-capability-khr
      device-type
      vendor
      vendor-id
@@ -682,7 +678,7 @@
         :available (available d)
         :built-in-kernels (built-in-kernels d)
         :compiler-available (compiler-available d)
-        :double-fp-config (unmask cl-device-fp-config (double-fp-config d))
+        :double-fp-config (set (unmask cl-device-fp-config (double-fp-config d)))
         :endian-little (endian-little d)
         :error-correction-support (error-correction-support d)
         :execution-capabilities
@@ -771,7 +767,6 @@
         :spir-versions (spir-versions d)
         :svm-capabilities
         (set (unmask cl-device-svm-capabilities (svm-capabilities d)))
-        :terminate-capability-khr (terminate-capability-khr d)
         :device-type
         (unmask1 cl-device-type (device-type d))
         :vendor (vendor d)
@@ -867,7 +862,6 @@
       (maybe (set (unmask cl-device-fp-config (single-fp-config d))))
       (maybe (spir-versions d))
       (maybe (set (unmask cl-device-svm-capabilities (svm-capabilities d))))
-      (maybe (terminate-capability-khr d))
       (maybe (unmask1 cl-device-type (device-type d)))
       (maybe (vendor d))
       (maybe (vendor-id d))
@@ -945,7 +939,6 @@
                                       nil)]
     (with-check err d)))
 
-;; TODO this throws an exception...
 (defn queue-size ^long [queue]
   (info-int* CL/clGetCommandQueueInfo queue CL/CL_QUEUE_SIZE))
 
@@ -961,14 +954,14 @@
         :context (queue-context cq)
         :device (queue-device cq)
         :reference-count (reference-count cq)
-        :properties (unmask cl-command-queue-properties (properties cq))
+        :properties (set (unmask cl-command-queue-properties (properties cq)))
         :size (queue-size cq)
         nil)))
     ([cq]
      (->CommandQueueInfo (maybe (queue-context cq)) (maybe (queue-device cq))
                          (maybe (reference-count cq))
-                         (maybe (unmask cl-command-queue-properties
-                                        (properties cq)))
+                         (maybe (set (unmask cl-command-queue-properties
+                                             (properties cq))))
                          (maybe (queue-size cq)))))
   InfoReferenceCount
   (reference-count [cq]
@@ -1166,7 +1159,7 @@
       (dec-kernel-arg-access-qualifier (arg-access-qualifier kernel arg))
       :type-name (arg-type-name kernel arg)
       :type-qualifier
-      (unmask cl-kernel-arg-type-qualifier (arg-type-qualifier kernel arg))
+      (set (unmask cl-kernel-arg-type-qualifier (arg-type-qualifier kernel arg)))
       :name (arg-name kernel arg)
       nil)))
   ([kernel arg]
@@ -1175,8 +1168,8 @@
                     (maybe (dec-kernel-arg-access-qualifier
                             (arg-access-qualifier kernel arg)))
                     (maybe (arg-type-name kernel arg))
-                    (maybe (unmask cl-kernel-arg-type-qualifier
-                                   (arg-type-qualifier kernel arg)))
+                    (maybe (set (unmask cl-kernel-arg-type-qualifier
+                                        (arg-type-qualifier kernel arg))))
                     (maybe (arg-name kernel arg))))
   ([kernel]
    (map (partial arg-info kernel) (range (num-args kernel)) )))
@@ -1236,7 +1229,7 @@
      (maybe
       (case info-type
         :type (dec-mem-object-type (mem-type mo))
-        :flags (unmask cl-mem-flags (flags mo))
+        :flags (set (unmask cl-mem-flags (flags mo)))
         :size (mem-size mo)
         :map-count (map-count mo)
         :reference-count (reference-count mo)
@@ -1247,7 +1240,7 @@
         nil)))
     ([mo]
      (->MemObjectInfo (maybe (dec-mem-object-type (mem-type mo)))
-                      (maybe (unmask cl-mem-flags (flags mo)))
+                      (maybe (set (unmask cl-mem-flags (flags mo))))
                       (maybe (mem-size mo)) (maybe (map-count mo))
                       (maybe (reference-count mo)) (maybe (mem-context mo))
                       (maybe (associated-memobject mo)) (maybe (offset mo))
@@ -1361,10 +1354,14 @@
     (with-check err result-buffers)))
 
 (defn program-num-kernels ^long [p]
-  (info-size* CL/clGetProgramInfo p CL/CL_PROGRAM_NUM_KERNELS))
+  (if (some pos? (binary-sizes p))
+    (info-size* CL/clGetProgramInfo p CL/CL_PROGRAM_NUM_KERNELS)
+    0))
 
 (defn kernel-names [p]
-  (to-set (info-string* CL/clGetProgramInfo p CL/CL_PROGRAM_KERNEL_NAMES)))
+  (if (some pos? (binary-sizes p))
+    (to-set (info-string* CL/clGetProgramInfo p CL/CL_PROGRAM_KERNEL_NAMES))
+    #{}))
 
 (defrecord ProgramInfo [reference-count context num-devices devices source
                         binary-sizes binaries num-kernels kernel-names])
