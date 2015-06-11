@@ -21,7 +21,7 @@
 
   ### Cheat Sheet
 
-  * resource management: TODO
+  * resource management: [[with-release]]
   [[with-platform]], [[with-context]], [[with-queue]], [[with-default]]
 
   * [`cl_platform_id`](http://www.jocl.org/doc/org/jocl/cl_platform_id.html):
@@ -52,20 +52,28 @@
   [[command-queue]], [[command-queue*]], [[work-size]], [[enq-nd!]],
   [[enq-read!]], [[enq-write!]], [[enq-map-buffer!]], [[enq-map-buffer*]],
   [[enq-unmap!]], [[enq-marker!]], [[enq-wait!]], [[enq-barrier!]],
-  [[finish!]], [[with-queue]]
+  [[finish!]], [[flush!]] [[with-queue]]
   "
   (:require [uncomplicate.clojurecl
              [constants :refer :all]
              [utils :refer [with-check with-check-arr mask error]]
              [info :refer [info build-info program-devices]]]
             [clojure.string :as str]
-            [clojure.core.async :refer [go >!]])
+            [clojure.core.async :refer [go >!]]
+            [outpace.config :refer [defconfig]])
   (:import [org.jocl CL cl_platform_id cl_context_properties cl_device_id
             cl_context cl_command_queue cl_mem cl_program cl_kernel cl_sampler
             cl_event cl_buffer_region cl_queue_properties
             Sizeof Pointer CreateContextFunction EventCallbackFunction
             BuildProgramFunction]
            [java.nio ByteBuffer ByteOrder]))
+
+(defconfig
+  *opencl-2*
+  "Indicates the availability of OpenCL 2.0 platform. If the
+application needs to support an older OpenCL platform, configure it to false
+(see http://github.com/outpace/config). The default is true."
+  true)
 
 (def ^{:dynamic true
        :doc "Dynamic var for binding the default platform."}
@@ -140,26 +148,31 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
     (release cl)))
 
 (defmacro with-release
-  "Binds `Releasable` elements to symbols (like `let` do), evaluates
+  "Binds [[Releasable]] elements to symbols (like `let` do), evaluates
   `body`, and at the end releases the resources held by the bindings. The bindings
   can also be deeply sequential (see examples) - they will be released properly.
 
-  Examples:
+  Example:
 
-  TODO.
+      (with-release [devs (devices (first (platforms)))
+                     dev (first devs)
+                     ctx (context devs)
+                     queue (command-queue ctx dev)]
+        (info dev)
+        (info queue))
   "
   [bindings & body]
   (assert (vector? bindings) "a vector for its binding")
   (assert (even? (count bindings)) "an even number of forms in binding vector")
   (cond
-   (= (count bindings) 0) `(do ~@body)
-   (symbol? (bindings 0)) `(let ~(subvec bindings 0 2)
-                             (try
-                               (with-release ~(subvec bindings 2) ~@body)
-                               (finally
-                                 (release-seq ~(bindings 0)))))
-   :else (throw (IllegalArgumentException.
-                 "with-release only allows Symbols in bindings"))))
+    (= (count bindings) 0) `(do ~@body)
+    (symbol? (bindings 0)) `(let ~(subvec bindings 0 2)
+                              (try
+                                (with-release ~(subvec bindings 2) ~@body)
+                                (finally
+                                  (release-seq ~(bindings 0)))))
+    :else (throw (IllegalArgumentException.
+                  "with-release only allows Symbols in bindings"))))
 
 ;; =============== Platform =========================================
 
@@ -1089,12 +1102,8 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
 (defn command-queue*
   "Creates a host or device command queue on a specific device.
 
-  It is important to take care which version of this method to use,
-  depending on the OpenCL platform you have installed. If you run
-  the wrong version, you may crash the virtual machine.
-
-  * 3 - argument version supports **pre-2.0 OpenCL**;
-  * 4 - argument version supports **OpenCL 2.0**;
+  ** If you need to support OpenCL 1.2, you MUST set `*opencl-2*` to false,
+  or risk JVM crash. The default support is for OpenCL 2.0 and higher. **
 
   Arguments are:
 
@@ -1114,16 +1123,12 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
   http://www.jocl.org/doc/org/jocl/CL.html#clCreateCommandQueue-org.jocl.cl_context-org.jocl.cl_device_id-long-int:A-
 
   Examples:
-      ;; OpenCL 2.0
       (command-queue* ctx dev 524288  (bit-or CL/CL_QUEUE_PROFILING_ENABLED
                                               CL/CL_QUEUE_ON_DEVICE))
-      ;; OpenCL 1.0, 1.1, 1.2
       (command-queue* ctx dev CL/CL_QUEUE_PROFILING_ENABLED)
   "
   ([context device ^long properties]
-   (let [err (int-array 1)
-         res (CL/clCreateCommandQueue context device properties err)]
-     (with-check-arr err res)))
+   (command-queue* context device 0 properties))
   ([context device ^long size ^long properties]
    (let [err (int-array 1)
          props (let [clqp (cl_queue_properties.)]
@@ -1132,15 +1137,16 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
                  (when (< 0 size)
                    (.addProperty clqp CL/CL_QUEUE_SIZE size))
                  clqp)
-         res (CL/clCreateCommandQueueWithProperties context device props err)]
+         res (if *opencl-2*
+               (CL/clCreateCommandQueueWithProperties context device props err)
+               (CL/clCreateCommandQueue context device properties err))]
      (with-check-arr err res))))
 
 (defn command-queue
   "Creates a host or device command queue on a specific device.
 
-  **This method supports only OpenCL 2.0 and higher.** If you have an older
-  platform, calling this method may crash the Java virtual machine.
-  For older versions, use [[command-queue*]].
+  ** If you need to support OpenCL 1.2, you MUST set `*opencl-2*` to false,
+  or risk JVM crash. The default support is for OpenCL 2.0 and higher. **
 
   Arguments are:
 
@@ -1184,6 +1190,7 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
 
 (defn enq-nd!
   "Enqueues a command to asynchronously execute a kernel on a device.
+  Returns the queue.
 
   Arguments:
 
@@ -1224,6 +1231,7 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
 
 (defn enq-read!
   "Enqueues a command to read from a cl object to host memory.
+  Returns the queue.
 
   * `queue` (optional): the `cl_command_queue` that reads the object.
   If omitted, [[*command-queue*]] will be used.
@@ -1233,7 +1241,7 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
   * `wait-events` (optional): [[events]] array specifying the events (if any)
   that need to complete before this operation.
   * `event` (optional): if specified, the `cl_event` object tied to
-  the execution of this read.
+  the execution of this operation.
 
   If event is specified, the operation is asynchronous, otherwise it blocks the
   current thread until the data transfer completes. See also [[register]].
@@ -1251,8 +1259,7 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
         (follow ev)
         (<!! notifications))
 
-        (enq-read! my-queu cl-data host-data) ;; blocking
-
+      (enq-read! my-queu cl-data host-data) ;; blocking
   "
   ([queue cl host blocking offset ^objects wait-events event]
    (with-check
@@ -1272,16 +1279,19 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
 
 (defn enq-write!
   "Enqueues a command to write to a cl object from host memory.
+  Returns the queue.
+
+  Arguments:
 
   * `queue` (optional): the `cl_command_queue` that writes the object.
   If omitted, [[*command-queue*]] will be used.
-  * `cl`: the `cl_mem` that is going to be written to
+  * `cl`: the `cl_mem` that is going to be written to.
   * `host`: [[Mem]] object on the host that the data is to be transferred from.
   Must be a direct buffer is the writing is asynchronous.
   * `wait-events` (optional): [[events]] array specifying the events (if any)
   that need to complete before this operation.
   * `event` (optional): if specified, the `cl_event` object tied to
-  the execution of this read.
+  the execution of this operation.
 
   If event is specified, the operation is asynchronous, otherwise it blocks the
   current thread until the data transfer completes. See also [[register]].
@@ -1299,8 +1309,7 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
         (follow ev)
         (<!! notifications))
 
-        (enq-write! my-queu cl-data host-data) ;; blocking
-
+      (enq-write! my-queu cl-data host-data) ;; blocking
   "
   ([queue cl host blocking offset ^objects wait-events event]
    (with-check
@@ -1318,8 +1327,38 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
   ([cl host]
    (enq-write! *command-queue* cl host true 0 nil nil)))
 
-(defn enq-map-buffer* [queue cl blocking offset flags
-                           ^longs wait-events event]
+(defn enq-map-buffer*
+  "Enqueues a command to map a region of the cl buffer into the host
+  address space. Returns the mapped `java.nio.ByteBuffer`. The result
+  must be unmapped by calling [[enq-unmap!]] for the effects of working
+  with the mapping byte buffer to be transfered back to the device memory.
+
+  Arguments:
+
+  * `queue` (optional): the `cl_command_queue` that maps the object.
+  If omitted, [[*command-queue*]] will be used.
+  * `cl`: the `cl_mem` that is going to be mapped to.
+  * `blocking`: whether the operation is blocking (CL/CL_TRUE) or non-blocking
+  (CL/CL_FALSE).
+  * `offset`: integer value of the memory offset in bytes.
+  * `flags`: a bitfield that indicates whether the memory is mapped for reading
+  (`CL/CL_MAP_READ`), writing (`CL/CL_MAP_WRITE`) or both
+  `(bit-or CL/CL_MAP_READ CL/CL_MAP_WRITE)`.
+  * `wait-events` (optional): [[events]] array specifying the events (if any)
+  that need to complete before this operation.
+  * `event` (optional): if specified, the `cl_event` object tied to
+  the execution of this operation.
+
+  This is a low-level version of [[enq-map-buffer!]].
+
+  See https://www.khronos.org/registry/cl/sdk/2.0/docs/man/xhtml/clEnqueueMapBuffer.html,
+  http://www.jocl.org/doc/org/jocl/CL.html#clEnqueueMapBuffer-org.jocl.cl_command_queue-org.jocl.cl_mem-boolean-long-long-long-int-org.jocl.cl_event:A-org.jocl.cl_event-int:A-
+
+  Examples:
+
+      (enq-map-buffer* queue cl-buffer CL/CL_WRITE (events ev-nd) ev-map)
+  "
+  [queue cl blocking offset flags ^objects wait-events event]
   (let [err (int-array 1)
         res (CL/clEnqueueMapBuffer queue (cl-mem cl) blocking flags offset
                                    (size cl)
@@ -1328,27 +1367,84 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
     (with-check-arr err (.order res (ByteOrder/nativeOrder)))))
 
 (defn enq-map-buffer!
-  ([queue cl blocking offset flags ^longs wait-events event]
-   (enq-map-buffer* queue cl blocking offset (mask cl-map-flags flags)
-                       wait-events event))
-  ([queue cl flag wait-events queue]
-   (enq-map-buffer* queue cl false 0 (cl-map-flags flag) wait-events event))
-  ([queue cl flag event]
-   (enq-map-buffer* queue cl false 0 (cl-map-flags flag) nil event))
-  ([queue cl flag]
-   (enq-map-buffer* queue cl true 0 (cl-map-flags flag) nil nil))
-  ([cl flag]
-   (enq-map-buffer* *command-queue* cl true 0 (cl-map-flags flag) nil nil)))
+  "Enqueues a command to map a region of the cl buffer into the host
+  address space. Returns the mapped `java.nio.ByteBuffer`. The result
+  must be unmapped by calling [[enq-unmap!]] for the effects of working
+  with the mapping byte buffer to be transfered back to the device memory.
 
-;; TODO with-mapping
+  Arguments:
+
+  * `queue` (optional): the `cl_command_queue` that maps the object.
+  If omitted, [[*command-queue*]] will be used.
+  * `cl`: the `cl_mem` that is going to be mapped to.
+  * flags: one keyword or a sequence of keywords that indicates memory mapping
+  settings: `:read`, `:write`, and/or `:write-invalidate-settings`.
+  * `wait-events` (optional): [[events]] array specifying the events (if any)
+  that need to complete before this operation.
+  * `event` (optional): if specified, the `cl_event` object tied to
+  the execution of this read.
+
+  If event is specified, the operation is asynchronous, otherwise it blocks the
+  current thread until the data transfer completes. See also [[register]].
+
+  See https://www.khronos.org/registry/cl/sdk/2.0/docs/man/xhtml/clEnqueueMapBuffer.html,
+  http://www.jocl.org/doc/org/jocl/CL.html#clEnqueueMapBuffer-org.jocl.cl_command_queue-org.jocl.cl_mem-boolean-long-long-long-int-org.jocl.cl_event:A-org.jocl.cl_event-int:A-
+
+  Examples:
+
+      (enq-map-buffer! queue cl-buffer :write (events ev-nd) ev-map)
+      (enq-map-buffer! queue cl-buffer [:write :read])
+      (enq-map-buffer! cl-buffer :write)
+  "
+  ([queue cl flags wait-events event]
+   (enq-map-buffer* queue cl false 0
+                    (if (keyword? flags) (cl-map-flags flags) (mask cl-map-flags flags))
+                    wait-events event))
+  ([queue cl flags event]
+   (enq-map-buffer! queue cl flags nil event))
+  ([queue cl flags]
+   (enq-map-buffer* queue cl true 0
+                    (if (keyword? flags) (cl-map-flags flags) (mask cl-map-flags flags))
+                    nil nil))
+  ([cl flags]
+   (enq-map-buffer! *command-queue* cl flags)))
 
 (defn enq-unmap!
-  ([queue cl host ^longs wait-events event]
+  "Enqueues a command to unmap a previously mapped memory region.
+  Returns the queue.
+
+  Arguments:
+
+  * `queue` (optional): the `cl_command_queue` that unmaps the object.
+  If omitted, [[*command-queue*]] will be used.
+  *  `cl`: the `cl_mem` that is going to be unmapped.
+  *  `host`: the host byte buffer that is going to be unmapped.
+  * `wait-events` (optional): [[events]] array specifying the events (if any)
+  that need to complete before this operation.
+  * `event` (optional): if specified, the `cl_event` object tied to
+  the execution of this read.
+
+  If event is specified, the operation is asynchronous, otherwise it blocks the
+  current thread until the data transfer completes. See also [[register]].
+
+  See also [[enq-map-buffer!]].
+
+  See https://www.khronos.org/registry/cl/sdk/2.0/docs/man/xhtml/clEnqueueUnmapMemObject,
+  http://www.jocl.org/doc/org/jocl/CL.html#clEnqueueUnmapMemObject-org.jocl.cl_command_queue-org.jocl.cl_mem-java.nio.ByteBuffer-int-org.jocl.cl_event:A-org.jocl.cl_event-
+
+  Examples:
+
+      (enq-unmap! queue cl-buffer byte-buffer (events ev-nd) ev-map)
+      (enq-unmap! queue cl-buffer byte-buffer ev-map)
+      (enq-unmap! queue cl-buffer byte-buffer)
+      (enq-unmap! cl-buffer byte-buffer)
+"
+  ([queue cl host ^objects wait-events event]
    (let [err (CL/clEnqueueUnmapMemObject queue (cl-mem cl) host
                                          (if wait-events (alength wait-events) 0)
                                          wait-events event)]
      (with-check err queue)))
-  ([queue cl host cqueue]
+  ([queue cl host event]
    (enq-unmap! queue cl host nil event))
   ([queue cl host]
    (enq-unmap! queue cl host nil nil))
@@ -1356,6 +1452,18 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
    (enq-unmap! *command-queue* cl host nil nil)))
 
 (defn enq-marker!
+  "Enqueues a marker command which waits for either a list of events to complete,
+  or all previously enqueued commands to complete. Returns the queue.
+
+  See https://www.khronos.org/registry/cl/sdk/2.0/docs/man/xhtml/clEnqueueMarkerWithWaitList,
+  http://www.jocl.org/doc/org/jocl/CL.html#clEnqueueMarkerWithWaitList-org.jocl.cl_command_queue-int-org.jocl.cl_event:A-org.jocl.cl_event-
+
+  Examples:
+
+  (enq-marker! queue (events ev-nd) ev-map)
+  (enq-marker! queue)
+  (enq-marker! queue ev-map)
+  "
   ([queue]
    (enq-marker! queue nil nil))
   ([queue ev]
@@ -1368,6 +1476,17 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
      queue)))
 
 (defn enq-barrier!
+  "A synchronization point that enqueues a barrier operation. Returns the queue.
+
+  See https://www.khronos.org/registry/cl/sdk/2.0/docs/man/xhtml/clEnqueueBarrierWithWaitList,
+  http://www.jocl.org/doc/org/jocl/CL.html#clEnqueueBarrierWithWaitList-org.jocl.cl_command_queue-int-org.jocl.cl_event:A-org.jocl.cl_event-
+
+  Examples:
+
+  (enq-barrier! queue (events ev-nd) ev-map)
+  (enq-barrier! queue)
+  (enq-barrier! queue ev-map)
+  "
   ([queue]
    (enq-barrier! queue nil nil))
   ([queue ev]
@@ -1379,15 +1498,55 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
                                       wait-events ev)
      queue)))
 
-(defn finish! [queue]
-  (with-check (CL/clFinish queue) queue))
+(defn finish!
+  "Blocks until all previously queued OpenCL commands in a command-queue
+  are issued to the associated device and have completed. Returns the queue.
 
-(defmacro with-queue [queue & body]
+  See https://www.khronos.org/registry/cl/sdk/2.0/docs/man/xhtml/clFinish.html,
+  http://www.jocl.org/doc/org/jocl/CL.html#clFinish-org.jocl.cl_command_queue-
+
+  Example:
+
+      (finish! my-queue)
+"
+ [queue]
+ (with-check (CL/clFinish queue) queue))
+
+(defn flush!
+  "Issues all previously queued OpenCL commands in a command-queue to the device
+  associated with the command-queue.
+
+  See https://www.khronos.org/registry/cl/sdk/2.0/docs/man/xhtml/clFlush.html,
+  http://www.jocl.org/doc/org/jocl/CL.html#clFinish-org.jocl.cl_command_queue-
+
+  Example:
+
+      (flush! my-queue)
+"
+ [queue]
+ (with-check (CL/clFlush queue) queue ))
+
+(defmacro with-queue
+  "Dynamically binds `queue` to the default queue [[*command-queue*]].
+  and evaluates the body with that binding. Releases the queue
+  in the `finally` block. Take care *not* to release that queue in
+  some other place; JVM might crash.
+
+  Example:
+
+      (with-queue (command-queue dev)
+        (enq-read cl-data data))
+  "
+  [queue & body]
   `(binding [*command-queue* ~queue]
      (try ~@body
           (finally (release *command-queue*)))))
 
-(defmacro with-default [& body]
+(defmacro with-default
+  "Dynamically binds [[*platform*]], [[*context*]] and [[*command-queue]]
+  to the first of the available platforms, the context containing the first
+  device of that platform, and the queue on the device in that context."
+  [& body]
   `(with-platform (first (platforms))
      (let [dev# (first (devices))]
        (with-context (context [dev#])

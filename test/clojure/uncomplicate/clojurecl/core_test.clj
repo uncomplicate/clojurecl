@@ -9,7 +9,8 @@
              [structs :refer [wrap-byte-seq float32]]])
   (:import [uncomplicate.clojurecl.core CLBuffer]
            [org.jocl CL Pointer cl_device_id cl_context_properties cl_mem]
-           [clojure.lang ExceptionInfo]))
+           [clojure.lang ExceptionInfo]
+           [java.nio ByteBuffer]))
 
 ;; ================== Platform tests ========================
 (facts
@@ -291,7 +292,7 @@
         (let [wsize (work-size [cnt])
               data (float-array (range cnt))]
           (facts
-           "enq-nd!, enq-read!, enq-write! tests"
+           "enq-nd!, enq-read!, enq-write!, tests"
            (enq-write! cl-data data) => *command-queue*
            (enq-nd! dumb-kernel wsize) => *command-queue*
            (enq-read! cl-data data) => *command-queue*
@@ -301,7 +302,7 @@
       src (slurp "test/opencl/core_test.cl")
       data (let [d (direct-buffer (* 8 Float/BYTES))]
              (dotimes [n cnt]
-               (.putFloat ^java.nio.ByteBuffer d (* n Float/BYTES) n))
+               (.putFloat ^ByteBuffer d (* n Float/BYTES) n))
              d)
       notifications (chan)
       follow (register notifications)
@@ -330,4 +331,18 @@
      (:event (<!! notifications)) => ev-read
 
      (vec  (wrap-byte-seq float32 (byte-seq data)))
-     => [168.0 171.0 174.0 177.0 180.0 183.0 186.0 189.0])))
+     => [168.0 171.0 174.0 177.0 180.0 183.0 186.0 189.0]
+
+     (let [mapped-read (enq-map-buffer! queue1 cl-data :read)
+           mapped-write (enq-map-buffer! queue1 cl-data :write)]
+       (.getFloat ^ByteBuffer mapped-read 4) => 171.0
+       (.getFloat ^ByteBuffer mapped-write 4) => 171.0
+       (do (.putFloat ^ByteBuffer mapped-write 4 100.0)
+           (.getFloat ^ByteBuffer mapped-write 4))
+       => 100.0
+       (.getFloat ^ByteBuffer mapped-read 4) => 100.0
+       (do (.putFloat ^ByteBuffer mapped-read 4 100.0)
+           (.getFloat ^ByteBuffer mapped-read 4))
+       => 100.0
+       (enq-unmap! queue1 cl-data mapped-read) => queue1
+       (enq-unmap! queue1 cl-data mapped-write) => queue1))))
