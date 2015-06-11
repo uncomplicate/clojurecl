@@ -3,7 +3,10 @@
             [uncomplicate.clojurecl
              [core :refer :all]
              [info :refer [info reference-count mem-base-addr-align]]]
-            [clojure.core.async :refer [go >! <! <!! chan]])
+            [clojure.core.async :refer [go >! <! <!! chan]]
+            [vertigo
+             [bytes :refer [direct-buffer byte-seq]]
+             [structs :refer [wrap-byte-seq float32]]])
   (:import [uncomplicate.clojurecl.core CLBuffer]
            [org.jocl CL Pointer cl_device_id cl_context_properties cl_mem]
            [clojure.lang ExceptionInfo]))
@@ -267,12 +270,13 @@
       (facts
        (info (program-with-source [src])) =not=> nil)
 
-      (facts
-       "Kernel tests"
-       (num-kernels program) => 1
-       (with-release [dumb-kernel (kernel program "dumb_kernel")
-                      all-kernels (kernel program)
-                      cl-data (cl-buffer (* cnt Float/BYTES))]
+      (with-release [dumb-kernel (kernel program "dumb_kernel")
+                     all-kernels (kernel program)
+                     cl-data (cl-buffer (* cnt Float/BYTES))]
+        (facts
+         "Kernel tests"
+         (num-kernels program) => 1
+
          (info dumb-kernel :name) => (info (first all-kernels) :name)
          (kernel nil) => (throws ExceptionInfo)
 
@@ -282,4 +286,48 @@
          (set-arg! dumb-kernel 1 Integer/BYTES) => dumb-kernel
          (set-arg! dumb-kernel 2 (int-array [42])) => dumb-kernel
 
-         (set-args! dumb-kernel cl-data Integer/BYTES) => dumb-kernel)))))
+         (set-args! dumb-kernel cl-data Integer/BYTES) => dumb-kernel)
+
+        (let [wsize (work-size [cnt])
+              data (float-array (range cnt))]
+          (facts
+           "enq-nd!, enq-read!, enq-write! tests"
+           (enq-write! cl-data data) => *command-queue*
+           (enq-nd! dumb-kernel wsize) => *command-queue*
+           (enq-read! cl-data data) => *command-queue*
+           (vec data) => [84.0 86.0 88.0 90.0 92.0 94.0 96.0 98.0]))))))
+
+(let [cnt 8
+      src (slurp "test/opencl/core_test.cl")
+      data (let [d (direct-buffer (* 8 Float/BYTES))]
+             (dotimes [n cnt]
+               (.putFloat ^java.nio.ByteBuffer d (* n Float/BYTES) n))
+             d)
+      notifications (chan)
+      follow (register notifications)
+      ev-nd1 (event)
+      ev-nd2 (event)
+      ev-read (event)
+      ev-write (event)
+      wsize (work-size [8])]
+  (with-release [devs (devices (first (platforms)))
+                 ctx (context devs)
+                 queue1 (command-queue ctx (first devs))
+                 queue2 (command-queue ctx (second devs))
+                 cl-data (cl-buffer ctx (* cnt Float/BYTES) :read-write)
+                 program (build-program! (program-with-source ctx [src]))
+                 dumb-kernel (kernel program "dumb_kernel")]
+
+    (facts
+     "wait-events tests"
+     (set-args! dumb-kernel cl-data Integer/BYTES (int-array [42]))
+     (enq-write! queue1 cl-data data ev-write)
+     (enq-nd! queue1 dumb-kernel wsize (events ev-write) ev-nd1)
+     (enq-nd! queue2 dumb-kernel wsize (events ev-write ev-nd1) ev-nd2)
+     (enq-read! queue1 cl-data data (events ev-nd2) ev-read)
+     (follow ev-read)
+
+     (:event (<!! notifications)) => ev-read
+
+     (vec  (wrap-byte-seq float32 (byte-seq data)))
+     => [168.0 171.0 174.0 177.0 180.0 183.0 186.0 189.0])))

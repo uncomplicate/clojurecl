@@ -5,8 +5,7 @@
              [core :refer :all]
              [info :refer [info durations profiling-info]]]
             [vertigo
-             [bytes :refer [direct-buffer byte-seq]]
-             [structs :refer [wrap-byte-seq int8]]]))
+             [bytes :refer [direct-buffer]]]))
 
 (set! *unchecked-math* true)
 

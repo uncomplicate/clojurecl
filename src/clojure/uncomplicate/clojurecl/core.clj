@@ -1058,6 +1058,7 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
       (work-size [102400 25600] [1024 128] [4 8])
       (work-size [1024 256] [16 16])
       (work-size [256])
+      (work-size) ; same as (work-size [1])
 "
   ([global local offset]
    (let [global-array (long-array global)
@@ -1078,7 +1079,10 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
                "All work-sizes must have the same work-dimension.")))))
   ([sizes]
    (let [sizes-array (long-array sizes)]
-     (->WorkSize (alength sizes-array) sizes-array sizes-array nil))))
+     (->WorkSize (alength sizes-array) sizes-array sizes-array nil)))
+  ([]
+   (let [sizes-array (long-array [1])]
+     (->WorkSize 1 sizes-array sizes-array))))
 
 ;; ============== Command Queue ===============================
 
@@ -1145,7 +1149,7 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
   * `x` - if integer, the size of the (on device) queue, otherwise treated
   as property;
   * `properties` - additional optional keyword properties: `:profiling`,
-  `:queue-on-device`, `:out-of-order-exec-mode`, and`queue-on-device-default`;
+  `:queue-on-device`, `:out-of-order-exec-mode`, and `queue-on-device-default`;
 
   **Needs to be released after use.**
 
@@ -1179,6 +1183,31 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
    (command-queue* *context* device 0 0)))
 
 (defn enq-nd!
+  "Enqueues a command to asynchronously execute a kernel on a device.
+
+  Arguments:
+
+  * `queue` (optional): the `cl_command_queue` that executes the kernel.
+  If omitted, [[*command-queue*]] will be used.
+  * `kernel`: the `cl_kernel` that is going to be executed.
+  * `work-size`: [[WorkSize]] containing the settings of execution
+  (global work size, local work size, global work offset).
+  * `wait-events` (optional): [[events]] array specifying the events (if any)
+  that need to complete before this command can be executed.
+  * `event` (optional): if specified, the `cl_event` object tied to
+  the execution of this command.
+
+  If an OpenCL error occurs during the call, throws `ExceptionInfo`.
+
+  See https://www.khronos.org/registry/cl/sdk/2.0/docs/man/xhtml/clEnqueueNDRangeKernel.html,
+  http://www.jocl.org/doc/org/jocl/CL.html#clEnqueueNDRangeKernel-org.jocl.cl_command_queue-org.jocl.cl_kernel-int-long:A-long:A-long:A-int-org.jocl.cl_event:A-org.jocl.cl_event-
+
+  Examples:
+
+      (enq-nd! my-kernel (work-size [8]))
+      (enq-nd! my-queue my-kernel (work-size [8]))
+      (enq-nd! my-queue my-kernel (work-size [8] (events event1 event2) my-event))
+  "
   ([queue kernel ^WorkSize work-size ^objects wait-events event]
    (with-check
      (CL/clEnqueueNDRangeKernel queue kernel (.workdim work-size) (.offset work-size)
@@ -1186,17 +1215,50 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
                                 (if wait-events (alength wait-events) 0)
                                 wait-events event)
      queue))
+  ([queue kernel work-size event]
+   (enq-nd! queue kernel work-size nil event))
   ([queue kernel work-size]
    (enq-nd! queue kernel work-size nil nil))
   ([kernel work-size]
    (enq-nd! *command-queue* kernel work-size nil nil)))
 
 (defn enq-read!
+  "Enqueues a command to read from a cl object to host memory.
+
+  * `queue` (optional): the `cl_command_queue` that reads the object.
+  If omitted, [[*command-queue*]] will be used.
+  * `cl`: the `cl_mem` that is going to be read from.
+  * `host`: [[Mem]] object on the host that the data is to be transferred to.
+  Must be a direct buffer is the reading is asynchronous.
+  * `wait-events` (optional): [[events]] array specifying the events (if any)
+  that need to complete before this operation.
+  * `event` (optional): if specified, the `cl_event` object tied to
+  the execution of this read.
+
+  If event is specified, the operation is asynchronous, otherwise it blocks the
+  current thread until the data transfer completes. See also [[register]].
+
+  See https://www.khronos.org/registry/cl/sdk/2.0/docs/man/xhtml/clEnqueueReadBuffer.html,
+  http://www.jocl.org/doc/org/jocl/CL.html#clEnqueueReadBuffer-org.jocl.cl_command_queue-org.jocl.cl_mem-boolean-long-long-org.jocl.Pointer-int-org.jocl.cl_event:A-org.jocl.cl_event-
+
+  Examples:
+
+      (let [host-data (direct-buffer 32)
+            ev (event)
+            notifications (chan)
+            follow (register notifications)]
+        (enq-read! my-queue cl-data host-data ev) ;; asynchronous
+        (follow ev)
+        (<!! notifications))
+
+        (enq-read! my-queu cl-data host-data) ;; blocking
+
+  "
   ([queue cl host blocking offset ^objects wait-events event]
    (with-check
      (CL/clEnqueueReadBuffer queue (cl-mem cl) blocking offset
                              (size cl) (ptr host)
- (if wait-events (alength wait-events) 0)
+                             (if wait-events (alength wait-events) 0)
                              wait-events event)
      queue))
   ([queue cl host wait-events event]
@@ -1209,6 +1271,37 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
    (enq-read! *command-queue* cl host true 0 nil nil)))
 
 (defn enq-write!
+  "Enqueues a command to write to a cl object from host memory.
+
+  * `queue` (optional): the `cl_command_queue` that writes the object.
+  If omitted, [[*command-queue*]] will be used.
+  * `cl`: the `cl_mem` that is going to be written to
+  * `host`: [[Mem]] object on the host that the data is to be transferred from.
+  Must be a direct buffer is the writing is asynchronous.
+  * `wait-events` (optional): [[events]] array specifying the events (if any)
+  that need to complete before this operation.
+  * `event` (optional): if specified, the `cl_event` object tied to
+  the execution of this read.
+
+  If event is specified, the operation is asynchronous, otherwise it blocks the
+  current thread until the data transfer completes. See also [[register]].
+
+  See https://www.khronos.org/registry/cl/sdk/2.0/docs/man/xhtml/clEnqueueWriteBuffer.html,
+  http://www.jocl.org/doc/org/jocl/CL.html#clEnqueueWriteBuffer-org.jocl.cl_command_queue-org.jocl.cl_mem-boolean-long-long-org.jocl.Pointer-int-org.jocl.cl_event:A-org.jocl.cl_event-
+
+  Examples:
+
+      (let [host-data (direct-buffer 32)
+            ev (event)
+            notifications (chan)
+            follow (register notifications)]
+        (enq-write! my-queue cl-data host-data ev) ;; asynchronous
+        (follow ev)
+        (<!! notifications))
+
+        (enq-write! my-queu cl-data host-data) ;; blocking
+
+  "
   ([queue cl host blocking offset ^objects wait-events event]
    (with-check
      (CL/clEnqueueWriteBuffer queue (cl-mem cl) blocking offset
@@ -1263,24 +1356,27 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
    (enq-unmap! *command-queue* cl host nil nil)))
 
 (defn enq-marker!
+  ([queue]
+   (enq-marker! queue nil nil))
   ([queue ev]
-   (with-check (CL/clEnqueueMarker queue ev) queue))
+   (enq-marker! queue nil ev))
   ([queue ^objects wait-events ev]
    (with-check
-     (CL/clEnqueueMarkerWithWaitList queue (alength wait-events) wait-events ev)
+     (CL/clEnqueueMarkerWithWaitList queue
+                                     (if wait-events(alength wait-events) 0)
+                                     wait-events ev)
      queue)))
-
-(defn enq-wait! [queue ^objects wait-events]
-  (with-check
-    (CL/clEnqueueWaitForEvents queue (alength wait-events) wait-events)
-    queue))
 
 (defn enq-barrier!
   ([queue]
-   (with-check (CL/clEnqueueBarrier queue) queue))
+   (enq-barrier! queue nil nil))
+  ([queue ev]
+   (enq-barrier! queue nil ev))
   ([queue ^objects wait-events ev]
    (with-check
-     (CL/clEnqueueBarrierWithWaitList queue (alength wait-events) wait-events ev)
+     (CL/clEnqueueBarrierWithWaitList queue
+                                      (if wait-events(alength wait-events) 0)
+                                      wait-events ev)
      queue)))
 
 (defn finish! [queue]
