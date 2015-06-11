@@ -1,10 +1,13 @@
-# Neanderthal
+# ClojureCL
 
-Neanderthal is a Clojure library for fast matrix and linear algebra computations based on the highly optimized [Automatically Tuned Linear Algebra Software (ATLAS)](http://math-atlas.sourceforge.net/) native library of [BLAS](http://netlib.org/blas/) and [LAPACK](http://www.netlib.org/lapack/) computation routines.
+ClojureCL is a Clojure library for parallell computations with OpenCL. It supports latest OpenCL 2.0 and uses fast hand-writen JNI
+bindings provided by [Marco Hutter's JOCL.org](http://www.jocl.org) for communication with vendor's OpenCL platform
+drivers.
+
 
 ## How to use it
 
-Read the documentation at [Neanderthal Web Site](http://neanderthal.uncomplicate.org).
+Read the documentation at [ClojureCL Web Site](http://clojurecl.uncomplicate.org).
 
 ## License
 
