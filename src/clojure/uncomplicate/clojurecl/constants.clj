@@ -213,7 +213,14 @@ See http://www.khronos.org/registry/cl/sdk/2.0/docs/man/xhtml/clCreateBuffer.htm
    :copy-host-ptr CL/CL_MEM_COPY_HOST_PTR
    :host-write-only CL/CL_MEM_HOST_WRITE_ONLY
    :host-read-only CL/CL_MEM_HOST_READ_ONLY
-   :host-no-access CL/CL_MEM_HOST_NO_ACCESS
+   :host-no-access CL/CL_MEM_HOST_NO_ACCESS})
+
+(def ^{:doc "Memory allocation and usage information defined in OpenCL standard.
+See http://www.khronos.org/registry/cl/sdk/2.0/docs/man/xhtml/clSVMAlloc.html"}
+  cl-svm-mem-flags
+  {:read-write CL/CL_MEM_READ_WRITE
+   :write-only CL/CL_MEM_WRITE_ONLY
+   :read-only CL/CL_MEM_READ_ONLY
    :fine-grain-buffer CL/CL_MEM_SVM_FINE_GRAIN_BUFFER
    :atomics CL/CL_MEM_SVM_ATOMICS})
 

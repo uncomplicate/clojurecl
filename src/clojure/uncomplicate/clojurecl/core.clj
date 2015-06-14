@@ -19,6 +19,13 @@
   and gives primitive results. These functions are useful when you
   already have primitive data and want to avoid unnecessary conversions
 
+  The documentation given here is only a quick reminder; it is necessarry
+  to grasp OpenCL and parallel computing concepts to be able to use the
+  library. Also, each function's doc entry have a link to much more detailed
+  documentation available in OpenCL and JOCL reference - be sure to
+  browse one of these documents wherever you are not sure about
+  some of many important details.
+
   ### Cheat Sheet
 
   * resource management: [[with-release]]
@@ -444,6 +451,20 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
 
 ;; =========================== Memory  =========================================
 
+(defprotocol Mem
+  "An object that represent memory that participates in OpenCL operations. It could
+  be on the device ([[CLMem]]), or on the host.  Built-in implementations:
+  cl buffer, Java primitive arrays and `ByteBuffer`s."
+  (ptr [this]
+    "JOCL `Pointer` to this object.")
+  (size [this]
+    "Memory size of this cl object in bytes."))
+
+(defprotocol Contextual
+  "An object that has some dependency on a `cl_context`."
+  (cl-context [this]
+    "Context that is related to this object."))
+
 (defprotocol CLMem
   "A wrapper for `cl_mem` objects, that also holds a `Pointer` to the cl mem
   object, context that created it, and size in bytes. It is useful in many
@@ -451,10 +472,17 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
   of OpenCL functions."
   (cl-mem [this]
     "The raw JOCL `cl_mem` object.")
-  (cl-context [this]
-    "Context that created this object.")
-  (size [this]
-    "Memory size of this cl object in bytes."))
+  (enq-copy* [this queue dst src-offset dst-offset cb wait-events ev]
+    "A specific implementation for copying this `cl-mem` object to a cl buffer."))
+
+(defprotocol SVMMem
+  "A wrapper for SVM Buffer objects, that also holds a context that created it,
+  `Pointer`, size in bytes, and can create a `ByteBuffer`. It is useful in many
+  functions that need that (redundant in Java) data because of the C background
+  of OpenCL functions."
+  (byte-buffer [this] [this offset size]
+    "Creates a Java `ByteBuffer` for this SVM memory.")
+  (enq-svm-copy [this]));;TODO
 
 (defprotocol Argument
   "Object that can be argument in OpenCL kernels. Built-in implementations:
@@ -462,33 +490,54 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
   (set-arg [arg kernel n]
     "Specific implementation of setting the kernel arguments."))
 
-(defprotocol Mem
-  "Object that represent memory that participates in OpenCL operations. It could
-  be on the device ([[CLMem]]), or on the host.  Built-in implementations:
-  cl buffer, Java primitive arrays and `ByteBuffer`s."
-  (ptr [this]
-    "JOCL `Pointer` to this object."))
-
-(deftype CLBuffer [^cl_context ctx ^cl_mem cl ^Pointer cl* s]
+(deftype CLBuffer [^cl_context ctx ^cl_mem cl ^Pointer cl* ^long s]
   Releaseable
   (release [_]
     (release cl))
   Mem
   (ptr [_]
     cl*)
+  (size [_]
+    s)
   CLMem
   (cl-mem [_]
     cl)
+  (enq-copy* [this queue dst src-offset dst-offset size wait-events ev]
+    (with-check
+      (CL/clEnqueueCopyBuffer queue cl (cl-mem dst) src-offset dst-offset size
+                              (if wait-events (alength ^objects wait-events) 0)
+                              wait-events ev)
+      queue))
+  Contextual
   (cl-context [_]
     ctx)
-  (size [_]
-    s)
   Argument
   (set-arg [_ kernel n]
     (with-check (CL/clSetKernelArg kernel n Sizeof/cl_mem cl*) kernel)))
 
+(deftype SVMBuffer [^cl_context ctx ^Pointer svm* ^long s]
+  Releaseable
+  (release [_]
+    (CL/clSVMFree ctx svm*))
+  Mem
+  (ptr [_]
+    svm*)
+  (size [_]
+    s)
+  Contextual
+  (cl-context [_]
+    ctx)
+  SVMMem
+  (byte-buffer [this]
+    (byte-buffer this 0 s))
+  (byte-buffer [_ offset size]
+    (.order (.getByteBuffer svm* offset size) (ByteOrder/nativeOrder)))
+  Argument
+  (set-arg [_ kernel n]
+    (with-check (CL/clSetKernelArgSVMPointer kernel n svm*) kernel)))
+
 (defn cl-buffer*
-  "Creates a cl buffer object in `context`, given `size` in bytes and a bitfield
+  "Creates a cl buffer object in `ctx`, given `size` in bytes and a bitfield
   `flags` describing memory allocation usage.
 
   Flags defined by the OpenCL standard are available as constants in the
@@ -496,24 +545,23 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
 
   **Needs to be released after use.**
 
-  This is a low-level alternative to [[cl-buffer*]]
-  If  `context` is nil or the buffer size is invalid, throws `ExceptionInfo`.
+  This is a low-level alternative to [[cl-buffer]]
+  If  `ctx` is nil or the buffer size is invalid, throws `ExceptionInfo`.
 
   See http://www.khronos.org/registry/cl/sdk/2.0/docs/man/xhtml/clCreateBuffer.html,
   http://www.jocl.org/doc/org/jocl/CL.html#clCreateBuffer-org.jocl.cl_context-long-long-org.jocl.Pointer-int:A-
 
-  Examples:
+  Example:
 
-      (cl-buffer* 32 CL/CL_MEM_READ_WRITE)
-      (cl-buffer* ctx 24 CL/CL_MEM_READ_ONLY)
+  (cl-buffer* ctx 24 CL/CL_MEM_READ_ONLY)
   "
-  ([context ^long size ^long flags]
+  ([ctx ^long size ^long flags]
    (let [err (int-array 1)
-         res (CL/clCreateBuffer context flags size nil err)]
-     (with-check-arr err (->CLBuffer context res (Pointer/to ^cl_mem res) size)))))
+         res (CL/clCreateBuffer ctx flags size nil err)]
+     (with-check-arr err (->CLBuffer ctx res (Pointer/to ^cl_mem res) size)))))
 
 (defn cl-buffer
-  "Creates a cl buffer object ([[CLMem]]) in `context`, given `size` in bytes
+  "Creates a cl buffer object ([[CLBuffer]]) in `ctx`, given `size` in bytes
   and one or more memory allocation usage keyword flags: `:read-write`,
   `:read-only`, `:write-only`, `:use-host-ptr`, `:alloc-host-ptr`,
   `:copy-host-ptr`, `:host-write-only`, `:host-read-only`, `:host-no-access`.
@@ -523,7 +571,7 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
 
   **Needs to be released after use.**
 
-  If  `context` is nil or the buffer size is invalid, throws `ExceptionInfo`.
+  If  `ctx` is nil or the buffer size is invalid, throws `ExceptionInfo`.
   If some of the flags is invalid, throws `IllegalArgumentexception`.
 
   See http://www.khronos.org/registry/cl/sdk/2.0/docs/man/xhtml/clCreateBuffer.html,
@@ -531,21 +579,21 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
 
   Examples:
 
-      (cl-buffer 32 :read-only)
-      (cl-buffer ctx 24 :write-only)
+  (cl-buffer 32 :read-only)
+  (cl-buffer ctx 24 :write-only)
   "
-  ([context size flag & flags]
-   (cl-buffer* context size (mask cl-mem-flags flag flags)))
+  ([ctx size flag & flags]
+   (cl-buffer* ctx size (mask cl-mem-flags flag flags)))
   ([^long size flag]
    (cl-buffer* *context* size (cl-mem-flags flag)))
   ([^long size]
    (cl-buffer* *context* size 0)))
 
 (defn cl-sub-buffer*
-  "Creates a cl buffer object ([[CLMem]]) that shares data with an existing
+  "Creates a cl buffer object ([[CLBuffer]]) that shares data with an existing
   buffer object.
 
-  * `cl-mem` has to be a valid low-level JOCL buffer object (`cl_mem`).
+  * `buffer` has to be a valid [[BLBuffer]] buffer object.
   * `flags` is a bitfield that specifies allocation usage (see [[cl-buffer*]]).
   * `create-type` is a type of buffer object to be created (in OpenCL 2.0, only
   `CL/CL_BUFFER_CREATE_TYPE_REGION` is supported).
@@ -559,26 +607,27 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
 
   Examples:
 
-      (def cl-buff (cl-buffer ctx 32 :write-only))
-      (def region (cl_buffer_region. 8 16))
-      (cl-sub-buffer* cl-buff CL/CL_MEM_READ_WRITE
-                      CL/CL_BUFFER_CREATE_TYPE_REGION region)
-      (cl-sub-buffer* cl-buff CL/CL_MEM_READ_ONLY region)
+  (def cl-buff (cl-buffer ctx 32 :write-only))
+  (def region (cl_buffer_region. 8 16))
+  (cl-sub-buffer* cl-buff CL/CL_MEM_READ_WRITE
+  CL/CL_BUFFER_CREATE_TYPE_REGION region)
+  (cl-sub-buffer* cl-buff CL/CL_MEM_READ_ONLY region)
   "
-  ([^cl_mem cl-mem ^long flags ^long create-type ^cl_buffer_region region]
+  ([buffer ^long flags ^long create-type ^cl_buffer_region region]
    (let [err (int-array 1)
-         res (CL/clCreateSubBuffer cl-mem flags
+         res (CL/clCreateSubBuffer ^cl_mem (cl-mem buffer) flags
                                    (int create-type)
                                    region err)]
-     (with-check-arr err (->CLBuffer context res (Pointer/to ^cl_mem res) (.size region)))))
-  ([cl-mem ^long flags region]
-   (cl-sub-buffer* cl-mem flags CL/CL_BUFFER_CREATE_TYPE_REGION region)))
+     (with-check-arr err (->CLBuffer (cl-context buffer) res
+                                     (Pointer/to ^cl_mem res) (.size region)))))
+  ([buffer ^long flags region]
+   (cl-sub-buffer* buffer flags CL/CL_BUFFER_CREATE_TYPE_REGION region)))
 
 (defn cl-sub-buffer
-  "Creates a cl buffer object ([[CLMem]]) that shares data with an existing
+  "Creates a cl buffer object ([[CLBuffer]]) that shares data with an existing
   buffer object.
 
-  * `cl-mem` has to be a valid [[CLMem]] object.
+  * `buffer` has to be a valid [[CLBuffer]] object.
   * `origin` and `size` are numbers that denote offset and size of the
   region in the origin buffer.
   * `flag` and `flags` are memory allocation usage keywords same as in
@@ -596,11 +645,68 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
       (cl-sub-buffer cl-buff 8 16)
   "
   ([buffer origin size flag & flags]
-   (cl-sub-buffer* (cl-mem buffer) (mask cl-mem-flags flag flags)
+   (cl-sub-buffer* buffer (mask cl-mem-flags flag flags)
                    (cl_buffer_region. origin size)))
   ([buffer origin size]
-   (cl-sub-buffer* (cl-mem buffer) 0
-                   (cl_buffer_region. origin size))))
+   (cl-sub-buffer* buffer 0 (cl_buffer_region. origin size))))
+
+(defn svm-buffer*
+  "Creates a svm buffer object in `ctx`, given `size` in bytes, bitfield
+  `flags` describing memory allocation usage, and alignment size.
+
+  Flags defined by the OpenCL standard are available as constants in the
+  [org.jocl.CL](http://www.jocl.org/doc/org/jocl/CL.html) class.
+
+  **Needs to be released after use.**
+
+  This is a low-level alternative to [[svm-buffer!]]
+  If  `ctx` is nil or the buffer size is invalid, throws `IllegalArgumentException`.
+
+  See http://www.khronos.org/registry/cl/sdk/2.0/docs/man/xhtml/clSVMAlloc.html,
+  http://www.jocl.org/doc/org/jocl/CL.html#clSVMAlloc-org.jocl.cl_context-long-long-int-
+
+  Example:
+
+      (svm-buffer* ctx 24 (bit-or CL/CL_MEM_SVM_FINE_GRAIN_BUFFER CL/CL_MEM_SVM_ATOMICS) 0)
+  "
+  [ctx ^long size ^long flags ^long alignment]
+  (if (and ctx (< 0 size))
+    (let [err (int-array 1)
+          res (CL/clSVMAlloc ctx flags size alignment)]
+      (with-check-arr err (->SVMBuffer ctx res size)))
+    (throw (IllegalArgumentException.
+            "To create a svm buffer, you must provide a context and a positive size."))))
+
+(defn svm-buffer
+  "Creates a svm buffer object ([[SVMBuffer]]) in `ctx`, given `size` and `alignment`
+  in bytes and one or more memory allocation usage keyword flags: `:read-write`,
+  `:read-only`, `:write-only`, :fine-grain-buffer, and/or :atomics
+
+  If called with two arguments, uses the default alignment (platform dependent)
+  and default `*context*` (see [[with-context]]). If called with one argument,
+  use the default context, and alignment,and :read-write flag.
+
+  **Needs to be released after use.** If you rely on the [[release]] method,
+  be sure that all enqueued processing that uses this buffer finishes prior
+  to that (watch out for non-blocking enqueues!).
+
+  If  `ctx` is nil or the buffer size is invalid, throws `IllegalArgumentException`.
+  If some of the flags is invalid, throws `NullPointerException`.
+
+  See http://www.khronos.org/registry/cl/sdk/2.0/docs/man/xhtml/clSVMAlloc.html,
+  http://www.jocl.org/doc/org/jocl/CL.html#clSVMAlloc-org.jocl.cl_context-long-long-int-
+
+  Examples:
+
+      (svm-buffer 32 :read-only)
+      (svm-buffer ctx 24 0 :fine-grain-buffer :atomics)
+  "
+  ([ctx size alignment & flags]
+   (svm-buffer* ctx size (mask cl-svm-mem-flags flags) alignment))
+  ([^long size flag]
+   (svm-buffer* *context* size (cl-svm-mem-flags flag) 0))
+  ([^long size]
+   (svm-buffer* *context* size 0 0)))
 
 (extend-type Number
   Argument
@@ -612,6 +718,8 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
   Mem
   (ptr [this]
     (Pointer/to ^floats this))
+  (size [this]
+    (alength ^floats this))
   Argument
   (set-arg [this kernel n]
     (with-check (CL/clSetKernelArg kernel n
@@ -623,6 +731,8 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
   Mem
   (ptr [this]
     (Pointer/to ^doubles this))
+  (size [this]
+    (alength ^doubles this))
   Argument
   (set-arg [this kernel n]
     (with-check (CL/clSetKernelArg kernel n
@@ -634,6 +744,8 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
   Mem
   (ptr [this]
     (Pointer/to ^ints this))
+  (size [this]
+    (alength ^ints this))
   Argument
   (set-arg [this kernel n]
     (with-check (CL/clSetKernelArg kernel n
@@ -645,6 +757,8 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
   Mem
   (ptr [this]
     (Pointer/to ^longs this))
+  (size [this]
+    (alength ^longs this))
   Argument
   (set-arg [this kernel n]
     (with-check (CL/clSetKernelArg kernel n
@@ -656,6 +770,8 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
   Mem
   (ptr [this]
     (Pointer/to ^bytes this))
+  (size [this]
+    (alength ^bytes this))
   Argument
   (set-arg [this kernel n]
     (with-check (CL/clSetKernelArg kernel n
@@ -667,6 +783,8 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
   Mem
   (ptr [this]
     (Pointer/to ^shorts this))
+  (size [this]
+    (alength ^shorts this))
   Argument
   (set-arg [this kernel n]
     (with-check (CL/clSetKernelArg kernel n (* Short/BYTES (alength ^shorts this))
@@ -677,6 +795,8 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
   Mem
   (ptr [this]
     (Pointer/to ^chars this))
+  (size [this]
+    (alength ^chars this))
   Argument
   (set-arg [this kernel n]
     (with-check (CL/clSetKernelArg kernel n (* Character/BYTES (alength ^chars this))
@@ -686,14 +806,16 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
 (extend-type ByteBuffer
   Mem
   (ptr [this]
-    (Pointer/toBuffer this)))
+    (Pointer/toBuffer this))
+  (size [this]
+    (.capacity ^ByteBuffer this)))
 
 ;; ============== Events ==========================================
 
 (defn event
-  "Creates new `cl_event`.
+  "creates new `cl_event`.
 
-  See http://www.jocl.org/doc/org/jocl/cl_event.html.
+  see http://www.jocl.org/doc/org/jocl/cl_event.html.
   "
   []
   (cl_event.))
@@ -702,18 +824,18 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
   "Creates new `cl_event` on the host (in OpenCL terminology,
   known as \"user\" event.
 
-  If called without `context` argument, uses [[*context*]].
+  If called without `ctx` argument, uses [[*context*]].
 
-  If `context` is `nil`, throws ExceptionInfo
+  If `ctx` is `nil`, throws ExceptionInfo
 
   See https://www.khronos.org/registry/cl/sdk/2.0/docs/man/xhtml/clCreateUserEvent.html,
   http://www.jocl.org/doc/org/jocl/CL.html#clCreateUserEvent-org.jocl.cl_context-int:A-
   "
   ([]
    (host-event *context*))
-  ([context]
+  ([ctx]
    (let [err (int-array 1)
-         res (CL/clCreateUserEvent context err)]
+         res (CL/clCreateUserEvent ctx err)]
      (with-check-arr err res))))
 
 (defn events
@@ -896,11 +1018,11 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
       (def source (slurp \"path-to-kernels/my_kernel.cl\"))
       (program-with-source ctx [source])
   "
-  ([context source]
+  ([ctx source]
    (let [err (int-array 1)
          n (count source)
          res (CL/clCreateProgramWithSource
-              context n (into-array String source) nil err)]
+              ctx n (into-array String source) nil err)]
      (with-check-arr err res)))
   ([source]
    (program-with-source *context* source)))
@@ -1107,7 +1229,7 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
 
   Arguments are:
 
-  * `context` - the `cl_context` for the queue;
+  * `ctx` - the `cl_context` for the queue;
   * `device` - the `cl_device_id` for the queue;
   * `size` - the size of the (on device) queue;
   * `properties` - long bitmask containing properties, defined by the OpenCL
@@ -1127,9 +1249,9 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
                                               CL/CL_QUEUE_ON_DEVICE))
       (command-queue* ctx dev CL/CL_QUEUE_PROFILING_ENABLED)
   "
-  ([context device ^long properties]
-   (command-queue* context device 0 properties))
-  ([context device ^long size ^long properties]
+  ([ctx device ^long properties]
+   (command-queue* ctx device 0 properties))
+  ([ctx device ^long size ^long properties]
    (let [err (int-array 1)
          props (let [clqp (cl_queue_properties.)]
                  (when (< 0 properties)
@@ -1138,8 +1260,8 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
                    (.addProperty clqp CL/CL_QUEUE_SIZE size))
                  clqp)
          res (if *opencl-2*
-               (CL/clCreateCommandQueueWithProperties context device props err)
-               (CL/clCreateCommandQueue context device properties err))]
+               (CL/clCreateCommandQueueWithProperties ctx device props err)
+               (CL/clCreateCommandQueue ctx device properties err))]
      (with-check-arr err res))))
 
 (defn command-queue
@@ -1150,7 +1272,7 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
 
   Arguments are:
 
-  * `context` - the `cl_context` for the queue;
+  * `ctx` - the `cl_context` for the queue;
   * `device` - the `cl_device_id` for the queue;
   * `x` - if integer, the size of the (on device) queue, otherwise treated
   as property;
@@ -1177,14 +1299,14 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
        (command-queue ctx dev 524288 :queue-on-device)
 
   "
-  ([context device x & properties]
+  ([ctx device x & properties]
    (if (integer? x)
-     (command-queue* context device x
+     (command-queue* ctx device x
                      (mask cl-command-queue-properties properties))
-     (command-queue* context device 0
+     (command-queue* ctx device 0
                      (mask cl-command-queue-properties x properties))))
-  ([context device]
-   (command-queue* context device 0 0))
+  ([ctx device]
+   (command-queue* ctx device 0 0))
   ([device]
    (command-queue* *context* device 0 0)))
 
@@ -1235,7 +1357,7 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
 
   * `queue` (optional): the `cl_command_queue` that reads the object.
   If omitted, [[*command-queue*]] will be used.
-  * `cl`: the `cl_mem` that is going to be read from.
+  * `cl`: the [[CLMem]] that is going to be read from.
   * `host`: [[Mem]] object on the host that the data is to be transferred to.
   Must be a direct buffer is the reading is asynchronous.
   * `wait-events` (optional): [[events]] array specifying the events (if any)
@@ -1285,7 +1407,7 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
 
   * `queue` (optional): the `cl_command_queue` that writes the object.
   If omitted, [[*command-queue*]] will be used.
-  * `cl`: the `cl_mem` that is going to be written to.
+  * `cl`: the [[CLMem]] that is going to be written to.
   * `host`: [[Mem]] object on the host that the data is to be transferred from.
   Must be a direct buffer is the writing is asynchronous.
   * `wait-events` (optional): [[events]] array specifying the events (if any)
@@ -1327,6 +1449,33 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
   ([cl host]
    (enq-write! *command-queue* cl host true 0 nil nil)))
 
+(defn enq-copy!
+  "Enqueues a command to copy from one [[CLMem]] memory object to another.
+
+  In case of OpenCL errors, throws an `ExceptionInfo`.
+
+  See https://www.khronos.org/registry/cl/sdk/2.0/docs/man/xhtml/clEnqueueCopyBuffer.html
+  http://www.jocl.org/doc/org/jocl/CL.html#clEnqueueCopyBuffer-org.jocl.cl_command_queue-org.jocl.cl_mem-org.jocl.cl_mem-long-long-long-int-org.jocl.cl_event:A-org.jocl.cl_event-
+
+  Examples:
+
+      (enq-copy! my-queue cl-src cl-dst 4 8 32 (events) ev)
+  "
+  ([queue cl-src cl-dst src-offset dst-offset size wait-events ev]
+   (enq-copy* cl-src queue cl-dst src-offset dst-offset size wait-events ev))
+  ([queue cl-src cl-dst size wait-events ev]
+   (enq-copy* cl-src queue cl-dst 0 0 size wait-events ev))
+  ([queue cl-src cl-dst wait-events ev]
+   (enq-copy* cl-src queue cl-dst 0 0
+              (min (long (size cl-src)) (long (size cl-dst)))
+              wait-events ev))
+  ([queue cl-src cl-dst size]
+   (enq-copy* cl-src queue cl-dst 0 0 size nil nil))
+  ([queue cl-src cl-dst]
+   (enq-copy! queue cl-src cl-dst nil nil))
+  ([cl-src cl-dst]
+   (enq-copy! *command-queue* cl-src cl-dst nil nil)))
+
 (defn enq-map-buffer*
   "Enqueues a command to map a region of the cl buffer into the host
   address space. Returns the mapped `java.nio.ByteBuffer`. The result
@@ -1337,10 +1486,10 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
 
   * `queue` (optional): the `cl_command_queue` that maps the object.
   If omitted, [[*command-queue*]] will be used.
-  * `cl`: the `cl_mem` that is going to be mapped to.
+  * `cl`: the [[CLMem]] that is going to be mapped to.
   * `blocking`: whether the operation is blocking (CL/CL_TRUE) or non-blocking
   (CL/CL_FALSE).
-  * `offset`: integer value of the memory offset in bytes.
+  *  `offset`: integer value of the memory offset in bytes.
   * `flags`: a bitfield that indicates whether the memory is mapped for reading
   (`CL/CL_MAP_READ`), writing (`CL/CL_MAP_WRITE`) or both
   `(bit-or CL/CL_MAP_READ CL/CL_MAP_WRITE)`.
@@ -1356,7 +1505,7 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
 
   Examples:
 
-      (enq-map-buffer* queue cl-buffer CL/CL_WRITE (events ev-nd) ev-map)
+      (enq-map-buffer* queue cl-data true 0 CL/CL_WRITE (events ev-nd) ev-map)
   "
   [queue cl blocking offset flags ^objects wait-events event]
   (let [err (int-array 1)
@@ -1376,13 +1525,14 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
 
   * `queue` (optional): the `cl_command_queue` that maps the object.
   If omitted, [[*command-queue*]] will be used.
-  * `cl`: the `cl_mem` that is going to be mapped to.
+  * `cl`: the [[CLMem]] that is going to be mapped to.
+  * `offset`: integer value of the memory offset in bytes.
   * flags: one keyword or a sequence of keywords that indicates memory mapping
   settings: `:read`, `:write`, and/or `:write-invalidate-settings`.
   * `wait-events` (optional): [[events]] array specifying the events (if any)
   that need to complete before this operation.
   * `event` (optional): if specified, the `cl_event` object tied to
-  the execution of this read.
+  the execution of this operation.
 
   If event is specified, the operation is asynchronous, otherwise it blocks the
   current thread until the data transfer completes. See also [[register]].
@@ -1392,19 +1542,25 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
 
   Examples:
 
-      (enq-map-buffer! queue cl-buffer :write (events ev-nd) ev-map)
-      (enq-map-buffer! queue cl-buffer [:write :read])
-      (enq-map-buffer! cl-buffer :write)
+      (enq-map-buffer! queue cl-data :write (events ev-nd) ev-map)
+      (enq-map-buffer! queue cl-data [:write :read])
+      (enq-map-buffer! cl-data :write)
   "
-  ([queue cl flags wait-events event]
-   (enq-map-buffer* queue cl false 0
-                    (if (keyword? flags) (cl-map-flags flags) (mask cl-map-flags flags))
+  ([queue cl offset flags wait-events event]
+   (enq-map-buffer* queue cl false offset
+                    (if (keyword? flags)
+                      (cl-map-flags flags)
+                      (mask cl-map-flags flags))
                     wait-events event))
+  ([queue cl flags wait-events event]
+   (enq-map-buffer! queue cl false 0 flags wait-events event))
   ([queue cl flags event]
    (enq-map-buffer! queue cl flags nil event))
   ([queue cl flags]
    (enq-map-buffer* queue cl true 0
-                    (if (keyword? flags) (cl-map-flags flags) (mask cl-map-flags flags))
+                    (if (keyword? flags)
+                      (cl-map-flags flags)
+                      (mask cl-map-flags flags))
                     nil nil))
   ([cl flags]
    (enq-map-buffer! *command-queue* cl flags)))
@@ -1417,12 +1573,12 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
 
   * `queue` (optional): the `cl_command_queue` that unmaps the object.
   If omitted, [[*command-queue*]] will be used.
-  *  `cl`: the `cl_mem` that is going to be unmapped.
+  *  `cl`: the [[CLMem]] that is going to be unmapped.
   *  `host`: the host byte buffer that is going to be unmapped.
   * `wait-events` (optional): [[events]] array specifying the events (if any)
   that need to complete before this operation.
   * `event` (optional): if specified, the `cl_event` object tied to
-  the execution of this read.
+  the execution of this operation.
 
   If event is specified, the operation is asynchronous, otherwise it blocks the
   current thread until the data transfer completes. See also [[register]].
@@ -1434,11 +1590,11 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
 
   Examples:
 
-      (enq-unmap! queue cl-buffer byte-buffer (events ev-nd) ev-map)
-      (enq-unmap! queue cl-buffer byte-buffer ev-map)
-      (enq-unmap! queue cl-buffer byte-buffer)
-      (enq-unmap! cl-buffer byte-buffer)
-"
+      (enq-unmap! queue cl-data byte-buff (events ev-nd) ev-map)
+      (enq-unmap! queue cl-data byte-buff ev-map)
+      (enq-unmap! queue cl-data byte-buff)
+      (enq-unmap! cl-data byte-buff)
+  "
   ([queue cl host ^objects wait-events event]
    (let [err (CL/clEnqueueUnmapMemObject queue (cl-mem cl) host
                                          (if wait-events (alength wait-events) 0)
@@ -1451,13 +1607,147 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
   ([cl host]
    (enq-unmap! *command-queue* cl host nil nil)))
 
+(defn enq-svm-map*
+  "Enqueues a command that will allow the host to update a region of a SVM buffer.
+. Returns the mapped `java.nio.ByteBuffer` (which is the same byte buffer that is
+  already accessible through `(byte-buffer svm)`). Together with [[enq-svm-unmap!]],
+  works as a synchronization point.
+
+  Arguments:
+
+  * `queue` (optional): the `cl_command_queue` that maps the object.
+  If omitted, [[*command-queue*]] will be used.
+  * `svm`: the [[SVMMem]] that is going to be mapped to.
+  * `blocking`: whether the operation is blocking (CL/CL_TRUE) or non-blocking
+  (CL/CL_FALSE).
+  *  `offset`: integer value of the memory offset in bytes.
+  * `flags`: a bitfield that indicates whether the memory is mapped for reading
+  (`CL/CL_MAP_READ`), writing (`CL/CL_MAP_WRITE`), both
+  `(bit-or CL/CL_MAP_READ CL/CL_MAP_WRITE)` or `CL_MAP_WRITE_INVALIDATE_REGION`.
+  * `wait-events` (optional): [[events]] array specifying the events (if any)
+  that need to complete before this operation.
+  * `event` (optional): if specified, the `cl_event` object tied to
+  the execution of this operation.
+
+  This is a low-level version of [[enq-svm-map!]].
+
+  See https://www.khronos.org/registry/cl/sdk/2.0/docs/man/xhtml/clEnqueueSVMMap.html,
+  http://www.jocl.org/doc/org/jocl/CL.html#clEnqueueSVMMap-org.jocl.cl_command_queue-boolean-long-org.jocl.Pointer-long-int-org.jocl.cl_event:A-org.jocl.cl_event-
+
+  Examples:
+
+      (enq-svm-map* queue svm-data false 0 CL/CL_WRITE (events ev-nd) ev-map)
+  "
+  [queue svm blocking offset flags ^objects wait-events event]
+  (with-check
+    (CL/clEnqueueSVMMap queue blocking flags (ptr svm) (size svm)
+                        (if wait-events (alength wait-events) 0)
+                        wait-events event)
+    (byte-buffer svm)))
+
+(defn enq-svm-map!
+  "Enqueues a command that will allow the host to update a region of a SVM buffer.
+. Returns the mapped `java.nio.ByteBuffer` (which is the same byte buffer that is
+  already accessible through `(byte-buffer svm)`). Together with [[enq-svm-unmap!]],
+  works as a synchronization point.
+
+  Arguments:
+
+  * `queue` (optional): the `cl_command_queue` that maps the object.
+  If omitted, [[*command-queue*]] will be used.
+  * `svm`: the [[SVMMem]] that is going to be mapped to.
+  *  `offset` (optional): integer value of the memory offset in bytes.
+  * `flags` (optional): a bitfield that indicates whether the memory is mapped for reading
+  :read, :write, and/or :write-invalidate-region.
+  * `wait-events` (optional): [[events]] array specifying the events (if any)
+  that need to complete before this operation.
+  * `event` (optional): if specified, the `cl_event` object tied to
+  the execution of this operation.
+
+  If event is specified, the operation is asynchronous, otherwise it blocks the
+  current thread until the data transfer completes. See also [[register]].
+
+  See also [[enq-svm-map*]].
+
+  See https://www.khronos.org/registry/cl/sdk/2.0/docs/man/xhtml/clEnqueueSVMMap.html,
+  http://www.jocl.org/doc/org/jocl/CL.html#clEnqueueSVMMap-org.jocl.cl_command_queue-boolean-long-org.jocl.Pointer-long-int-org.jocl.cl_event:A-org.jocl.cl_event-
+
+  Examples:
+
+      (enq-svm-map queue svm-data 0 [:write :read] (events ev-nd) ev-map)
+      (enq-svm-map queue svm-data [:write :read] (events ev-nd) ev-map)
+      (enq-svm-map queue svm-data :write ev-map)
+      (enq-svm-map queue svm-data :read)
+      (enq-svm-map svm-data :write-invalidate-region)
+  "
+  ([queue svm offset flags wait-events event]
+   (enq-svm-map* queue svm false offset
+                 (if (keyword? flags)
+                   (cl-map-flags flags)
+                   (mask cl-map-flags flags))
+                 wait-events event))
+  ([queue svm flags wait-events event]
+   (enq-svm-map! queue svm false 0 flags wait-events event))
+  ([queue svm flags event]
+   (enq-svm-map! queue svm 0 flags nil event))
+  ([queue svm flags]
+   (enq-svm-map* queue svm true 0
+                    (if (keyword? flags)
+                      (cl-map-flags flags)
+                      (mask cl-map-flags flags))
+                    nil nil))
+  ([svm flags]
+   (enq-svm-map! *command-queue* svm flags)))
+
+(defn enq-svm-unmap!
+  "Enqueues a command to indicate that the host has completed updating the region
+  given by svm [[SVMMem]] and which was specified in a previous call to
+  [[enq-svm-map!]].
+
+  Arguments:
+
+  * `queue` (optional): the `cl_command_queue` that unmaps the object.
+  If omitted, [[*command-queue*]] will be used.
+  *  `svm`: the [[SVMMem]] that is going to be unmapped.
+  * `wait-events` (optional): [[events]] array specifying the events (if any)
+  that need to complete before this operation.
+  * `event` (optional): if specified, the `cl_event` object tied to
+  the execution of this operation.
+
+  If event is specified, the operation is asynchronous, otherwise it blocks the
+  current thread until the data transfer completes. See also [[register]].
+
+  See also [[enq-svm-map!]].
+
+  See https://www.khronos.org/registry/cl/sdk/2.0/docs/man/xhtml/clEnqueueSVMUnmap,
+  http://www.jocl.org/doc/org/jocl/CL.html#clEnqueueSVMUnmap-org.jocl.cl_command_queue-org.jocl.Pointer-int-org.jocl.cl_event:A-org.jocl.cl_event-
+
+  Examples:
+
+      (enq-svm-unmap! queue svm-data byte-buff (events ev-nd) ev-map)
+      (enq-svm-unmap! queue svm-data byte-buff ev-map)
+      (enq-svm-unmap! queue svm-data byte-buff)
+      (enq-svm-unmap! svm-data byte-buff)
+"
+  ([queue svm ^objects wait-events event]
+   (let [err (CL/clEnqueueSVMUnmap queue (ptr svm)
+                                   (if wait-events (alength wait-events) 0)
+                                   wait-events event)]
+     (with-check err queue)))
+  ([queue svm event]
+   (enq-svm-unmap! queue svm nil event))
+  ([queue svm]
+   (enq-svm-unmap! queue svm nil nil))
+  ([svm]
+   (enq-svm-unmap! *command-queue* svm nil nil)))
+
 (defn enq-marker!
   "Enqueues a marker command which waits for either a list of events to complete,
   or all previously enqueued commands to complete. Returns the queue.
 
   See https://www.khronos.org/registry/cl/sdk/2.0/docs/man/xhtml/clEnqueueMarkerWithWaitList,
-  http://www.jocl.org/doc/org/jocl/CL.html#clEnqueueMarkerWithWaitList-org.jocl.cl_command_queue-int-org.jocl.cl_event:A-org.jocl.cl_event-
 
+  http://www.jocl.org/doc/org/jocl/CL.html#clEnqueueMarkerWithWaitList-org.jocl.cl_command_queue-int-org.jocl.cl_event:A-org.jocl.cl_event-
   Examples:
 
   (enq-marker! queue (events ev-nd) ev-map)

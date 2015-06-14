@@ -453,7 +453,7 @@
   (let [info (str/split (info-string* CL/clGetDeviceInfo device
                                       CL/CL_DEVICE_OPENCL_C_VERSION)
                         #" ")]
-    {:version (info 2)
+    {:version (Double/parseDouble (info 2))
      :vendor-specific-info (get info 3)}))
 
 (defn parent-device [device]
@@ -560,7 +560,11 @@
   (info-long* CL/clGetDeviceInfo device CL/CL_DEVICE_SINGLE_FP_CONFIG))
 
 (defn spir-versions [device]
-  (to-set (info-string* CL/clGetDeviceInfo device CL_DEVICE_SPIR_VERSIONS)))
+  (apply hash-set
+         (map #(Double/parseDouble %)
+              (str/split (info-string* CL/clGetDeviceInfo
+                                       device CL_DEVICE_SPIR_VERSIONS)
+                         #" "))))
 
 (defn svm-capabilities ^long [device]
   (info-long* CL/clGetDeviceInfo device CL/CL_DEVICE_SVM_CAPABILITIES))
@@ -780,7 +784,7 @@
       (maybe (available d))
       (maybe (built-in-kernels d))
       (maybe (compiler-available d))
-      (maybe (double-fp-config d))
+      (maybe (set (unmask cl-device-fp-config (double-fp-config d))))
       (maybe (endian-little d))
       (maybe (error-correction-support d))
       (maybe (set (unmask cl-device-exec-capabilities (execution-capabilities d))))

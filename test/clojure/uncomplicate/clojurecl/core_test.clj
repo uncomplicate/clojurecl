@@ -7,7 +7,7 @@
             [vertigo
              [bytes :refer [direct-buffer byte-seq]]
              [structs :refer [wrap-byte-seq float32]]])
-  (:import [uncomplicate.clojurecl.core CLBuffer]
+  (:import [uncomplicate.clojurecl.core CLBuffer SVMBuffer]
            [org.jocl CL Pointer cl_device_id cl_context_properties cl_mem]
            [clojure.lang ExceptionInfo]
            [java.nio ByteBuffer]))
@@ -210,8 +210,6 @@
          (vec buf-arr) => (vec data-arr)
          (vec subbuf-arr) => (map float (range alignment (* 2 alignment)))))))
 
-  ;; ================== Event tests ========================
-
   (facts
    "Event tests."
    (event) =not=> nil
@@ -244,11 +242,8 @@
         notifications (chan)
         follow (register notifications)]
 
-    ;; ================== Program tests ========================
-
     (facts
      "Program tests"
-
      (with-release [program (build-program! (program-with-source [src]))]
        program =not=> nil
        (:source (info program)) => src))
@@ -262,7 +257,6 @@
        program =not=> nil
        (info program :source) => src
        (:data (<!! notifications)) => :my-data)
-      ;; ================== Program tests ========================
 
       ;; TODO Some procedures might crash JVM if called on
       ;; unprepared objects (kernels of unbuilt program).
@@ -273,7 +267,8 @@
 
       (with-release [dumb-kernel (kernel program "dumb_kernel")
                      all-kernels (kernel program)
-                     cl-data (cl-buffer (* cnt Float/BYTES))]
+                     cl-data (cl-buffer (* cnt Float/BYTES))
+                     cl-copy-data (cl-buffer (size cl-data))]
         (facts
          "Kernel tests"
          (num-kernels program) => 1
@@ -290,13 +285,17 @@
          (set-args! dumb-kernel cl-data Integer/BYTES) => dumb-kernel)
 
         (let [wsize (work-size [cnt])
-              data (float-array (range cnt))]
+              data (float-array (range cnt))
+              copy-data (float-array cnt)]
           (facts
-           "enq-nd!, enq-read!, enq-write!, tests"
+           "enq-nd!, enq-read!, enq-write!, enq-copy! tests"
            (enq-write! cl-data data) => *command-queue*
            (enq-nd! dumb-kernel wsize) => *command-queue*
            (enq-read! cl-data data) => *command-queue*
-           (vec data) => [84.0 86.0 88.0 90.0 92.0 94.0 96.0 98.0]))))))
+           (vec data) => [84.0 86.0 88.0 90.0 92.0 94.0 96.0 98.0]
+           (enq-copy! cl-data cl-copy-data) => *command-queue*
+           (enq-read! cl-copy-data copy-data) => *command-queue*
+           (vec copy-data) => (vec data)))))))
 
 (let [cnt 8
       src (slurp "test/opencl/core_test.cl")
@@ -311,6 +310,7 @@
       ev-read (event)
       ev-write (event)
       wsize (work-size [8])]
+
   (with-release [devs (devices (first (platforms)))
                  ctx (context devs)
                  queue1 (command-queue ctx (first devs))
@@ -345,4 +345,30 @@
            (.getFloat ^ByteBuffer mapped-read 4))
        => 100.0
        (enq-unmap! queue1 cl-data mapped-read) => queue1
-       (enq-unmap! queue1 cl-data mapped-write) => queue1))))
+       (enq-unmap! queue1 cl-data mapped-write) => queue1)))
+
+  (with-release [dev (first (devices (first (platforms)) :gpu))
+                 ctx (context [dev])
+                 queue (command-queue ctx dev)
+                 svm (svm-buffer ctx (* cnt Float/BYTES) 0)
+                 program (build-program! (program-with-source ctx [src])
+                                         "-cl-std=CL2.0" nil)
+                 dumb-kernel (kernel program "dumb_kernel")]
+    (facts
+     "SVM tests" ;; ONLY BASIC TESTS, since i do not have an APU, and
+     ;; my current platform (AMD) only supports OpenCL 1.2 for the CPU.
+     (ptr svm) =not=> nil
+     (set-args! dumb-kernel svm Integer/BYTES (int-array [42])) => dumb-kernel
+     (enq-svm-map! queue svm :write)
+     (do (.putFloat ^ByteBuffer (byte-buffer svm) 4 42.0)
+         (.getFloat ^ByteBuffer (byte-buffer svm) 4))
+     => 42.0
+     (enq-svm-unmap! queue svm) => queue
+     (enq-nd! queue dumb-kernel wsize) => queue
+     (enq-svm-map! queue svm :read)
+     (.getFloat ^ByteBuffer (byte-buffer svm) 4) => 127.0
+     (enq-svm-unmap! queue svm) => queue
+
+     (svm-buffer* nil 4 0) => (throws IllegalArgumentException)
+     (svm-buffer* ctx 0 0) => (throws IllegalArgumentException)
+     (svm-buffer ctx 4 0 :invalid-flag) => (throws NullPointerException))))
