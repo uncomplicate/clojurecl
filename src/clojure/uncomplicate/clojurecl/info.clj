@@ -117,7 +117,7 @@
 
   * [`cl_program`] (http://www.jocl.org/doc/org/jocl/cl_program.html) info:
   [[program-context]], [[program-num-devices]], [[program-devices]],
-  [[source]], [[binary-sizes]], [[binaries]], [[program-num-kernels]],
+  [[program-source]], [[binary-sizes]], [[binaries]], [[program-num-kernels]],
   [[kernel-names]], [[reference-count]]
 
   * program build info: **[[build-info]]**,
@@ -1341,7 +1341,7 @@
   (vec (info-native* CL/clGetProgramInfo p CL/CL_PROGRAM_DEVICES
                      cl_device_id Sizeof/cl_device_id)))
 
-(defn source [p]
+(defn program-source [p]
   (info-string* CL/clGetProgramInfo p CL/CL_PROGRAM_SOURCE))
 
 (defn binary-sizes [p]
@@ -1380,7 +1380,7 @@
         :context (program-context p)
         :num-devices (program-num-devices p)
         :devices (program-devices p)
-        :source (source p)
+        :source (program-source p)
         :binary-sizes (binary-sizes p)
         :binaries (binaries p)
         :num-kernels (program-num-kernels p)
@@ -1389,7 +1389,7 @@
     ([p]
      (->ProgramInfo (maybe (reference-count p)) (maybe (program-context p))
                     (maybe (program-num-devices p)) (maybe (program-devices p))
-                    (maybe (source p)) (maybe (binary-sizes p))
+                    (maybe (program-source p)) (maybe (binary-sizes p))
                     (maybe (binaries p)) (maybe (program-num-kernels p))
                     (maybe (kernel-names p)))))
   InfoReferenceCount
