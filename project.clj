@@ -1,11 +1,11 @@
-(defproject uncomplicate/clojurecl "0.1.2-SNAPSHOT"
+(defproject uncomplicate/clojurecl "0.1.2"
   :description "ClojureCL is a Clojure library for parallel computations with OpenCL."
   :url "https://github.com/uncomplicate/clojurecl"
   :scm {:name "git"
         :url "https://github.com/uncomplicate/clojurecl"}
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
-  :dependencies [[org.clojure/clojure "1.7.0-RC1"]
+  :dependencies [[org.clojure/clojure "1.7.0-RC2"]
                  [org.jocl/jocl "0.2.0-RC00"]
                  [org.clojure/core.async "0.1.346.0-17112a-alpha"]
                  [vertigo "0.1.3"]

@@ -473,7 +473,9 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
   (cl-mem [this]
     "The raw JOCL `cl_mem` object.")
   (enq-copy* [this queue dst src-offset dst-offset cb wait-events ev]
-    "A specific implementation for copying this `cl-mem` object to a cl buffer."))
+    "A specific implementation for copying this `cl-mem` object to another cl mem.")
+  (enq-fill* [this queue pattern offset multiplier wait-events ev]
+    "A specific implementation for filling this `cl-mem` object."))
 
 (defprotocol SVMMem
   "A wrapper for SVM Buffer objects, that also holds a context that created it,
@@ -505,6 +507,13 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
   (enq-copy* [this queue dst src-offset dst-offset size wait-events ev]
     (with-check
       (CL/clEnqueueCopyBuffer queue cl (cl-mem dst) src-offset dst-offset size
+                              (if wait-events (alength ^objects wait-events) 0)
+                              wait-events ev)
+      queue))
+  (enq-fill* [this queue pattern offset multiplier wait-events ev]
+    (with-check
+      (CL/clEnqueueFillBuffer queue cl (ptr pattern) (size pattern)
+                              offset (* (long (size pattern)) (long multiplier))
                               (if wait-events (alength ^objects wait-events) 0)
                               wait-events ev)
       queue))
@@ -719,7 +728,7 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
   (ptr [this]
     (Pointer/to ^floats this))
   (size [this]
-    (alength ^floats this))
+    (* Float/BYTES (alength ^floats this)))
   Argument
   (set-arg [this kernel n]
     (with-check (CL/clSetKernelArg kernel n
@@ -732,7 +741,7 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
   (ptr [this]
     (Pointer/to ^doubles this))
   (size [this]
-    (alength ^doubles this))
+    (* Double/BYTES (alength ^doubles this)))
   Argument
   (set-arg [this kernel n]
     (with-check (CL/clSetKernelArg kernel n
@@ -745,7 +754,7 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
   (ptr [this]
     (Pointer/to ^ints this))
   (size [this]
-    (alength ^ints this))
+    (* Integer/BYTES (alength ^ints this)))
   Argument
   (set-arg [this kernel n]
     (with-check (CL/clSetKernelArg kernel n
@@ -758,7 +767,7 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
   (ptr [this]
     (Pointer/to ^longs this))
   (size [this]
-    (alength ^longs this))
+    (* Long/BYTES (alength ^longs this)))
   Argument
   (set-arg [this kernel n]
     (with-check (CL/clSetKernelArg kernel n
@@ -784,7 +793,7 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
   (ptr [this]
     (Pointer/to ^shorts this))
   (size [this]
-    (alength ^shorts this))
+    (* Short/BYTES (alength ^shorts this)))
   Argument
   (set-arg [this kernel n]
     (with-check (CL/clSetKernelArg kernel n (* Short/BYTES (alength ^shorts this))
@@ -796,7 +805,7 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
   (ptr [this]
     (Pointer/to ^chars this))
   (size [this]
-    (alength ^chars this))
+    (* Character/BYTES (alength ^chars this)))
   Argument
   (set-arg [this kernel n]
     (with-check (CL/clSetKernelArg kernel n (* Character/BYTES (alength ^chars this))
@@ -1475,6 +1484,29 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
    (enq-copy! queue cl-src cl-dst nil nil))
   ([cl-src cl-dst]
    (enq-copy! *command-queue* cl-src cl-dst nil nil)))
+
+(defn enq-fill!
+  "Enqueues a command to fill a buffer object with a [[Mem]] pattern.
+
+  In case of OpenCL errors, throws an `ExceptionInfo`.
+
+  See https://www.khronos.org/registry/cl/sdk/2.0/docs/man/xhtml/clEnqueueFillBuffer.html
+  http://www.jocl.org/doc/org/jocl/CL.html#clEnqueueFillBuffer-org.jocl.cl_command_queue-org.jocl.cl_mem-org.jocl.Pointer-long-long-long-int-org.jocl.cl_event:A-org.jocl.cl_event-
+
+  Examples:
+
+      (enq-fill! my-queue cl-buf (float-array [1 2 3]) 4 (events) ev)
+  "
+  ([queue this pattern offset multiplier wait-events ev]
+   (enq-fill* this queue pattern offset multiplier wait-events ev))
+  ([queue this pattern wait-events ev]
+   (enq-fill* this queue pattern
+              0 (quot (long (size this)) (long (size pattern)))
+              wait-events ev))
+  ([queue this pattern]
+   (enq-fill! queue this pattern nil nil))
+  ([this pattern]
+   (enq-fill! *command-queue* this pattern nil nil)))
 
 (defn enq-map-buffer*
   "Enqueues a command to map a region of the cl buffer into the host

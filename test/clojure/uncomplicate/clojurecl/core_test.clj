@@ -288,14 +288,17 @@
               data (float-array (range cnt))
               copy-data (float-array cnt)]
           (facts
-           "enq-nd!, enq-read!, enq-write!, enq-copy! tests"
+           "enq-nd!, enq-read!, enq-write!, enq-copy! enq-fill tests"
            (enq-write! cl-data data) => *command-queue*
            (enq-nd! dumb-kernel wsize) => *command-queue*
            (enq-read! cl-data data) => *command-queue*
            (vec data) => [84.0 86.0 88.0 90.0 92.0 94.0 96.0 98.0]
            (enq-copy! cl-data cl-copy-data) => *command-queue*
            (enq-read! cl-copy-data copy-data) => *command-queue*
-           (vec copy-data) => (vec data)))))))
+           (vec copy-data) => (vec data)
+           (enq-fill! cl-data (float-array [1 2 3 4])) => *command-queue*
+           (enq-read! cl-data data) => *command-queue*
+           (vec data) => [1.0 2.0 3.0 4.0 1.0 2.0 3.0 4.0]))))))
 
 (let [cnt 8
       src (slurp "test/opencl/core_test.cl")
