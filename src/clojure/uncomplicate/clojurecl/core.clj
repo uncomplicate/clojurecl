@@ -57,8 +57,10 @@
 
   * [`cl_command_queue`](http://www.jocl.org/doc/org/jocl/cl_kernel.html):
   [[command-queue]], [[command-queue*]], [[work-size]], [[enq-nd!]],
-  [[enq-read!]], [[enq-write!]], [[enq-map-buffer!]], [[enq-map-buffer*]],
-  [[enq-unmap!]], [[enq-marker!]], [[enq-wait!]], [[enq-barrier!]],
+  [[enq-read!]], [[enq-write!]], [[enq-copy!]], [[enq-fill!]]
+  [[enq-map-buffer!]], [[enq-map-buffer*]], [[enq-unmap!]],
+  [[enq-svm-map!]], [[enq-map-buffer*]], [[enq-svm-unmap!]],
+  [[enq-marker!]], [[enq-wait!]], [[enq-barrier!]],
   [[finish!]], [[flush!]] [[with-queue]]
   "
   (:require [uncomplicate.clojurecl
@@ -1158,33 +1160,24 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
   (set-arg value kernel n))
 
 (defn set-args!
-  "Sets all arguments of `kernel`, and returns the changed `cl_kernel` object.
-  Equivalent to calling [[set-arg!]] for each argument.
+  "Sets all provided arguments of `kernel`, starting from optional index `x`,
+  and returns the changed `cl_kernel` object.
+  Equivalent to calling [[set-arg!]] for each provided argument.
 
   Examples:
 
-      (set-args! my-kernel cl-buffer0)
-      (set-args! my-kernel cl-buffer0 cl-buffer-1 (int-array 8) 42)
+      (set-args! my-kernel cl-buffer-0)
+      (set-args! my-kernel cl-buffer-0 cl-buffer-1 (int-array 8) 42)
+      (set-args! my-kernel 2 cl-buffer-2 cl-buffer-3 (int-array 8) 42)
 "
-  ([kernel value]
-   (set-arg! kernel 0 value))
-  ([kernel value-0 value-1]
-   (-> (set-arg! kernel 0 value-0)
-       (set-arg! 1 value-1)))
-  ([kernel value-0 value-1 value-2]
-   (-> (set-arg! kernel 0 value-0)
-       (set-arg! 1 value-1)
-       (set-arg! 2 value-2)))
-  ([kernel value-0 value-1 value-2 value-3 & values]
-   (let [ker (-> (set-arg! kernel 0 value-0)
-                 (set-arg! 1 value-1)
-                 (set-arg! 2 value-2)
-                 (set-arg! 3 value-3))]
-     (loop [i 4 values values]
+  ([kernel x & values]
+   (if (integer? x)
+     (loop [i x values values]
        (if-let [mem (first values)]
-         (do (set-arg! ker i mem)
+         (do (set-arg! kernel i mem)
              (recur (inc i) (next values)))
-         ker)))))
+         kernel))
+     (apply set-args! kernel 0 (cons x values)))))
 
 ;; ============== Work Size ==================================
 
@@ -1495,7 +1488,7 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
 
   Examples:
 
-      (enq-fill! my-queue cl-buf (float-array [1 2 3]) 4 (events) ev)
+      (enq-fill! my-queue cl-buf (float-array [1 2 3 4]) 2 (events) ev)
   "
   ([queue this pattern offset multiplier wait-events ev]
    (enq-fill* this queue pattern offset multiplier wait-events ev))

@@ -1,5 +1,11 @@
 # [ClojureCL](http://clojurecl.uncomplicate.org) - notable changes between versions
 
+## 0.1.3
+
+New features
+
+* set-args! now accept optional index to start from.
+
 ## 0.1.2
 
 New features:
