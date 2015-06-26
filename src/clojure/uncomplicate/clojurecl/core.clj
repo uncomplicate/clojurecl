@@ -460,7 +460,7 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
   (ptr [this]
     "JOCL `Pointer` to this object.")
   (size [this]
-    "Memory size of this cl object in bytes."))
+    "Memory size of this cl or host object in bytes."))
 
 (defprotocol Contextual
   "An object that has some dependency on a `cl_context`."
@@ -719,10 +719,16 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
   ([^long size]
    (svm-buffer* *context* size 0 0)))
 
-(extend-type Number
+(extend-type Long
   Argument
   (set-arg [this kernel n]
-    (with-check (CL/clSetKernelArg kernel n (long this) nil)
+    (with-check (CL/clSetKernelArg kernel n this nil)
+      kernel)))
+
+(extend-type Integer
+  Argument
+  (set-arg [this kernel n]
+    (with-check (CL/clSetKernelArg kernel n this nil)
       kernel)))
 
 (extend-type (Class/forName "[F")
@@ -1169,12 +1175,12 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
       (set-args! my-kernel cl-buffer-0)
       (set-args! my-kernel cl-buffer-0 cl-buffer-1 (int-array 8) 42)
       (set-args! my-kernel 2 cl-buffer-2 cl-buffer-3 (int-array 8) 42)
-"
+  "
   ([kernel x & values]
    (if (integer? x)
      (loop [i x values values]
-       (if-let [mem (first values)]
-         (do (set-arg! kernel i mem)
+       (if-let [val (first values)]
+         (do (set-arg! kernel i val)
              (recur (inc i) (next values)))
          kernel))
      (apply set-args! kernel 0 (cons x values)))))
@@ -1388,7 +1394,7 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
   ([queue cl host blocking offset ^objects wait-events event]
    (with-check
      (CL/clEnqueueReadBuffer queue (cl-mem cl) blocking offset
-                             (size cl) (ptr host)
+                             (min (size cl) (size host)) (ptr host)
                              (if wait-events (alength wait-events) 0)
                              wait-events event)
      queue))
@@ -1438,7 +1444,7 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
   ([queue cl host blocking offset ^objects wait-events event]
    (with-check
      (CL/clEnqueueWriteBuffer queue (cl-mem cl) blocking offset
-                              (size cl) (ptr host)
+                              (min (size cl) (size host)) (ptr host)
                               (if wait-events (alength wait-events) 0)
                               wait-events event)
      queue))
@@ -1532,7 +1538,7 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
 
       (enq-map-buffer* queue cl-data true 0 CL/CL_WRITE (events ev-nd) ev-map)
   "
-  [queue cl blocking offset flags ^objects wait-events event]
+  [queue cl blocking offset flags ^objects wait-events event] ;;TODO size probably overflows!!!!!
   (let [err (int-array 1)
         res (CL/clEnqueueMapBuffer queue (cl-mem cl) blocking flags offset
                                    (size cl)
