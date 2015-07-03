@@ -1220,12 +1220,12 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
        (->WorkSize dim global-array local-array nil)
        (throw (IllegalArgumentException.
                "All work-sizes must have the same work-dimension.")))))
-  ([sizes]
-   (let [sizes-array (long-array sizes)]
-     (->WorkSize (alength sizes-array) sizes-array sizes-array nil)))
+  ([global]
+   (let [global-array (long-array global)]
+     (->WorkSize (alength global-array) global-array nil nil)))
   ([]
-   (let [sizes-array (long-array [1])]
-     (->WorkSize 1 sizes-array sizes-array))))
+   (let [global-array (long-array [1])]
+     (->WorkSize 1 global-array nil nil))))
 
 ;; ============== Command Queue ===============================
 
