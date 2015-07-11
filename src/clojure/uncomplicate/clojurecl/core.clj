@@ -19,7 +19,7 @@
   and gives primitive results. These functions are useful when you
   already have primitive data and want to avoid unnecessary conversions
 
-  The documentation given here is only a quick reminder; it is necessarry
+  The documentation given here is only a quick reminder; it is necessary
   to grasp OpenCL and parallel computing concepts to be able to use the
   library. Also, each function's doc entry have a link to much more detailed
   documentation available in OpenCL and JOCL reference - be sure to
