@@ -68,21 +68,13 @@
              [utils :refer [with-check with-check-arr mask error]]
              [info :refer [info build-info program-devices]]]
             [clojure.string :as str]
-            [clojure.core.async :refer [go >!]]
-            [outpace.config :refer [defconfig]])
+            [clojure.core.async :refer [go >!]])
   (:import [org.jocl CL cl_platform_id cl_context_properties cl_device_id
             cl_context cl_command_queue cl_mem cl_program cl_kernel cl_sampler
             cl_event cl_buffer_region cl_queue_properties
             Sizeof Pointer CreateContextFunction EventCallbackFunction
             BuildProgramFunction]
            [java.nio ByteBuffer ByteOrder]))
-
-(defconfig
-  *opencl-2*
-  "Indicates the availability of OpenCL 2.0 platform. If the
-application needs to support an older OpenCL platform, configure it to false
-(see http://github.com/outpace/config). The default is true."
-  true)
 
 (def ^{:dynamic true
        :doc "Dynamic var for binding the default platform."}
@@ -526,6 +518,11 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
   (set-arg [_ kernel n]
     (with-check (CL/clSetKernelArg kernel n Sizeof/cl_mem cl*) kernel)))
 
+(defn cl-buffer?
+  "Checks whether an object is an SVM buffer."
+  [x]
+  (instance? CLBuffer x))
+
 (deftype SVMBuffer [^cl_context ctx ^Pointer svm* ^long s]
   Releaseable
   (release [_]
@@ -546,6 +543,11 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
   Argument
   (set-arg [_ kernel n]
     (with-check (CL/clSetKernelArgSVMPointer kernel n svm*) kernel)))
+
+(defn svm-buffer?
+  "Checks whether an object is an SVM buffer."
+  [x]
+  (instance? SVMBuffer x))
 
 (defn cl-buffer*
   "Creates a cl buffer object in `ctx`, given `size` in bytes and a bitfield
@@ -1232,8 +1234,10 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
 (defn command-queue*
   "Creates a host or device command queue on a specific device.
 
-  ** If you need to support OpenCL 1.2, you MUST set `*opencl-2*` to false,
-  or risk JVM crash. The default support is for OpenCL 2.0 and higher. **
+  ** If you need to support OpenCL 1.2 platforms, you MUST use the alternative
+  [command-queue-1*] function or or risk JVM crash. What is important is the
+  version of the platform, not the devices. This function is for platforms
+  (regardless of the devices) supporting OpenCL 2.0 and higher. **
 
   Arguments are:
 
@@ -1248,9 +1252,7 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
   If called with invalid context or device, throws `ExceptionInfo`.
 
   See https://www.khronos.org/registry/cl/sdk/2.0/docs/man/xhtml/clCreateCommandQueueWithProperties.html,
-  https://www.khronos.org/registry/cl/sdk/1.2/docs/man/xhtml/clCreateCommandQueue.html,
   http://www.jocl.org/doc/org/jocl/CL.html#clCreateCommandQueueWithProperties-org.jocl.cl_context-org.jocl.cl_device_id-org.jocl.cl_queue_properties-int:A-
-  http://www.jocl.org/doc/org/jocl/CL.html#clCreateCommandQueue-org.jocl.cl_context-org.jocl.cl_device_id-long-int:A-
 
   Examples:
       (command-queue* ctx dev 524288  (bit-or CL/CL_QUEUE_PROFILING_ENABLED
@@ -1267,16 +1269,16 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
                  (when (< 0 size)
                    (.addProperty clqp CL/CL_QUEUE_SIZE size))
                  clqp)
-         res (if *opencl-2*
-               (CL/clCreateCommandQueueWithProperties ctx device props err)
-               (CL/clCreateCommandQueue ctx device properties err))]
+         res (CL/clCreateCommandQueueWithProperties ctx device props err)]
      (with-check-arr err res))))
 
 (defn command-queue
   "Creates a host or device command queue on a specific device.
 
-  ** If you need to support OpenCL 1.2, you MUST set `*opencl-2*` to false,
-  or risk JVM crash. The default support is for OpenCL 2.0 and higher. **
+  ** If you need to support OpenCL 1.2 platforms, you MUST use the alternative
+  [command-queue-1] function or or risk JVM crash. What is important is the
+  version of the platform, not the devices. This function is for platforms
+  (regardless of the devices) supporting OpenCL 2.0 and higher. **
 
   Arguments are:
 
@@ -1295,9 +1297,7 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
   If called with any invalid property, throws NullPointerexception.
 
   See https://www.khronos.org/registry/cl/sdk/2.0/docs/man/xhtml/clCreateCommandQueueWithProperties.html,
-  https://www.khronos.org/registry/cl/sdk/1.2/docs/man/xhtml/clCreateCommandQueue.html,
   http://www.jocl.org/doc/org/jocl/CL.html#clCreateCommandQueueWithProperties-org.jocl.cl_context-org.jocl.cl_device_id-org.jocl.cl_queue_properties-int:A-
-  http://www.jocl.org/doc/org/jocl/CL.html#clCreateCommandQueue-org.jocl.cl_context-org.jocl.cl_device_id-long-int:A-
 
   Examples:
 
@@ -1305,7 +1305,6 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
        (command-queue ctx dev)
        (command-queue ctx dev :profiling :queue-on-device :out-of-order-execution-mode)
        (command-queue ctx dev 524288 :queue-on-device)
-
   "
   ([ctx device x & properties]
    (if (integer? x)
@@ -1394,7 +1393,7 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
   ([queue cl host blocking offset ^objects wait-events event]
    (with-check
      (CL/clEnqueueReadBuffer queue (cl-mem cl) blocking offset
-                             (min (size cl) (size host)) (ptr host)
+                             (min (long (size cl)) (long (size host))) (ptr host)
                              (if wait-events (alength wait-events) 0)
                              wait-events event)
      queue))
@@ -1822,6 +1821,7 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
 (defn finish!
   "Blocks until all previously queued OpenCL commands in a command-queue
   are issued to the associated device and have completed. Returns the queue.
+  If called with no arguments, works on the default [*command-queue*]
 
   See https://www.khronos.org/registry/cl/sdk/2.0/docs/man/xhtml/clFinish.html,
   http://www.jocl.org/doc/org/jocl/CL.html#clFinish-org.jocl.cl_command_queue-
@@ -1830,8 +1830,10 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
 
       (finish! my-queue)
 "
- [queue]
- (with-check (CL/clFinish queue) queue))
+  ([queue]
+   (with-check (CL/clFinish queue) queue))
+  ([]
+   (finish! *command-queue*)))
 
 (defn flush!
   "Issues all previously queued OpenCL commands in a command-queue to the device
@@ -1866,7 +1868,8 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
 (defmacro with-default
   "Dynamically binds [[*platform*]], [[*context*]] and [[*command-queue]]
   to the first of the available platforms, the context containing the first
-  device of that platform, and the queue on the device in that context."
+  device of that platform, and the queue on the device in that context.
+  Requires OpenCL 2.0 support in the platform."
   [& body]
   `(with-platform (first (platforms))
      (let [dev# (first (devices))]
