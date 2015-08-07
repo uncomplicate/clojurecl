@@ -56,7 +56,7 @@ To use ClojureCL, you must have appropriate hardware (a recent Intel CPU will do
 The most straightforward way to include ClojureCL in your project is with Leiningen. Add the following dependency to your `project.clj`:
 
 ```clojure
-[uncomplicate/clojurecl "0.1.2"]
+[uncomplicate/clojurecl "0.2.0"]
 ```
 
 ClojureCL uses [JOCL](http://jocl.org) as low-level bindings with the native drivers. JOCL is available in
