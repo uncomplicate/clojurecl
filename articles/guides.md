@@ -4,7 +4,7 @@ Author: Dragan Djuric
 layout: article
 ---
 
-# Making sense of OpenCL
+## Making sense of OpenCL
 
 OpenCL is a standard for heterogeneous parallel computing and GPGPU. It is similar to CUDA, but open and supported on
 a multitude of hardware platforms instead of proprietary CUDA. It brings a lot of power, but do not expect it
@@ -17,7 +17,7 @@ even provide [ClojureCL code](https://github.com/uncomplicate/clojurecl/tree/mas
 Once you get past the beginner's steep learning curve, it makes sense, and opens a whole new world of high-performance
 computing - you practically have a supercomputer on your desktop.
 
-# Where to find OpenCL books, tutorials, and documentation
+## Where to find OpenCL books, tutorials, and documentation
 
 Learning OpenCL programming requires learning the details of OpenCL C language and OpenCL API, but even more important is learning the main concept of high performance computing, generally applicable in OpenCL, CUDA, Open MPI
 or other technologies.
@@ -29,7 +29,7 @@ or other technologies.
 5. Algorithms for parallel computations are generally different than classic algorithms from the textbook, and are
 usually platform-agnostic. You'll usually find a solution to your computation problem in a scientific paper or a general HPC book regardless of whether it is written for OpenCL, CUDA, or is thechnology neutral.
 
-# ClojureCL Reference
+## ClojureCL Reference
 
 1. ClojureCL comes with [detailed documentation](/codox). Be sure to check it, it also includes examples and foreign links.
 2. ClojureCL comes with a bunch of [Midje tests](https://github.com/uncomplicate/clojurecl/tree/master/test/clojure/uncomplicate/clojurecl/). When you're not sure how to use some feature, consult the tests.
