@@ -23,7 +23,7 @@
 
   :profiles {:dev {:plugins [[lein-midje "3.1.3"]
                              [bilus/lein-marginalia "0.8.8"]
-                             [codox "0.8.12"]]
+                             [codox "0.8.13"]]
                    :global-vars {*warn-on-reflection* true
                                  *assert* true
                                  *unchecked-math* :warn-on-boxed

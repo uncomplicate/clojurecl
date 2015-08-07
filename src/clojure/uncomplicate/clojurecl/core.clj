@@ -446,8 +446,8 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
 ;; =========================== Memory  =========================================
 
 (defprotocol Mem
-  "An object that represent memory that participates in OpenCL operations. It could
-  be on the device ([[CLMem]]), or on the host.  Built-in implementations:
+  "An object that represents memory that participates in OpenCL operations.
+  It can be on the device ([[CLMem]]), or on the host.  Built-in implementations:
   cl buffer, Java primitive arrays and `ByteBuffer`s."
   (ptr [this]
     "JOCL `Pointer` to this object.")
@@ -1520,6 +1520,8 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
   * `blocking`: whether the operation is blocking (CL/CL_TRUE) or non-blocking
   (CL/CL_FALSE).
   *  `offset`: integer value of the memory offset in bytes.
+  * `req-size`: integer value of the requested size in bytes (if larger than
+  .   the available data, it will be shrinked.').
   * `flags`: a bitfield that indicates whether the memory is mapped for reading
   (`CL/CL_MAP_READ`), writing (`CL/CL_MAP_WRITE`) or both
   `(bit-or CL/CL_MAP_READ CL/CL_MAP_WRITE)`.
@@ -1537,10 +1539,10 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
 
       (enq-map-buffer* queue cl-data true 0 CL/CL_WRITE (events ev-nd) ev-map)
   "
-  [queue cl blocking offset flags ^objects wait-events event] ;;TODO size probably overflows!!!!!
+  [queue cl blocking offset req-size flags ^objects wait-events event]
   (let [err (int-array 1)
         res (CL/clEnqueueMapBuffer queue (cl-mem cl) blocking flags offset
-                                   (size cl)
+                                   (min req-size (- (size cl) offset))
                                    (if wait-events (alength wait-events) 0)
                                    wait-events event err)]
     (with-check-arr err (.order res (ByteOrder/nativeOrder)))))
@@ -1557,6 +1559,8 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
   If omitted, [[*command-queue*]] will be used.
   * `cl`: the [[CLMem]] that is going to be mapped to.
   * `offset`: integer value of the memory offset in bytes.
+  * `req-size`: integer value of the requested size in bytes (if larger than
+  .   the available data, it will be shrinked.').
   * flags: one keyword or a sequence of keywords that indicates memory mapping
   settings: `:read`, `:write`, and/or `:write-invalidate-settings`.
   * `wait-events` (optional): [[events]] array specifying the events (if any)
@@ -1576,18 +1580,18 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
       (enq-map-buffer! queue cl-data [:write :read])
       (enq-map-buffer! cl-data :write)
   "
-  ([queue cl offset flags wait-events event]
-   (enq-map-buffer* queue cl false offset
+  ([queue cl offset req-size flags wait-events event]
+   (enq-map-buffer* queue cl false offset req-size
                     (if (keyword? flags)
                       (cl-map-flags flags)
                       (mask cl-map-flags flags))
                     wait-events event))
   ([queue cl flags wait-events event]
-   (enq-map-buffer! queue cl false 0 flags wait-events event))
+   (enq-map-buffer! queue cl 0 (size cl) flags wait-events event))
   ([queue cl flags event]
    (enq-map-buffer! queue cl flags nil event))
   ([queue cl flags]
-   (enq-map-buffer* queue cl true 0
+   (enq-map-buffer* queue cl true 0 (size cl)
                     (if (keyword? flags)
                       (cl-map-flags flags)
                       (mask cl-map-flags flags))
@@ -1650,7 +1654,6 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
   * `svm`: the [[SVMMem]] that is going to be mapped to.
   * `blocking`: whether the operation is blocking (CL/CL_TRUE) or non-blocking
   (CL/CL_FALSE).
-  *  `offset`: integer value of the memory offset in bytes.
   * `flags`: a bitfield that indicates whether the memory is mapped for reading
   (`CL/CL_MAP_READ`), writing (`CL/CL_MAP_WRITE`), both
   `(bit-or CL/CL_MAP_READ CL/CL_MAP_WRITE)` or `CL_MAP_WRITE_INVALIDATE_REGION`.
@@ -1668,7 +1671,7 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
 
       (enq-svm-map* queue svm-data false 0 CL/CL_WRITE (events ev-nd) ev-map)
   "
-  [queue svm blocking offset flags ^objects wait-events event]
+  [queue svm blocking flags ^objects wait-events event]
   (with-check
     (CL/clEnqueueSVMMap queue blocking flags (ptr svm) (size svm)
                         (if wait-events (alength wait-events) 0)
@@ -1710,18 +1713,16 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
       (enq-svm-map queue svm-data :read)
       (enq-svm-map svm-data :write-invalidate-region)
   "
-  ([queue svm offset flags wait-events event]
-   (enq-svm-map* queue svm false offset
+  ([queue svm flags wait-events event]
+   (enq-svm-map* queue svm false
                  (if (keyword? flags)
                    (cl-map-flags flags)
                    (mask cl-map-flags flags))
                  wait-events event))
-  ([queue svm flags wait-events event]
-   (enq-svm-map! queue svm false 0 flags wait-events event))
   ([queue svm flags event]
-   (enq-svm-map! queue svm 0 flags nil event))
+   (enq-svm-map! queue svm flags nil event))
   ([queue svm flags]
-   (enq-svm-map* queue svm true 0
+   (enq-svm-map* queue svm true
                     (if (keyword? flags)
                       (cl-map-flags flags)
                       (mask cl-map-flags flags))
