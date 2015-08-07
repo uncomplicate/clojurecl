@@ -1,4 +1,4 @@
-(defproject uncomplicate/clojurecl "0.2.0-SNAPSHOT"
+(defproject uncomplicate/clojurecl "0.2.0"
   :description "ClojureCL is a Clojure library for parallel computations with OpenCL."
   :url "https://github.com/uncomplicate/clojurecl"
   :scm {:name "git"

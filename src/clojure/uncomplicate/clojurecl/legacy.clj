@@ -4,7 +4,7 @@
   If you need to use functions that were removed from the latest standard
   look for them here. Usually, they will be the same or similar to core
   functions, but will be suffixed by the largest version number that they
-  support. Notable example is the [command-queue-1] function that is
+  support. Notable example is the [[command-queue-1]] function that is
   required if your platform does not support at least OpenCL 2.0."
   (:require [uncomplicate.clojurecl
              [constants :refer :all]
@@ -66,7 +66,7 @@
 
   **Needs to be released after use.**
 
-  See also [[command-queue*]].
+  See also [[command-queue-1*]].
 
   If called with invalid context or device, throws `ExceptionInfo`.
   If called with any invalid property, throws NullPointerexception.

@@ -16,6 +16,10 @@ nothing needs to be changed. Other code needs to replace all
 calls to command-queue to the calls of command-queue-1 and with-default to
 with-default-1.
 
+Bugfixes:
+
+* Fixed a possible buffer overflow in enq-map-buffer when offset is greater than 0.
+
 ## 0.1.2
 
 New features:
