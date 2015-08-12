@@ -1,5 +1,6 @@
 (ns uncomplicate.clojurecl.examples.openclinaction.ch11
   (:require [midje.sweet :refer :all]
+            [clojure.java.io :as io]
             [clojure.core.async :refer [chan <!!]]
             [uncomplicate.clojurecl
              [core :refer :all]
@@ -14,10 +15,10 @@
   (facts
    "Chapter 11, Listing 11.1, Page 243."
    (let [program-source
-         (slurp "test/opencl/examples/openclinaction/ch11/string-search.cl")
+         (slurp (io/resource "examples/openclinaction/ch11/string-search.cl"))
          kafka (byte-array
                 (map byte
-                     (slurp "test/opencl/examples/openclinaction/ch11/kafka.txt")))
+                     (slurp (io/resource "examples/openclinaction/ch11/kafka.txt"))))
          text-size (alength kafka)
          local-size (info dev :max-work-group-size)
          global-size (* local-size (info dev :max-compute-units))

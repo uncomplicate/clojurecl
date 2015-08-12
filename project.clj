@@ -1,4 +1,4 @@
-(defproject uncomplicate/clojurecl "0.2.0"
+(defproject uncomplicate/clojurecl "0.3.0-SNAPSHOT"
   :description "ClojureCL is a Clojure library for parallel computations with OpenCL."
   :url "https://github.com/uncomplicate/clojurecl"
   :scm {:name "git"
@@ -22,7 +22,6 @@
   :jvm-opts ^:replace ["-XX:MaxDirectMemorySize=16g" "-XX:+UseLargePages"]
 
   :profiles {:dev {:plugins [[lein-midje "3.1.3"]
-                             [bilus/lein-marginalia "0.8.8"]
                              [codox "0.8.13"]]
                    :global-vars {*warn-on-reflection* true
                                  *assert* true
@@ -32,6 +31,6 @@
                                   [criterium "0.4.3"]]}}
 
   :javac-options ["-target" "1.8" "-source" "1.8" "-Xlint:-options"]
-  :source-paths ["src/clojure"]
+  :source-paths ["src/clojure" "src/opencl"]
   :test-paths ["test/clojure" "test/opencl"]
   :java-source-paths ["src/java"])

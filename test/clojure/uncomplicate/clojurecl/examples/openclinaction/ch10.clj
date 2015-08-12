@@ -1,5 +1,6 @@
 (ns uncomplicate.clojurecl.examples.openclinaction.ch10
   (:require [midje.sweet :refer :all]
+            [clojure.java.io :as io]
             [clojure.core.async :refer [chan <!!]]
             [uncomplicate.clojurecl
              [core :refer :all]
@@ -16,7 +17,7 @@
   (facts
    "Listing on page 225."
    (let [program-source
-         (slurp "test/opencl/examples/openclinaction/ch10/reduction.cl")
+         (slurp (io/resource "examples/openclinaction/ch10/reduction.cl"))
          num-items (Math/pow 2 20)
          bytesize (* num-items Float/BYTES)
          workgroup-size 256

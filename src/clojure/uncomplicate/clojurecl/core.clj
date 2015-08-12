@@ -622,8 +622,7 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
 
   (def cl-buff (cl-buffer ctx 32 :write-only))
   (def region (cl_buffer_region. 8 16))
-  (cl-sub-buffer* cl-buff CL/CL_MEM_READ_WRITE
-  CL/CL_BUFFER_CREATE_TYPE_REGION region)
+  (cl-sub-buffer* cl-buff CL/CL_MEM_READ_WRITE CL/CL_BUFFER_CREATE_TYPE_REGION region)
   (cl-sub-buffer* cl-buff CL/CL_MEM_READ_ONLY region)
   "
   ([buffer ^long flags ^long create-type ^cl_buffer_region region]

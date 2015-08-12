@@ -1,5 +1,6 @@
 (ns uncomplicate.clojurecl.examples.openclinaction.ch04
   (:require [midje.sweet :refer :all]
+            [clojure.java.io :as io]
             [clojure.core.async :refer [chan <!!]]
             [uncomplicate.clojurecl
              [core :refer :all]
@@ -20,7 +21,7 @@
      (let [host-msg (direct-buffer 16)
            work-sizes (work-size [1])
            program-source
-           (slurp "test/opencl/examples/openclinaction/ch04/hello-kernel.cl")]
+           (slurp (io/resource "examples/openclinaction/ch04/hello-kernel.cl"))]
        (with-release [cl-msg (cl-buffer ctx 16 :write-only)
                       prog (build-program! (program-with-source ctx [program-source]))
                       hello-kernel (kernel prog "hello_kernel")
@@ -41,7 +42,7 @@
            host-out (float-array 1)
            work-sizes (work-size [1])
            program-source
-           (slurp "test/opencl/examples/openclinaction/ch04/double-test.cl")]
+           (slurp (io/resource "examples/openclinaction/ch04/double-test.cl"))]
        (with-release [cl-a (cl-buffer ctx (* 2 Float/BYTES) :read-only)
                       cl-b (cl-buffer ctx (* 2 Float/BYTES) :read-only)
                       cl-out (cl-buffer ctx (* 2 Float/BYTES) :write-only)
@@ -80,7 +81,7 @@
      (let [host-data (byte-array 16)
            work-sizes (work-size [1])
            program-source
-           (slurp "test/opencl/examples/openclinaction/ch04/vector-bytes.cl")]
+           (slurp (io/resource "examples/openclinaction/ch04/vector-bytes.cl"))]
        (with-release [cl-data (cl-buffer ctx 16 :write-only)
                       prog (build-program! (program-with-source ctx [program-source]))
                       vector-bytes (kernel prog "vector_bytes")]

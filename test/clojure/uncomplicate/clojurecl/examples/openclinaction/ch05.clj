@@ -1,5 +1,6 @@
 (ns uncomplicate.clojurecl.examples.openclinaction.ch05
   (:require [midje.sweet :refer :all]
+            [clojure.java.io :as io]
             [uncomplicate.clojurecl
              [core :refer :all]
              [info :refer [info]]]
@@ -16,7 +17,7 @@
    (let [host-output (int-array 4)
          work-sizes (work-size [1])
          program-source
-         (slurp "test/opencl/examples/openclinaction/ch05/op-test.cl")]
+         (slurp (io/resource "examples/openclinaction/ch05/op-test.cl"))]
      (with-release [cl-output (cl-buffer ctx (* 4 Integer/BYTES) :write-only)
                     prog (build-program! (program-with-source ctx [program-source]))
                     op-test-kernel (kernel prog "op_test")]
@@ -31,7 +32,7 @@
    (let [host-output (float-array 24)
          work-sizes (work-size [6 4] [3 2] [3 5])
          program-source
-         (slurp "test/opencl/examples/openclinaction/ch05/id-check.cl")]
+         (slurp (io/resource "examples/openclinaction/ch05/id-check.cl"))]
      (with-release [cl-output (cl-buffer ctx (* 24 Float/BYTES) :write-only)
                     prog (build-program! (program-with-source ctx [program-source]))
                     id-check-kernel (kernel prog "id_check")]
@@ -57,7 +58,7 @@
          host-round-output (float-array 20)
          work-sizes (work-size [1])
          program-source
-         (slurp "test/opencl/examples/openclinaction/ch05/mod-round.cl")]
+         (slurp (io/resource "examples/openclinaction/ch05/mod-round.cl"))]
      (with-release [cl-mod-input (cl-buffer ctx (* 2 Float/BYTES) :read-only)
                     cl-mod-output (cl-buffer ctx (* 2 Float/BYTES) :write-only)
                     cl-round-input (cl-buffer ctx (* 20 Float/BYTES) :read-only)
@@ -89,7 +90,7 @@
          ycoords (float-array 4)
          work-sizes (work-size [1])
          program-source
-         (slurp "test/opencl/examples/openclinaction/ch05/polar-rect.cl")]
+         (slurp (io/resource "examples/openclinaction/ch05/polar-rect.cl"))]
      (with-release [cl-rvals (cl-buffer ctx (* 4 Float/BYTES) :read-only)
                     cl-angles (cl-buffer ctx (* 4 Float/BYTES) :read-only)
                     cl-xcoords (cl-buffer ctx (* 4 Float/BYTES) :write-only)
@@ -114,7 +115,7 @@
    (let [output (int-array 2)
          work-sizes (work-size [1])
          program-source
-         (slurp "test/opencl/examples/openclinaction/ch05/mad-test.cl")]
+         (slurp (io/resource "examples/openclinaction/ch05/mad-test.cl"))]
      (with-release [cl-output (cl-buffer ctx (* 2 Integer/BYTES) :write-only)
                     prog (build-program! (program-with-source ctx [program-source]))
                     mad-test-kernel (kernel prog "mad_test")]
@@ -130,7 +131,7 @@
          s2 (byte-array 2)
          work-sizes (work-size [1])
          program-source
-         (slurp "test/opencl/examples/openclinaction/ch05/select-test.cl")]
+         (slurp (io/resource "examples/openclinaction/ch05/select-test.cl"))]
      (with-release [cl-s1 (cl-buffer ctx (* 4 Float/BYTES) :write-only)
                     cl-s2 (cl-buffer ctx 8 :write-only)
                     prog (build-program! (program-with-source ctx [program-source]))

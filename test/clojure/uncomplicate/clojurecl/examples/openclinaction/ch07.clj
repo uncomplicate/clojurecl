@@ -1,5 +1,6 @@
 (ns uncomplicate.clojurecl.examples.openclinaction.ch07
   (:require [midje.sweet :refer :all]
+            [clojure.java.io :as io]
             [clojure.core.async :refer [<!! chan timeout <! go]]
             [uncomplicate.clojurecl
              [core :refer :all]
@@ -13,7 +14,7 @@
   (facts
    "Listing 7.3. Page 147."
    (let [program-source
-         (slurp "test/opencl/examples/openclinaction/ch07/user-event.cl")
+         (slurp (io/resource "examples/openclinaction/ch07/user-event.cl"))
          notifications (chan)
          follow (register notifications)
          v (direct-buffer (* Float/BYTES 4))
@@ -37,7 +38,7 @@
   (facts
    "Listing 7.6. Page 155."
    (let [program-source
-         (slurp "test/opencl/examples/openclinaction/ch07/profile-read.cl")
+         (slurp (io/resource "examples/openclinaction/ch07/profile-read.cl"))
          bytesize (Math/pow 2 20)
          notifications (chan)
          follow (register notifications)
@@ -63,7 +64,7 @@
   (facts
    "Listing 7.7. Page 157."
    (let [program-source
-         (slurp "test/opencl/examples/openclinaction/ch07/profile-items.cl")
+         (slurp (io/resource "examples/openclinaction/ch07/profile-items.cl"))
          num-ints 65536
          data (int-array (range num-ints))
          notifications (chan)
