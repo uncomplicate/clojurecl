@@ -1,7 +1,3 @@
-#ifndef NUMBER
-    #define NUMBER float
-#endif
-
 #ifndef ACCUMULATOR
     #define ACCUMULATOR double
 #endif
@@ -12,8 +8,8 @@
 
 // ================= Sum reduction =============================================
 
-inline void work_group_reduction_sum (__global ACCUMULATOR* acc,
-                                      const ACCUMULATOR value) {
+inline ACCUMULATOR work_group_reduction_sum (__global ACCUMULATOR* acc,
+                                             const ACCUMULATOR value) {
 
     uint local_size = get_local_size(0);
     uint local_id = get_local_id(0);
@@ -41,4 +37,6 @@ inline void work_group_reduction_sum (__global ACCUMULATOR* acc,
     if(local_id == 0) {
         acc[get_group_id(0)] = pacc;
     }
+
+    return pacc;
 }

@@ -519,7 +519,7 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
     (with-check (CL/clSetKernelArg kernel n Sizeof/cl_mem cl*) kernel)))
 
 (defn cl-buffer?
-  "Checks whether an object is an SVM buffer."
+  "Checks whether an object is a CL buffer."
   [x]
   (instance? CLBuffer x))
 
