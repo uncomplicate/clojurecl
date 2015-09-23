@@ -8,10 +8,8 @@
 
 // ================= Sum reduction =============================================
 
-inline ACCUMULATOR work_group_reduction_sum (__global ACCUMULATOR* acc,
-                                             const ACCUMULATOR value) {
+inline ACCUMULATOR work_group_reduction_sum (const ACCUMULATOR value) {
 
-    uint local_size = get_local_size(0);
     uint local_id = get_local_id(0);
 
     __local ACCUMULATOR lacc[WGS];
@@ -20,7 +18,7 @@ inline ACCUMULATOR work_group_reduction_sum (__global ACCUMULATOR* acc,
     work_group_barrier(CLK_LOCAL_MEM_FENCE);
 
     ACCUMULATOR pacc = value;
-    uint i = local_size;
+    uint i = get_local_size(0);
     while (i > 0) {
         bool include_odd = (i > ((i >> 1) << 1)) && (local_id == ((i >> 1) - 1));
         i >>= 1;
@@ -32,10 +30,6 @@ inline ACCUMULATOR work_group_reduction_sum (__global ACCUMULATOR* acc,
             lacc[local_id] = pacc;
         }
         work_group_barrier(CLK_LOCAL_MEM_FENCE);
-    }
-
-    if(local_id == 0) {
-        acc[get_group_id(0)] = pacc;
     }
 
     return pacc;
