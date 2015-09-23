@@ -32,5 +32,5 @@ inline ACCUMULATOR work_group_reduction_sum (const ACCUMULATOR value) {
         work_group_barrier(CLK_LOCAL_MEM_FENCE);
     }
 
-    return pacc;
+    return lacc[0];
 }
