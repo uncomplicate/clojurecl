@@ -27,7 +27,7 @@
                                  *assert* true
                                  *unchecked-math* :warn-on-boxed
                                  *print-length* 128}
-                   :dependencies [[midje "1.7.0"]
+                   :dependencies [[midje "1.8-alpha1"]
                                   [criterium "0.4.3"]]}}
 
   :javac-options ["-target" "1.8" "-source" "1.8" "-Xlint:-options"]

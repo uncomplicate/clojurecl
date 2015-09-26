@@ -1366,13 +1366,16 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
   * `cl`: the [[CLMem]] that is going to be read from.
   * `host`: [[Mem]] object on the host that the data is to be transferred to.
   Must be a direct buffer is the reading is asynchronous.
+  * `blocking`: boolean indicator of synchronization.
+  * `offset`: the offset in bytes in the buffer object to read from.
   * `wait-events` (optional): [[events]] array specifying the events (if any)
   that need to complete before this operation.
   * `event` (optional): if specified, the `cl_event` object tied to
   the execution of this operation.
 
   If event is specified, the operation is asynchronous, otherwise it blocks the
-  current thread until the data transfer completes. See also [[register]].
+  current thread until the data transfer completes, unless explicitly specifiend
+  with `blocking`. See also [[register]].
 
   See https://www.khronos.org/registry/cl/sdk/2.0/docs/man/xhtml/clEnqueueReadBuffer.html,
   http://www.jocl.org/doc/org/jocl/CL.html#clEnqueueReadBuffer-org.jocl.cl_command_queue-org.jocl.cl_mem-boolean-long-long-org.jocl.Pointer-int-org.jocl.cl_event:A-org.jocl.cl_event-
@@ -1416,13 +1419,16 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
   * `cl`: the [[CLMem]] that is going to be written to.
   * `host`: [[Mem]] object on the host that the data is to be transferred from.
   Must be a direct buffer is the writing is asynchronous.
+  * `blocking`: boolean indicator of synchronization.
+  * `offset`: the offset in bytes in the buffer object to write to.
   * `wait-events` (optional): [[events]] array specifying the events (if any)
   that need to complete before this operation.
   * `event` (optional): if specified, the `cl_event` object tied to
   the execution of this operation.
 
   If event is specified, the operation is asynchronous, otherwise it blocks the
-  current thread until the data transfer completes. See also [[register]].
+  current thread until the data transfer completes, unless explicitly specifiend
+  with `blocking`. See also [[register]].
 
   See https://www.khronos.org/registry/cl/sdk/2.0/docs/man/xhtml/clEnqueueWriteBuffer.html,
   http://www.jocl.org/doc/org/jocl/CL.html#clEnqueueWriteBuffer-org.jocl.cl_command_queue-org.jocl.cl_mem-boolean-long-long-org.jocl.Pointer-int-org.jocl.cl_event:A-org.jocl.cl_event-
