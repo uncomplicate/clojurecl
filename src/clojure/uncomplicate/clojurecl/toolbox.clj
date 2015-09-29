@@ -47,14 +47,14 @@
     (enq-read! queue cl-buf res)
     (aget res 0)))
 
-(defn wrap-int [^long x]
+(defn wrap-int ^ints [^long x]
   (doto (int-array 1) (aset 0 x)))
 
-(defn wrap-long [^long x]
+(defn wrap-long ^longs [^long x]
   (doto (long-array 1) (aset 0 x)))
 
-(defn wrap-float [^double x]
+(defn wrap-float ^floats [^double x]
   (doto (float-array 1) (aset 0 x)))
 
-(defn wrap-double [^double x]
+(defn wrap-double ^doubles [^double x]
   (doto (double-array 1) (aset 0 x)))

@@ -1526,7 +1526,7 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
   (CL/CL_FALSE).
   *  `offset`: integer value of the memory offset in bytes.
   * `req-size`: integer value of the requested size in bytes (if larger than
-  .   the available data, it will be shrinked.').
+    the available data, it will be shrinked.).
   * `flags`: a bitfield that indicates whether the memory is mapped for reading
   (`CL/CL_MAP_READ`), writing (`CL/CL_MAP_WRITE`) or both
   `(bit-or CL/CL_MAP_READ CL/CL_MAP_WRITE)`.
@@ -1563,9 +1563,10 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
   * `queue` (optional): the `cl_command_queue` that maps the object.
   If omitted, [[*command-queue*]] will be used.
   * `cl`: the [[CLMem]] that is going to be mapped to.
+  * `blocking`: whether the operation is blocking or non-blocking.
   * `offset`: integer value of the memory offset in bytes.
   * `req-size`: integer value of the requested size in bytes (if larger than
-  .   the available data, it will be shrinked.').
+     the available data, it will be shrinked).
   * flags: one keyword or a sequence of keywords that indicates memory mapping
   settings: `:read`, `:write`, and/or `:write-invalidate-settings`.
   * `wait-events` (optional): [[events]] array specifying the events (if any)
@@ -1585,12 +1586,14 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
       (enq-map-buffer! queue cl-data [:write :read])
       (enq-map-buffer! cl-data :write)
   "
-  ([queue cl offset req-size flags wait-events event]
-   (enq-map-buffer* queue cl false offset req-size
+  ([queue cl blocking offset req-size flags wait-events event]
+   (enq-map-buffer* queue cl blocking offset req-size
                     (if (keyword? flags)
                       (cl-map-flags flags)
                       (mask cl-map-flags flags))
                     wait-events event))
+  ([queue cl offset req-size flags wait-events event]
+   (enq-map-buffer! queue cl false offset req-size flags wait-events event))
   ([queue cl flags wait-events event]
    (enq-map-buffer! queue cl 0 (size cl) flags wait-events event))
   ([queue cl flags event]
