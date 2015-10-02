@@ -1179,7 +1179,7 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
   "
   ([kernel x & values]
    (if (integer? x)
-     (loop [i x values values]
+     (loop [i (long x) values values]
        (if-let [val (first values)]
          (do (set-arg! kernel i val)
              (recur (inc i) (next values)))
@@ -1225,8 +1225,87 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
    (let [global-array (long-array global)]
      (->WorkSize (alength global-array) global-array nil nil)))
   ([]
-   (let [global-array (long-array [1])]
+   (let [global-array (doto (long-array 0) (aset 0 1))]
      (->WorkSize 1 global-array nil nil))))
+
+(defn work-size-1d
+  "Creates a 1-dimensional [[WorkSize]] from the long numbers it receives.
+  See also [[work-size]].
+
+  Examples:
+  (work-size-1d 1024)
+  (work-size-1d 1024 256)
+  (work-size-1d 1024 256 1)"
+  ([^long global ^long local ^long offset]
+   (->WorkSize 1
+               (doto (long-array 1) (aset 0 global))
+               (doto (long-array 1) (aset 0 local))
+               (doto (long-array 1) (aset 0 offset))))
+  ([^long global ^long local]
+   (->WorkSize 1
+               (doto (long-array 1) (aset 0 global))
+               (doto (long-array 1) (aset 0 local))
+               nil))
+  ([^long global]
+   (->WorkSize 1 (doto (long-array 1) (aset 0 global)) nil nil))
+  ([]
+   (->WorkSize 1 (doto (long-array 1) (aset 0 1)) nil nil)))
+
+(defn work-size-2d
+  "Creates a 2-dimensional [[WorkSize]] from the long numbers it receives.
+  See also [[work-size]].
+
+  Examples:
+  (work-size-2d 1024 2048)
+  (work-size-2d 1024 2048 16 16)
+  (work-size-2d 1024 2048 16 16 8 0 2)
+  "
+  ([global0 global1 local0 local1 offset0 offset1]
+   (->WorkSize 2
+               (doto (long-array 2) (aset 0 (long global0)) (aset 1 (long global1)))
+               (doto (long-array 2) (aset 0 (long local0)) (aset 1 (long local1)))
+               (doto (long-array 2) (aset 0 (long offset0)) (aset 1 (long offset1)))))
+  ([^long global0 ^long global1 ^long local0 ^long local1]
+   (->WorkSize 2
+               (doto (long-array 2) (aset 0 global0) (aset 1 global1))
+               (doto (long-array 2) (aset 0 local0) (aset 1 local1))
+               nil))
+  ([^long global0 ^long global1]
+   (->WorkSize 2 (doto (long-array 2) (aset 0 global0) (aset 1 global1)) nil nil))
+  ([]
+   (->WorkSize 2 (doto (long-array 2) (aset 0 1) (aset 1 1)) nil nil)))
+
+(defn work-size-3d
+  "Creates a 3-dimensional [[WorkSize]] from the long numbers it receives.
+  See also [[work-size]].
+
+  Examples:
+  (work-size-3d 1024 2048 512)
+  (work-size-3d 1024 2048 256 16 16)
+  (work-size-3d 1024 2048 128 16 4 4 16 0 2 512)
+  "
+  ([global0 global1 global2 local0 local1 local2 offset0 offset1 offset2]
+   (->WorkSize 3
+               (doto (long-array 3) (aset 0 (long global0))
+                     (aset 1 (long global1)) (aset 2 (long global2)))
+               (doto (long-array 3) (aset 0 (long local0))
+                     (aset 1 (long local1)) (aset 2 (long local2)))
+               (doto (long-array 3) (aset 0 (long offset0))
+                     (aset 1 (long offset1)) (aset 2 (long offset2)))))
+  ([global0 global1 global2 local0 local1 local2]
+   (->WorkSize 3
+               (doto (long-array 3) (aset 0 (long global0))
+                     (aset 1 (long global1)) (aset 2 (long global2)))
+               (doto (long-array 3) (aset 0 (long local0))
+                     (aset 1 (long local1)) (aset 2 (long local2)))
+               nil))
+  ([^long global0 ^long global1 ^long global2]
+   (->WorkSize 3
+               (doto (long-array 3) (aset 0 global0)
+                     (aset 1 global1) (aset 2 global2))
+               nil nil))
+  ([]
+   (->WorkSize 3 (doto (long-array 3) (aset 0 1) (aset 1 1) (aset 2 1)) nil nil)))
 
 ;; ============== Command Queue ===============================
 
@@ -1448,7 +1527,7 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
   ([queue cl host blocking offset ^objects wait-events event]
    (with-check
      (CL/clEnqueueWriteBuffer queue (cl-mem cl) blocking offset
-                              (min (size cl) (size host)) (ptr host)
+                              (min (long (size cl)) (long (size host))) (ptr host)
                               (if wait-events (alength wait-events) 0)
                               wait-events event)
      queue))
@@ -1547,7 +1626,7 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
   [queue cl blocking offset req-size flags ^objects wait-events event]
   (let [err (int-array 1)
         res (CL/clEnqueueMapBuffer queue (cl-mem cl) blocking flags offset
-                                   (min req-size (- (size cl) offset))
+                                   (min (long req-size) (- (long (size cl)) (long offset)))
                                    (if wait-events (alength wait-events) 0)
                                    wait-events event err)]
     (with-check-arr err (.order res (ByteOrder/nativeOrder)))))
