@@ -4,7 +4,8 @@
   The user of the ClojureCL library would probably not need to use
   any of the functions defined here."
   (:require [uncomplicate.clojurecl.constants :refer [dec-error]])
-  (:import clojure.lang.ExceptionInfo))
+  (:import clojure.lang.ExceptionInfo
+           [java.nio ByteBuffer DirectByteBuffer]))
 
 ;; ========= Bitfild masks ========================================
 
@@ -142,3 +143,9 @@
            (if (= :opencl-error (:type (ex-data ex-info#)))
              ex-info#
              (throw ex-info#)))))
+
+(defn clean-buffer [^ByteBuffer buffer]
+  (do
+    (if (.isDirect buffer)
+      (.clean (.cleaner ^DirectByteBuffer buffer)))
+    true))

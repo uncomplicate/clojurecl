@@ -65,7 +65,7 @@
   "
   (:require [uncomplicate.clojurecl
              [constants :refer :all]
-             [utils :refer [with-check with-check-arr mask error]]
+             [utils :refer [with-check with-check-arr mask error clean-buffer]]
              [info :refer [info build-info program-devices]]]
             [clojure.string :as str]
             [clojure.core.async :refer [go >!]])
@@ -1624,12 +1624,14 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
       (enq-map-buffer* queue cl-data true 0 CL/CL_WRITE (events ev-nd) ev-map)
   "
   [queue cl blocking offset req-size flags ^objects wait-events event]
-  (let [err (int-array 1)
-        res (CL/clEnqueueMapBuffer queue (cl-mem cl) blocking flags offset
-                                   (min (long req-size) (- (long (size cl)) (long offset)))
-                                   (if wait-events (alength wait-events) 0)
-                                   wait-events event err)]
-    (with-check-arr err (.order res (ByteOrder/nativeOrder)))))
+  (if (< 0 (long req-size))
+    (let [err (int-array 1)
+          res (CL/clEnqueueMapBuffer queue (cl-mem cl) blocking flags offset
+                                     (min (long req-size) (- (long (size cl)) (long offset)))
+                                     (if wait-events (alength wait-events) 0)
+                                     wait-events event err)]
+      (with-check-arr err (.order res (ByteOrder/nativeOrder))))
+    (ByteBuffer/allocateDirect 0)))
 
 (defn enq-map-buffer!
   "Enqueues a command to map a region of the cl buffer into the host
@@ -1716,11 +1718,15 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
       (enq-unmap! queue cl-data byte-buff)
       (enq-unmap! cl-data byte-buff)
   "
-  ([queue cl host ^objects wait-events event]
-   (let [err (CL/clEnqueueUnmapMemObject queue (cl-mem cl) host
-                                         (if wait-events (alength wait-events) 0)
-                                         wait-events event)]
-     (with-check err queue)))
+  ([queue cl ^ByteBuffer host ^objects wait-events event]
+   (if (< 0 (.capacity host))
+     (let [err (CL/clEnqueueUnmapMemObject queue (cl-mem cl) host
+                                           (if wait-events (alength wait-events) 0)
+                                           wait-events event)]
+       (with-check err queue))
+     (do
+       (clean-buffer host)
+       queue)))
   ([queue cl host event]
    (enq-unmap! queue cl host nil event))
   ([queue cl host]
