@@ -1,5 +1,8 @@
 (ns ^{:author "Dragan Djuric"}
-  uncomplicate.clojurecl.toolbox
+    uncomplicate.clojurecl.toolbox
+  "Various helpers that are not needed by ClojureCL itself,
+  but may be very helpful in applications. See Neanderthal library
+  for the examples of how to use it."
   (:require [uncomplicate.clojurecl.core :refer :all]))
 
 (defn count-work-groups ^long [^long max-local-size ^long n]

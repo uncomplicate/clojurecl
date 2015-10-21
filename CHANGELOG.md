@@ -1,5 +1,16 @@
 # [ClojureCL](http://clojurecl.uncomplicate.org) - notable changes between versions
 
+## 0.3.0
+
+New features
+
+* New namespace for useful kernel helpers named toolbox
+* specialized work-size-Xd functions
+
+Bugfixes
+
+* map-buffer now correctly returns an empty ByteBuffer when reqested size is 0.
+
 ## 0.2.0
 
 New features

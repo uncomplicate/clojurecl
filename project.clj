@@ -1,4 +1,4 @@
-(defproject uncomplicate/clojurecl "0.3.0-SNAPSHOT"
+(defproject uncomplicate/clojurecl "0.3.0"
   :description "ClojureCL is a Clojure library for parallel computations with OpenCL."
   :url "https://github.com/uncomplicate/clojurecl"
   :scm {:name "git"
@@ -13,21 +13,21 @@
                  [clj-tuple "0.2.2"] ;; temporary fix for potemkin
                  ]
 
-  :codox {:defaults {:doc/format :markdown}
+  :codox {:metadata {:doc/format :markdown}
           :src-dir-uri "http://github.com/uncomplicate/clojurecl/blob/master/"
           :src-linenum-anchor-prefix "L"
-          :output-dir "docs/codox"}
+          :output-path "docs/codox"}
 
   ;;also replaces lein's default JVM argument TieredStopAtLevel=1
   :jvm-opts ^:replace ["-XX:MaxDirectMemorySize=16g" "-XX:+UseLargePages"]
 
   :profiles {:dev {:plugins [[lein-midje "3.1.3"]
-                             [codox "0.8.13"]]
+                             [lein-codox "0.9.0"]]
                    :global-vars {*warn-on-reflection* true
                                  *assert* true
                                  *unchecked-math* :warn-on-boxed
                                  *print-length* 128}
-                   :dependencies [[midje "1.8-alpha1"]
+                   :dependencies [[midje "1.8-beta1"]
                                   [criterium "0.4.3"]]}}
 
   :javac-options ["-target" "1.8" "-source" "1.8" "-Xlint:-options"]

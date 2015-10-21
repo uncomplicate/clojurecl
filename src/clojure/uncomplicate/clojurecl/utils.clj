@@ -144,7 +144,11 @@
              ex-info#
              (throw ex-info#)))))
 
-(defn clean-buffer [^ByteBuffer buffer]
+(defn clean-buffer
+  "Cleans the direct byte buffer using JVM's cleaner, and releases the memory
+  that resides outside JVM, wihich might otherwise linger very long until garbage
+  collected. See the Java documentation for DirectByteBuffer for more info."
+  [^ByteBuffer buffer]
   (do
     (if (.isDirect buffer)
       (.clean (.cleaner ^DirectByteBuffer buffer)))
