@@ -2,7 +2,7 @@
   (:require [midje.sweet :refer :all]
             [uncomplicate.clojurecl
              [core :refer :all]
-             [info :refer [info reference-count mem-base-addr-align]]]
+             [info :refer [info reference-count mem-base-addr-align opencl-c-version]]]
             [clojure.core.async :refer [go >! <! <!! chan]]
             [vertigo
              [bytes :refer [direct-buffer byte-seq]]
@@ -97,7 +97,7 @@
 (let [p (first (platforms))]
   (with-platform p
     (with-release [devs (devices p)
-                   dev (first devs)]
+                   dev (first (filter #(= 2.0 (:version (opencl-c-version %))) devs))]
 
       (facts
        "context-properties tests"
@@ -196,7 +196,9 @@
 
   (facts
    "cl-buffer and cl-sub-buffer reading/writing tests."
-   (let [alignment (mem-base-addr-align (first (devices (first (platforms)))))]
+   (let [alignment (mem-base-addr-align
+                    (first (filter #(= 2.0 (:version (opencl-c-version %)))
+                                   (devices (first (platforms))))))]
      (with-release [cl-buf (cl-buffer (* 4 alignment Float/BYTES))
                     cl-subbuf (cl-sub-buffer cl-buf (* alignment Float/BYTES)
                                              (* alignment Float/BYTES))]
@@ -350,7 +352,8 @@
        (enq-unmap! queue1 cl-data mapped-read) => queue1
        (enq-unmap! queue1 cl-data mapped-write) => queue1)))
 
-  (with-release [dev (first (devices (first (platforms)) :gpu))
+  (with-release [dev (first (filter #(= 2.0 (:version (opencl-c-version %)))
+                                    (devices (first (platforms)) :gpu)))
                  ctx (context [dev])
                  queue (command-queue ctx dev)
                  svm (svm-buffer ctx (* cnt Float/BYTES) 0)

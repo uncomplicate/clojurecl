@@ -1,13 +1,13 @@
-(defproject uncomplicate/clojurecl "0.3.0"
+(defproject uncomplicate/clojurecl "0.4.0-SNAPSHOT"
   :description "ClojureCL is a Clojure library for parallel computations with OpenCL."
   :url "https://github.com/uncomplicate/clojurecl"
   :scm {:name "git"
         :url "https://github.com/uncomplicate/clojurecl"}
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
-  :dependencies [[org.clojure/clojure "1.8.0-beta1"]
+  :dependencies [[org.clojure/clojure "1.8.0-RC2"]
                  [org.jocl/jocl "0.2.0-RC00"]
-                 [org.clojure/core.async "0.1.346.0-17112a-alpha"]
+                 [org.clojure/core.async "0.2.374"]
                  [vertigo "0.1.3"]
                  [potemkin "0.4.1"] ;; temporary fix for vertigo
                  [clj-tuple "0.2.2"] ;; temporary fix for potemkin
@@ -27,7 +27,7 @@
                                  *assert* true
                                  *unchecked-math* :warn-on-boxed
                                  *print-length* 128}
-                   :dependencies [[midje "1.8-beta1"]
+                   :dependencies [[midje "1.8.2"]
                                   [criterium "0.4.3"]]}}
 
   :javac-options ["-target" "1.8" "-source" "1.8" "-Xlint:-options"]

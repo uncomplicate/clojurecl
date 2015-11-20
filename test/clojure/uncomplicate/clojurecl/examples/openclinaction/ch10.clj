@@ -10,7 +10,7 @@
 
 (set! *unchecked-math* true)
 
-(with-release [dev (nth  (devices (first (platforms))) 0)
+(with-release [dev (nth  (sort-by-cl-version (devices (first (platforms)))) 0)
                ctx (context [dev])
                cqueue (command-queue ctx dev :profiling)]
 

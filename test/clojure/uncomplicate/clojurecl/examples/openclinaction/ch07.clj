@@ -4,10 +4,10 @@
             [clojure.core.async :refer [<!! chan timeout <! go]]
             [uncomplicate.clojurecl
              [core :refer :all]
-             [info :refer [profiling-info durations end]]]
+             [info :refer [profiling-info durations end opencl-c-version]]]
             [vertigo.bytes :refer [direct-buffer]]))
 
-(with-release [dev (first (devices (first (platforms))))
+(with-release [dev (first (sort-by-cl-version (devices (first (platforms)))))
                ctx (context [dev])
                cqueue (command-queue ctx dev :profiling)]
 
@@ -58,7 +58,7 @@
 
         (< 10000
            (-> (<!! notifications) :event profiling-info durations :end)
-           300000)
+           350000)
         => true))))
 
   (facts

@@ -4,11 +4,12 @@
             [clojure.core.async :refer [chan <!!]]
             [uncomplicate.clojurecl
              [core :refer :all]
-             [info :refer [info durations profiling-info]]]))
+             [info :refer [info durations profiling-info opencl-c-version]]]))
 
 (set! *unchecked-math* true)
 
-(with-release [dev (nth  (devices (first (platforms))) 0)
+(with-release [dev (first (filter #(= 2.0 (:version (opencl-c-version %)))
+                                  (devices (first (platforms)))))
                ctx (context [dev])
                cqueue (command-queue ctx dev :profiling)]
 

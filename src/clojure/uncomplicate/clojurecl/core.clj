@@ -66,7 +66,7 @@
   (:require [uncomplicate.clojurecl
              [constants :refer :all]
              [utils :refer [with-check with-check-arr mask error clean-buffer]]
-             [info :refer [info build-info program-devices]]]
+             [info :refer [info build-info program-devices opencl-c-version]]]
             [clojure.string :as str]
             [clojure.core.async :refer [go >!]])
   (:import [org.jocl CL cl_platform_id cl_context_properties cl_device_id
@@ -261,10 +261,10 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
 
   Examples:
 
-      (devices)
-      (devices (first (platforms)))
-      (devices :gpu)
-      (devices (first (platforms)) :gpu :cpu :accelerator)
+      (num-devices)
+      (num-devices (first (platforms)))
+      (num-devices :gpu)
+      (num-devices (first (platforms)) :gpu :cpu :accelerator)
   "
   ([platform device-type & device-types]
    (num-devices* platform (mask cl-device-type device-type device-types)))
@@ -1959,14 +1959,21 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
      (try ~@body
           (finally (release *command-queue*)))))
 
+(defn sort-by-cl-version
+  "Sorts a given sequence of devices by the OpenCL version they support.
+  The devices with hihger versions come first. If some devices support the same
+  version their order is not changed."
+  [devs]
+  (sort-by #(- (double (:version (opencl-c-version %)))) devs))
+
 (defmacro with-default
   "Dynamically binds [[*platform*]], [[*context*]] and [[*command-queue]]
   to the first of the available platforms, the context containing the first
-  device of that platform, and the queue on the device in that context.
-  Requires OpenCL 2.0 support in the platform."
+  device of that platform that supports the highest OpenCL version, and the queue on
+  the device in that context. Requires OpenCL 2.0 support in the platform."
   [& body]
   `(with-platform (first (platforms))
-     (let [dev# (first (devices))]
+     (let [dev# (first (sort-by-cl-version (devices)))]
        (with-context (context [dev#])
          (with-queue (command-queue dev#)
            ~@body)))))
