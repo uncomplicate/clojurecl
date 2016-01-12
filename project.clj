@@ -5,7 +5,7 @@
         :url "https://github.com/uncomplicate/clojurecl"}
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
-  :dependencies [[org.clojure/clojure "1.8.0-RC4"]
+  :dependencies [[org.clojure/clojure "1.8.0-RC5"]
                  [org.jocl/jocl "0.2.0-RC00"]
                  [org.clojure/core.async "0.2.374"]
                  [vertigo "0.1.4"]]
@@ -24,7 +24,7 @@
                                  *assert* true
                                  *unchecked-math* :warn-on-boxed
                                  *print-length* 128}
-                   :dependencies [[midje "1.8.2"]
+                   :dependencies [[midje "1.8.3"]
                                   [criterium "0.4.3"]]}}
 
   :javac-options ["-target" "1.8" "-source" "1.8" "-Xlint:-options"]
