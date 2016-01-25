@@ -5,7 +5,7 @@
         :url "https://github.com/uncomplicate/clojurecl"}
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
-  :dependencies [[org.clojure/clojure "1.8.0-RC5"]
+  :dependencies [[org.clojure/clojure "1.8.0"]
                  [org.jocl/jocl "0.2.0-RC00"]
                  [org.clojure/core.async "0.2.374"]
                  [vertigo "0.1.4"]]
