@@ -1967,7 +1967,7 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
   (sort-by #(- (double (:version (opencl-c-version %)))) devs))
 
 (defmacro with-default
-  "Dynamically binds [[*platform*]], [[*context*]] and [[*command-queue]]
+  "Dynamically binds [[*platform*]], [[*context*]] and [[*command-queue*]]
   to the first of the available platforms, the context containing the first
   device of that platform that supports the highest OpenCL version, and the queue on
   the device in that context. Requires OpenCL 2.0 support in the platform."

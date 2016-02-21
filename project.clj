@@ -25,7 +25,7 @@
                                  *unchecked-math* :warn-on-boxed
                                  *print-length* 128}
                    :dependencies [[midje "1.8.3"]
-                                  [criterium "0.4.3"]]}}
+                                  [criterium "0.4.4"]]}}
 
   :javac-options ["-target" "1.8" "-source" "1.8" "-Xlint:-options"]
   :source-paths ["src/clojure" "src/opencl"]
