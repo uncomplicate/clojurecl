@@ -11,3 +11,4 @@ kramdown:
   auto_ids:       true
 gems:
   - jekyll-sitemap
+port: 4004

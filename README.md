@@ -1,4 +1,4 @@
-# ClojureCL Name Documentation
+# ClojureCL Documentation
 
 This is a documentation site for [ClojureCL](http://clojurecl.neanderthal.org).
 
@@ -12,7 +12,7 @@ With Bundler:
 
     ./bin/jekyll serve
 
-then navigate to [localhost:4000](http://localhost:4000)
+then navigate to [localhost:4004](http://localhost:4004)
 
 ### How to regenerate the site
 

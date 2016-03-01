@@ -8,12 +8,15 @@
         {% include header.html %}
 
         <div class="container">
-            {{ content }}
+            <a class="github-fork-ribbon" href="https://github.com/uncomplicate/clojurecl" title="Source on GitHub">Source on Github</a>
+            <div class="row">
+                {{ content }}
+            </div>
         </div>
 
         {% include footer.html %}
 
     </body>
 
-     {% include scripts.html %}
+    {% include scripts.html %}
 </html>
