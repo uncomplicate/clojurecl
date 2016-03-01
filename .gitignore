@@ -12,3 +12,4 @@ _site/*
 _source/*
 _cache
 Gemfile.lock
+.jekyll-metadata

@@ -1,4 +1,4 @@
-# Project Name Documentation
+# ClojureCL Name Documentation
 
 This is a documentation site for [ClojureCL](http://clojurecl.neanderthal.org).
 
@@ -20,4 +20,4 @@ then navigate to [localhost:4000](http://localhost:4000)
 
 ## License & Copyright
 
-Copyright (C) 2015 Dragan Djuric
+Copyright (C) 2015-2016 Dragan Djuric
