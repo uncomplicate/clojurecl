@@ -7,22 +7,14 @@
 
         {% include header.html %}
 
-        <div class='container bs-docs-container'>
-            <div class='row'>
-                <div class='col-md-3' role="complimentary">
-                    <nav class='bs-docs-sidebar hidden-print hidden-xs affix-top' id="toc">
-                    </nav>
-                </div>
-                <div class='col-md-9 bs-docs-section' role=main>
-
-                    <h1>{{page.title}}</h1>
+        <div class='container'>
+            <h1>{{page.title}}</h1>
 
                     {{ content }}
 
                     <h1 id="tell_us_what_you_think">Tell Us What You Think!</h2>
                         <p>Please take some time to tell us about your experience with the library and this site. <a href="/articles/community.html">Let us know</a> what we should be explaining or is not clear enough. If you are willing to contribute improvements, even better!</p>
-                </div>
-            </div>
+
         </div>
 
         {% include footer.html %}
