@@ -19,7 +19,7 @@
   :jvm-opts ^:replace ["-XX:MaxDirectMemorySize=16g" "-XX:+UseLargePages"]
 
   :profiles {:dev {:plugins [[lein-midje "3.1.3"]
-                             [lein-codox "0.9.0"]]
+                             [lein-codox "0.9.4"]]
                    :global-vars {*warn-on-reflection* true
                                  *assert* true
                                  *unchecked-math* :warn-on-boxed
