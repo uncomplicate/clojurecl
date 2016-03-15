@@ -1,5 +1,10 @@
 # [ClojureCL](http://clojurecl.uncomplicate.org) - notable changes between versions
 
+## 0.5.0
+
+New features
+* Now uses Realeaseable functions from uncomplicate/commons
+
 ## 0.4.0
 
 New features
