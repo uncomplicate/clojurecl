@@ -1,5 +1,5 @@
 (ns ^{:author "Dragan Djuric"}
-  uncomplicate.clojurecl.core
+    uncomplicate.clojurecl.core
   "Core ClojureCL functions for OpenCL **host** programming. The kernels should
   be provided as strings (that may be stored in files), written in OpenCL C.
 
@@ -63,7 +63,8 @@
   [[enq-marker!]], [[enq-wait!]], [[enq-barrier!]],
   [[finish!]], [[flush!]] [[with-queue]]
   "
-  (:require [uncomplicate.clojurecl
+  (:require [uncomplicate.commons.core :refer [Releaseable release with-release]]
+            [uncomplicate.clojurecl
              [constants :refer :all]
              [utils :refer [with-check with-check-arr mask error clean-buffer]]
              [info :refer [info build-info program-devices opencl-c-version]]]
@@ -89,15 +90,6 @@
   *command-queue*)
 
 ;; =============== Release CL Resources ==================================
-
-(defprotocol Releaseable
-  "Objects that hold resources that can be released after use. For OpenCL
-  objects, releasing  means decrementing the reference count of the object.
-  "
-  (release [this]
-    "Releases the resource held by `this`. For OpenCL objects,
-calls the appropriate org.jocl.CL/clReleaseX method that decrements
-`this`'s reference count."))
 
 (extend-type cl_command_queue
   Releaseable
@@ -139,42 +131,6 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
   (release [s]
     (with-check (CL/clReleaseSampler s) true)))
 
-(defn release-seq
-  "if `cl` is an OpenCL object, releases it; if it is a (possibly nested)
-  sequence of OpenCL objects, calls itself on each element.
-  "
-  [cl]
-  (if (sequential? cl)
-    (map release-seq cl)
-    (release cl)))
-
-(defmacro with-release
-  "Binds [[Releasable]] elements to symbols (like `let` do), evaluates
-  `body`, and at the end releases the resources held by the bindings. The bindings
-  can also be deeply sequential (see examples) - they will be released properly.
-
-  Example:
-
-      (with-release [devs (devices (first (platforms)))
-                     dev (first devs)
-                     ctx (context devs)
-                     queue (command-queue ctx dev)]
-        (info dev)
-        (info queue))
-  "
-  [bindings & body]
-  (assert (vector? bindings) "a vector for its binding")
-  (assert (even? (count bindings)) "an even number of forms in binding vector")
-  (cond
-    (= (count bindings) 0) `(do ~@body)
-    (symbol? (bindings 0)) `(let ~(subvec bindings 0 2)
-                              (try
-                                (with-release ~(subvec bindings 2) ~@body)
-                                (finally
-                                  (release-seq ~(bindings 0)))))
-    :else (throw (IllegalArgumentException.
-                  "with-release only allows Symbols in bindings"))))
-
 ;; =============== Platform =========================================
 
 (defn num-platforms
@@ -193,7 +149,7 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
   `cl_platform_id` objects do not need to be released explicitly.
 
   Platforms are represented by the [`org.jocl.platform_id`]
-(http://www.jocl.org/doc/org/jocl/cl_platform_id.html) datastructure.
+  (http://www.jocl.org/doc/org/jocl/cl_platform_id.html) datastructure.
 
   See http://www.khronos.org/registry/cl/sdk/2.0/docs/man/xhtml/clGetPlatformIDs.html
   and http://www.jocl.org/doc/org/jocl/CL.html#clGetPlatformIDs-int-org.jocl.cl_platform_id:A-int:A-
@@ -215,7 +171,7 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
   evaluates the body with that binding."
   [platform & body]
   `(binding [*platform* ~platform]
-    ~@body))
+     ~@body))
 
 ;; =============== Device ==========================================
 
@@ -269,13 +225,13 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
   ([platform device-type & device-types]
    (num-devices* platform (mask cl-device-type device-type device-types)))
   (^long [platform device-type]
-         (num-devices* platform (cl-device-type device-type)))
+   (num-devices* platform (cl-device-type device-type)))
   (^long [x]
-         (if (keyword? x)
-           (num-devices *platform* x)
-           (num-devices* x CL/CL_DEVICE_TYPE_ALL)))
+   (if (keyword? x)
+     (num-devices *platform* x)
+     (num-devices* x CL/CL_DEVICE_TYPE_ALL)))
   (^long []
-         (num-devices* *platform* CL/CL_DEVICE_TYPE_ALL)))
+   (num-devices* *platform* CL/CL_DEVICE_TYPE_ALL)))
 
 (defn devices*
   "Queries `platform` for the devices of `device-type`s, and returns them as an
@@ -860,45 +816,45 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
   "Creates an array of `cl_event`s. Arrays of events are
   used in enqueuing commands, not vectors or sequences."
   (^objects []
-            (make-array cl_event 0))
+   (make-array cl_event 0))
   (^objects [e]
-            (doto ^objects (make-array cl_event 1)
-                  (aset 0 e)))
+   (doto ^objects (make-array cl_event 1)
+     (aset 0 e)))
   (^objects [e0 e1]
-            (doto ^objects (make-array cl_event 2)
-                  (aset 0 e0)
-                  (aset 1 e1)))
+   (doto ^objects (make-array cl_event 2)
+     (aset 0 e0)
+     (aset 1 e1)))
   (^objects [e0 e1 e2]
-            (doto ^objects (make-array cl_event 3)
-                  (aset 0 e0)
-                  (aset 1 e1)
-                  (aset 2 e2)))
+   (doto ^objects (make-array cl_event 3)
+     (aset 0 e0)
+     (aset 1 e1)
+     (aset 2 e2)))
   (^objects [e0 e1 e2 e3]
-            (doto ^objects (make-array cl_event 4)
-                  (aset 0 e0)
-                  (aset 1 e1)
-                  (aset 2 e2)
-                  (aset 3 e3)))
+   (doto ^objects (make-array cl_event 4)
+     (aset 0 e0)
+     (aset 1 e1)
+     (aset 2 e2)
+     (aset 3 e3)))
   (^objects [e0 e1 e2 e3 e4]
-            (doto ^objects (make-array cl_event 5)
-                  (aset 0 e0)
-                  (aset 1 e1)
-                  (aset 2 e2)
-                  (aset 3 e3)
-                  (aset 4 e4)))
+   (doto ^objects (make-array cl_event 5)
+     (aset 0 e0)
+     (aset 1 e1)
+     (aset 2 e2)
+     (aset 3 e3)
+     (aset 4 e4)))
   (^objects [e0 e1 e2 e3 e4 & es]
-            (let [len (+ 5 (long (count es)))
-                  res (doto ^objects (make-array cl_event len)
-                            (aset 0 e0)
-                            (aset 1 e1)
-                            (aset 2 e2)
-                            (aset 3 e3)
-                            (aset 4 e4))]
-              (loop [i 5 es es]
-                (if (< i len)
-                  (do (aset res i (first es))
-                      (recur (inc i) (next es)))
-                  res)))))
+   (let [len (+ 5 (long (count es)))
+         res (doto ^objects (make-array cl_event len)
+               (aset 0 e0)
+               (aset 1 e1)
+               (aset 2 e2)
+               (aset 3 e3)
+               (aset 4 e4))]
+     (loop [i 5 es es]
+       (if (< i len)
+         (do (aset res i (first es))
+             (recur (inc i) (next es)))
+         res)))))
 
 (defrecord EventCallbackInfo [event status data])
 
@@ -979,7 +935,7 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
      (fn
        ([e callback-type data]
         (set-event-callback* e callback
-                            (cl-command-execution-status callback-type) data))
+                             (cl-command-execution-status callback-type) data))
        ([e data]
         (set-event-callback* e callback callb-type data))
        ([e]
@@ -1816,10 +1772,10 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
    (enq-svm-map! queue svm flags nil event))
   ([queue svm flags]
    (enq-svm-map* queue svm true
-                    (if (keyword? flags)
-                      (cl-map-flags flags)
-                      (mask cl-map-flags flags))
-                    nil nil))
+                 (if (keyword? flags)
+                   (cl-map-flags flags)
+                   (mask cl-map-flags flags))
+                 nil nil))
   ([svm flags]
    (enq-svm-map! *command-queue* svm flags)))
 
@@ -1940,8 +1896,8 @@ calls the appropriate org.jocl.CL/clReleaseX method that decrements
 
       (flush! my-queue)
 "
- [queue]
- (with-check (CL/clFlush queue) queue ))
+  [queue]
+  (with-check (CL/clFlush queue) queue ))
 
 (defmacro with-queue
   "Dynamically binds `queue` to the default queue [[*command-queue*]].

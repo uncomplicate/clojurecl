@@ -1,6 +1,7 @@
 (ns uncomplicate.clojurecl.examples.openclinaction.ch05
   (:require [midje.sweet :refer :all]
             [clojure.java.io :as io]
+            [uncomplicate.commons.core :refer [with-release]]
             [uncomplicate.clojurecl
              [core :refer :all]
              [info :refer [info]]]

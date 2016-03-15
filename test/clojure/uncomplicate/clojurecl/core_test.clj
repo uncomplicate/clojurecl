@@ -1,5 +1,6 @@
 (ns uncomplicate.clojurecl.core-test
   (:require [midje.sweet :refer :all]
+            [uncomplicate.commons.core :refer [release with-release]]
             [uncomplicate.clojurecl
              [core :refer :all]
              [info :refer [info reference-count mem-base-addr-align opencl-c-version]]]

@@ -2,6 +2,7 @@
   (:require [midje.sweet :refer :all]
             [clojure.java.io :as io]
             [clojure.core.async :refer [<!! chan timeout <! go]]
+            [uncomplicate.commons.core :refer [with-release]]
             [uncomplicate.clojurecl
              [core :refer :all]
              [info :refer [profiling-info durations end opencl-c-version]]]

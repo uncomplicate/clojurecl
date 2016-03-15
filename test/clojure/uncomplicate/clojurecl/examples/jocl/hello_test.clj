@@ -1,5 +1,6 @@
 (ns uncomplicate.clojurecl.examples.jocl.hello-test
   (:require [midje.sweet :refer :all]
+            [uncomplicate.commons.core :refer [with-release]]
             [uncomplicate.clojurecl.core :refer :all])
   (:import [java.nio ByteBuffer]))
 
