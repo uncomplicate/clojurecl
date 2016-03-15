@@ -1,5 +1,11 @@
 # [ClojureCL](http://clojurecl.uncomplicate.org) - notable changes between versions
 
+## 0.4.0
+
+New features
+* sort-by-open-cl function orders devices by the version of OpenCL that they support.
+* with-default function sorts devices before taking first.
+
 ## 0.3.0
 
 New features
