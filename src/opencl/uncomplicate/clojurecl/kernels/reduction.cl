@@ -43,8 +43,7 @@ inline ACCUMULATOR work_group_reduction_sum (const ACCUMULATOR value) {
     return lacc[0];
 }
 
-inline void work_group_reduction_sum_horizontal
-(__global REAL* acc, const REAL value) {
+inline REAL work_group_reduction_sum_horizontal (const REAL value) {
 
     uint local_row = get_local_id(0);
     uint local_col = get_local_id(1);
@@ -70,7 +69,6 @@ inline void work_group_reduction_sum_horizontal
         work_group_barrier(CLK_LOCAL_MEM_FENCE);
     }
 
-    if(local_col == 0) {
-        acc[get_global_size(0) * get_group_id(1) + get_global_id(0)] = pacc;
-    }
+    return lacc[local_row];
+
 }
