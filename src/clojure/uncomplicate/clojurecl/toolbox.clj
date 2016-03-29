@@ -11,24 +11,30 @@
     1))
 
 (defn enq-reduce
-  [queue main-kernel reduce-kernel max-local-size n]
-  (loop [queue (enq-nd! queue main-kernel (work-size [n]))
-         global-size (count-work-groups max-local-size n)]
-    (if (= 1 global-size)
-      queue
-      (recur
-       (enq-nd! queue reduce-kernel (work-size [global-size]))
-       (count-work-groups max-local-size global-size)))))
-
-(defn enq-reduce-horizontal
-  [queue main-kernel reduce-kernel max-local-size m n]
-  (loop [queue (enq-nd! queue main-kernel (work-size [m n]))
-         folded-n (count-work-groups max-local-size n)]
-    (if (= 1 folded-n)
-      queue
-      (recur
-       (enq-nd! queue reduce-kernel (work-size [m folded-n]))
-       (count-work-groups max-local-size folded-n)))))
+  ([queue main-kernel reduce-kernel max-local-size n]
+   (loop [queue (enq-nd! queue main-kernel (work-size-1d n))
+          global-size (count-work-groups max-local-size n)]
+     (if (= 1 global-size)
+       queue
+       (recur
+        (enq-nd! queue reduce-kernel (work-size-1d global-size))
+        (count-work-groups max-local-size global-size)))))
+  ([queue main-kernel reduce-kernel max-local-size m n]
+   (loop [queue (enq-nd! queue main-kernel (work-size-2d m n))
+          folded (count-work-groups max-local-size m)]
+     (if (= 1 folded)
+       queue
+       (recur
+        (enq-nd! queue reduce-kernel (work-size-2d folded n))
+        (count-work-groups max-local-size folded)))))
+  ([queue main-kernel reduce-kernel max-local-size m n orthogonal]
+   (loop [queue (enq-nd! queue main-kernel (work-size-2d m n))
+          folded (count-work-groups max-local-size n)]
+     (if (= 1 folded)
+       queue
+       (recur
+        (enq-nd! queue reduce-kernel (work-size-2d m folded))
+        (count-work-groups max-local-size folded))))))
 
 (defn enq-read-int ^long [queue cl-buf]
   (let [res (int-array 1)]

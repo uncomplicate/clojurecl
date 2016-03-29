@@ -43,7 +43,7 @@ inline ACCUMULATOR work_group_reduction_sum (const ACCUMULATOR value) {
     return lacc[0];
 }
 
-inline REAL work_group_reduction_sum_horizontal (const REAL value) {
+inline REAL work_group_reduction_sum_2 (const REAL value) {
 
     uint local_row = get_local_id(0);
     uint local_col = get_local_id(1);
