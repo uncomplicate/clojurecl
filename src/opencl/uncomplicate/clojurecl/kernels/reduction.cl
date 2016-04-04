@@ -2,18 +2,6 @@
     #define ACCUMULATOR double
 #endif
 
-#ifndef WGS
-    #define WGS 256
-#endif
-
-#ifndef WGSm
-#define WGSm 16
-#endif
-
-#ifndef WGSn
-#define WGSn 16
-#endif
-
 // ================= Sum reduction =============================================
 
 inline ACCUMULATOR work_group_reduction_sum (const ACCUMULATOR value) {
