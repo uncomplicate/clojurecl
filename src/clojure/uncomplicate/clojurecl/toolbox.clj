@@ -11,30 +11,27 @@
     1))
 
 (defn enq-reduce
-  ([queue main-kernel reduce-kernel max-local-size n]
-   (loop [queue (enq-nd! queue main-kernel (work-size-1d n))
-          global-size (count-work-groups max-local-size n)]
+  ([queue main-kernel reduction-kernel n local-n]
+   (loop [queue (enq-nd! queue main-kernel (work-size-1d n local-n))
+          global-size (count-work-groups local-n n)]
      (if (= 1 global-size)
        queue
        (recur
-        (enq-nd! queue reduce-kernel (work-size-1d global-size))
-        (count-work-groups max-local-size global-size)))))
-  ([queue main-kernel reduce-kernel max-local-size m n]
-   (loop [queue (enq-nd! queue main-kernel (work-size-2d m n))
-          folded (count-work-groups max-local-size m)]
-     (if (= 1 folded)
-       queue
-       (recur
-        (enq-nd! queue reduce-kernel (work-size-2d folded n))
-        (count-work-groups max-local-size folded)))))
-  ([queue main-kernel reduce-kernel max-local-size m n orthogonal]
-   (loop [queue (enq-nd! queue main-kernel (work-size-2d m n))
-          folded (count-work-groups max-local-size n)]
-     (if (= 1 folded)
-       queue
-       (recur
-        (enq-nd! queue reduce-kernel (work-size-2d m folded))
-        (count-work-groups max-local-size folded))))))
+        (enq-nd! queue reduction-kernel (work-size-1d global-size local-n))
+        (count-work-groups local-n global-size)))))
+  ([queue main-kernel reduction-kernel m n local-m local-n & [wgs-m wgs-n]]
+   (let [queue (enq-nd! queue main-kernel (work-size-2d m n local-m local-n))
+         [m n local-m local-n] (if (and wgs-m wgs-n)
+                                 [n (count-work-groups local-m m) wgs-m wgs-n]
+                                 [m (count-work-groups local-n n) local-m local-n])]
+     (if (or (< 1 local-n) (= 1 n))
+       (loop [queue queue n n]
+         (if (= 1 n)
+           queue
+           (recur (enq-nd! queue reduction-kernel (work-size-2d m n local-m local-n))
+                  (count-work-groups local-n n))))
+       (throw (IllegalArgumentException.
+               (format "local-n %d would cause infinite recursion for n:%d." local-n n)))))))
 
 (defn enq-read-int ^long [queue cl-buf]
   (let [res (int-array 1)]

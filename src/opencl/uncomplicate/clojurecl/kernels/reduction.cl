@@ -2,6 +2,18 @@
     #define ACCUMULATOR double
 #endif
 
+#ifndef WGS
+#define WGS 256
+#endif
+
+#ifndef WGSm
+#define WGSm 16
+#endif
+
+#ifndef WGSn
+#define WGSn 16
+#endif
+
 // ================= Sum reduction =============================================
 
 inline ACCUMULATOR work_group_reduction_sum (const ACCUMULATOR value) {
@@ -31,19 +43,20 @@ inline ACCUMULATOR work_group_reduction_sum (const ACCUMULATOR value) {
     return lacc[0];
 }
 
-inline REAL work_group_reduction_sum_2 (const REAL value) {
+inline ACCUMULATOR work_group_reduction_sum_2 (const uint orientation,
+                                               const REAL value) {
 
-    uint local_row = get_local_id(0);
-    uint local_col = get_local_id(1);
-    uint local_m = get_local_size(0);
+    uint local_row = get_local_id(1 - orientation);
+    uint local_col = get_local_id(orientation);
+    uint local_m = get_local_size(1 - orientation);
 
-    __local REAL lacc[WGSm * WGSn];
+    __local ACCUMULATOR lacc[WGSm * WGSn];
     lacc[local_row + local_col * local_m] = value;
 
     work_group_barrier(CLK_LOCAL_MEM_FENCE);
 
-    REAL pacc = value;
-    uint i = get_local_size(1);
+    ACCUMULATOR pacc = value;
+    uint i = get_local_size(orientation);
     while (i > 0) {
         bool include_odd = (i > ((i >> 1) << 1)) && (local_col == ((i >> 1) - 1));
         i >>= 1;
