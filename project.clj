@@ -6,7 +6,7 @@
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :dependencies [[org.clojure/clojure "1.8.0"]
-                 [org.jocl/jocl "0.2.0-RC00"]
+                 [org.jocl/jocl "0.2.0-RC01-SNAPSHOT"]
                  [org.clojure/core.async "0.2.374"]
                  [uncomplicate/commons "0.2.0-SNAPSHOT"]
                  [vertigo "0.1.4"]]
@@ -15,6 +15,10 @@
           :src-dir-uri "http://github.com/uncomplicate/clojurecl/blob/master/"
           :src-linenum-anchor-prefix "L"
           :output-path "docs/codox"}
+  :aot [uncomplicate.clojurecl.constants
+        uncomplicate.clojurecl.utils
+        uncomplicate.clojurecl.info
+        uncomplicate.clojurecl.core]
 
   ;;also replaces lein's default JVM argument TieredStopAtLevel=1
   :jvm-opts ^:replace ["-XX:MaxDirectMemorySize=16g" "-XX:+UseLargePages"]
