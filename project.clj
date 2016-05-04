@@ -15,13 +15,6 @@
           :src-dir-uri "http://github.com/uncomplicate/clojurecl/blob/master/"
           :src-linenum-anchor-prefix "L"
           :output-path "docs/codox"}
-  :aot [uncomplicate.clojurecl.constants
-        uncomplicate.clojurecl.utils
-        uncomplicate.clojurecl.info
-        uncomplicate.clojurecl.core]
-
-  ;;also replaces lein's default JVM argument TieredStopAtLevel=1
-  :jvm-opts ^:replace ["-XX:MaxDirectMemorySize=16g" "-XX:+UseLargePages"]
 
   :profiles {:dev {:plugins [[lein-midje "3.1.3"]
                              [lein-codox "0.9.4"]]

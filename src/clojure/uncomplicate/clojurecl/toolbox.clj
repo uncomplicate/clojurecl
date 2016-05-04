@@ -24,8 +24,8 @@
          [m n local-m local-n] (if (and wgs-m wgs-n)
                                  [n (count-work-groups local-m m) wgs-m wgs-n]
                                  [m (count-work-groups local-n n) local-m local-n])]
-     (if (or (< 1 local-n) (= 1 n))
-       (loop [queue queue n n]
+     (if (or (< 1 (long local-n)) (= 1 (long n)))
+       (loop [queue queue n (long n)]
          (if (= 1 n)
            queue
            (recur (enq-nd! queue reduction-kernel (work-size-2d m n local-m local-n))
