@@ -80,8 +80,8 @@
   with richer, user-friendly information.
 
   Accepts a long `err-code` that should be one of the codes defined in
-  OpenCL standard, and an optional `details` argument that could be anything that you
-  think is informative.
+  OpenCL standard, and an optional `details` argument that could be
+  anything that you think is informative.
 
   See the available codes in the source of [[constants/dec-error]].
   Also see the discussion about
@@ -109,10 +109,12 @@
 
       (with-check (some-jocl-call-that-returns-error-code) result)
   "
-  [err-code form]
-  `(if (= 0 ~err-code)
-     ~form
-     (throw (error ~err-code))))
+  ([error-fn err-code form]
+   `(if (= 0 ~err-code)
+      ~form
+      (throw (~error-fn ~err-code ~(pr-str form)))))
+  ([err-code form]
+   `(with-check error ~err-code ~form)))
 
 (defmacro with-check-arr
   "Evaluates `form` if the integer in the `err-code` primitive int array is `0`,
