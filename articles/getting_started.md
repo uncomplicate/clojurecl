@@ -46,7 +46,7 @@ ClojureCL is a Clojure library for High Performance Computing with OpenCL, which
 ### Install OpenCL SDK and Drivers
 To use ClojureCL, you must have appropriate hardware (a recent Intel CPU will do, while a recent AMD's Radeon graphic cards usually give best speedups per dollar), and install the drivers and OpenCL SDK for your platform:
 
-* [AMD OpenCL SDK](http://developer.amd.com/tools-and-sdks/opencl-zone/amd-accelerated-parallel-processing-app-sdk/) fully supports OpenCL 2.0. You also need a recent Catalyst driver.
+* AMD fully supports OpenCL 2.0. You need a recent proprietary GPU driver from AMD.
 * [Intel OpenCL SDK](http://software.intel.com/en-us/articles/opencl-drivers) fully supports OpenCL 2.0.
 * [Apple](http://developer.apple.com/opencl/) OSX has a built-in support for OpenCL 1.2 - no additional drivers are necessary.
 * [nVidia](http://developer.nvidia.com/opencl) latest drivers should support OpenCL 1.2. nVidia seems to intentionaly give much poorer support for OpenCL computing than AMD or Intel, to push its proprietary CUDA platform.
@@ -57,10 +57,7 @@ The most straightforward way to include ClojureCL in your project is with Leinin
 
 ![](http://clojars.org/uncomplicate/clojurecl/latest-version.svg)
 
-ClojureCL uses [JOCL](http://jocl.org) as low-level bindings with the native drivers. JOCL is available in
-the central Maven repository, and will be fetched automatically. If you're on Windows or Linux, you do not need
-to worry about this. If you're on some other platform, you will need to manually build JOCL with make or CMake.
-If you do that, please contact the JOCL author and contribute the binaries for your platform to the official build.
+ClojureCL currently works out of the box on Linux, Windows, and OS X. For other plaforms, contact us.
 
 ## Where to go next
 
