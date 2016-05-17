@@ -1,4 +1,4 @@
-(defproject uncomplicate/clojurecl "0.6.0-SNAPSHOT"
+(defproject uncomplicate/clojurecl "0.6.0"
   :description "ClojureCL is a Clojure library for parallel computations with OpenCL."
   :url "https://github.com/uncomplicate/clojurecl"
   :scm {:name "git"
@@ -6,9 +6,9 @@
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :dependencies [[org.clojure/clojure "1.8.0"]
-                 [org.jocl/jocl "0.2.0-RC01-SNAPSHOT"]
+                 [org.jocl/jocl "2.0.0"]
                  [org.clojure/core.async "0.2.374"]
-                 [uncomplicate/commons "0.2.0-SNAPSHOT"]
+                 [uncomplicate/commons "0.2.0"]
                  [vertigo "0.1.4"]]
 
   :codox {:metadata {:doc/format :markdown}
