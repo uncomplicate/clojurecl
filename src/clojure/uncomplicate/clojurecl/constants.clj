@@ -172,7 +172,8 @@ See http://www.khronos.org/registry/cl/sdk/2.0/docs/man/xhtml/clGetDeviceInfo.ht
   [^long code]
   (case code
     0x1004 :platform
-    0x1005 :interop-user-sync))
+    0x1005 :interop-user-sync
+    code))
 
 (defn dec-device-partition-property
   "Converts `cl_device_partition_property` code from number to keyword.
@@ -182,7 +183,8 @@ See http://www.khronos.org/registry/cl/sdk/2.0/docs/man/xhtml/clGetDeviceInfo.ht
     0x1086 :equally
     0x1087 :by-counts
     0x0 :by-counts-list-end
-    0x1088 :by-affinity-domain))
+    0x1088 :by-affinity-domain
+    code))
 
 (def ^{:doc "Affinity domains for partitioning the device defined in OpenCL standard.
 See http://www.khronos.org/registry/cl/sdk/2.0/docs/man/xhtml/clGetDeviceInfo.html"}
@@ -236,7 +238,8 @@ See http://www.khronos.org/registry/cl/sdk/2.0/docs/man/xhtml/clSVMAlloc.html"}
     0x10F4 :image1d
     0x10F5 :image1d-array
     0x10F6 :image1d-buffer
-    0x10F7 :pipe))
+    0x10F7 :pipe
+    code))
 
 (def ^{:doc "Map flags used in enqueuing buffer mapping defined in OpenCL standard.
 See http://www.khronos.org/registry/cl/sdk/2.0/docs/man/xhtml/clEnqueueMapBuffer.html"}
@@ -254,7 +257,8 @@ See http://www.khronos.org/registry/cl/sdk/2.0/docs/man/xhtml/clEnqueueMapBuffer
     0x1 :compiled-object
     0x2 :library
     0x4 :executable
-    0x40E1 :intermediate))
+    0x40E1 :intermediate
+    code))
 
 (defn dec-build-status
   "Converts `cl_program_build_status` code from number to keyword.
@@ -264,7 +268,8 @@ See http://www.khronos.org/registry/cl/sdk/2.0/docs/man/xhtml/clEnqueueMapBuffer
     0 :success
     -1 :none
     -2 :error
-    -3 :in-progress))
+    -3 :in-progress
+    code))
 
 (defn
   dec-kernel-arg-address-qualifier
@@ -275,7 +280,8 @@ See http://www.khronos.org/registry/cl/sdk/2.0/docs/man/xhtml/clEnqueueMapBuffer
     0x119B :global
     0x119C :local
     0x119D :constant
-    0x119E :private))
+    0x119E :private
+    code))
 
 (defn dec-kernel-arg-access-qualifier
   "Converts `cl_kernel_arg_access_qualifier` code from number to keyword.
@@ -285,7 +291,8 @@ See http://www.khronos.org/registry/cl/sdk/2.0/docs/man/xhtml/clEnqueueMapBuffer
     0x11A0 :read-only
     0x11A1 :write-only
     0x11A2 :read-write
-    0x11A3 :none))
+    0x11A3 :none
+    code))
 
 (def  ^{:doc "Type quilifiers specified for the argument, defined in OpenCL standard.
 See http://www.khronos.org/registry/cl/sdk/2.0/docs/man/xhtml/clGetKernelArgInfo.html"}
@@ -331,7 +338,8 @@ See http://www.khronos.org/registry/cl/sdk/2.0/docs/man/xhtml/clGetKernelArgInfo
     0x120B :svm-memfill
     0x120C :svm-map
     0x120D :svm-unmap
-    0x200D :gl-fence-sync-object-khr))
+    0x200D :gl-fence-sync-object-khr
+    code))
 
 (defn dec-command-execution-status
   "Converts `cl_event_command_execution_status` code from number to keyword.
@@ -341,7 +349,8 @@ See http://www.khronos.org/registry/cl/sdk/2.0/docs/man/xhtml/clGetKernelArgInfo
     0x0 :complete
     0x1 :running
     0x2 :submitted
-    0x3 :queued))
+    0x3 :queued
+    code))
 
 (def
   ^{:doc "Execution statuses of commands, defined in OpenCL standard.

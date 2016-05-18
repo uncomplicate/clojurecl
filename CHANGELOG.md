@@ -1,5 +1,9 @@
 # [ClojureCL](http://clojurecl.uncomplicate.org) - notable changes between versions
 
+## 0.6.2
+
+Fixed https://github.com/uncomplicate/clojurecl/issues/10
+
 ## 0.6.1
 
 Bugfixes:
