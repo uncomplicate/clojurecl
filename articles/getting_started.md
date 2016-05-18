@@ -44,7 +44,7 @@ ClojureCL is a Clojure library for High Performance Computing with OpenCL, which
 ## Installation
 
 ### Install OpenCL SDK and Drivers
-To use ClojureCL, you must have appropriate hardware (a recent Intel CPU will do, while a recent AMD's Radeon graphic cards usually give best speedups per dollar), and install the drivers and OpenCL SDK for your platform:
+To use ClojureCL, you must have appropriate hardware (a recent Intel CPU will do, while a recent AMD's Radeon graphic cards usually give best speedups per dollar), and install the drivers for your platform:
 
 * AMD fully supports OpenCL 2.0. You need a recent proprietary GPU driver from AMD.
 * [Intel OpenCL SDK](http://software.intel.com/en-us/articles/opencl-drivers) fully supports OpenCL 2.0.
