@@ -165,7 +165,7 @@
                        (alength res#) (Pointer/to res#)
                        nil)]
      (with-check err#
-       (String. res# 0 (dec size#)))))
+       (String. res# 0 (max 0 (dec size#))))))
 
 (defn ^:private to-set [s]
   (if (str/blank? s)
@@ -1125,7 +1125,7 @@
                                          (alength res#) (Pointer/to res#)
                                          nil)]
          (with-check err#
-           (String. res# 0 (dec (alength res#))))))))
+           (String. res# 0 (max 0 (dec (alength res#)))))))))
 
 (defmacro ^:private arg-info-long* [kernel arg info]
   `(let [res# (long-array 1)
@@ -1270,7 +1270,7 @@
                                          (alength res#) (Pointer/to res#)
                                          nil)]
          (with-check err#
-           (String. res# 0 (dec (alength res#))))))))
+           (String. res# 0 (max 0 (dec (alength res#)))))))))
 
 (defmacro ^:private pb-info-int* [program device info]
   `(let [res# (int-array 1)

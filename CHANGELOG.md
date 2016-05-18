@@ -1,5 +1,16 @@
 # [ClojureCL](http://clojurecl.uncomplicate.org) - notable changes between versions
 
+## 0.6.1
+
+Bugfixes:
+
+Fixed https://github.com/uncomplicate/clojurecl/issues/9
+
+## 0.6.0
+
+* Added support for OS X
+* Toolbox enq-reduce improved and simplified
+
 ## 0.5.0
 
 New features
