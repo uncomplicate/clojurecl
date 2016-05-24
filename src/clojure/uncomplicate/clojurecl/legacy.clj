@@ -8,7 +8,7 @@
   required if your platform does not support at least OpenCL 2.0."
   (:require [uncomplicate.clojurecl
              [constants :refer :all]
-             [core :refer [*context*]]
+             [core :refer :all]
              [utils :refer [with-check with-check-arr mask error]]])
   (:import [org.jocl CL]))
 
