@@ -1,5 +1,9 @@
 # [ClojureCL](http://clojurecl.uncomplicate.org) - notable changes between versions
 
+## 0.6.4
+
+Fixed https://github.com/uncomplicate/clojurecl/issues/12
+
 ## 0.6.3
 
 Fix core namespace imports in legacy.clj.

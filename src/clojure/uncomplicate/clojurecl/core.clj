@@ -362,7 +362,8 @@
   "
   ([devices properties ch user-data]
    (context* (into-array cl_device_id devices)
-             (context-properties properties) ch user-data))
+             (and (seq properties) (context-properties properties))
+             ch user-data))
   ([devices]
    (context devices nil nil nil))
   ([]
