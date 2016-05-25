@@ -101,7 +101,7 @@
   Supports pre-2.0 platforms."
   [& body]
   `(with-platform (first (platforms))
-     (let [dev# (first (devices))]
+     (let [dev# (first (sort-by-cl-version (devices)))]
        (with-context (context [dev#])
          (with-queue (command-queue-1 dev#)
            ~@body)))))
