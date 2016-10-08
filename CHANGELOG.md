@@ -1,5 +1,9 @@
 # [ClojureCL](http://clojurecl.uncomplicate.org) - notable changes between versions
 
+## 0.6.5
+
+with-default-1 tries to get the best device, same as with-default
+
 ## 0.6.4
 
 Fixed https://github.com/uncomplicate/clojurecl/issues/12
