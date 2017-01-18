@@ -151,7 +151,7 @@
   `(try ~form
          (catch ExceptionInfo ex-info#
            (if (= :opencl-error (:type (ex-data ex-info#)))
-             ex-info#
+             (:name (ex-data ex-info#))
              (throw ex-info#)))))
 
 (defn clean-buffer

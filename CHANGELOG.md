@@ -1,5 +1,10 @@
 # [ClojureCL](http://clojurecl.uncomplicate.org) - notable changes between versions
 
+## 0.7.0
+
+* In info method, when device does not support specific information, exception cause is displayed instead of the ex-info object.
+* Added legacy? method to core.
+
 ## 0.6.5
 
 with-default-1 tries to get the best device, same as with-default

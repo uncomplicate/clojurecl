@@ -75,7 +75,7 @@
             [uncomplicate.clojurecl
              [constants :refer :all]
              [utils :refer [with-check with-check-arr mask error clean-buffer]]
-             [info :refer [info build-info program-devices opencl-c-version]]]
+             [info :refer [info build-info program-devices opencl-c-version version]]]
             [clojure.string :as str]
             [clojure.core.async :refer [go >!]])
   (:import [org.jocl CL cl_platform_id cl_context_properties cl_device_id
@@ -180,6 +180,12 @@
   [platform & body]
   `(binding [*platform* ~platform]
      ~@body))
+
+(defn legacy?
+  "Checks whether the platform is 'legacy', less than OpenCL 2.0, or any
+  future version that is necessary for building ClojureCL."
+  [platform]
+  (str/includes? (version platform) "OpenCL 1."))
 
 ;; =============== Device ==========================================
 
@@ -1937,7 +1943,7 @@
   device of that platform that supports the highest OpenCL version, and the queue on
   the device in that context. Requires OpenCL 2.0 support in the platform."
   [& body]
-  `(with-platform (first (platforms))
+  `(with-platform (first (remove legacy? (platforms)))
      (let [dev# (first (sort-by-cl-version (devices)))]
        (with-context (context [dev#])
          (with-queue (command-queue dev#)
