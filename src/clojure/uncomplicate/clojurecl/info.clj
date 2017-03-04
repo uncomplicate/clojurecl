@@ -139,6 +139,7 @@
   [[->EventInfo]], [[->Profilinginfo]], [[->MemObjectInfo]],
   "
   (:require [clojure.string :as str]
+            [uncomplicate.commons.utils :refer [unmask unmask1]]
             [uncomplicate.clojurecl
              [constants :refer :all]
              [utils :refer :all]]

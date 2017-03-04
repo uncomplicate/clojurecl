@@ -1,9 +1,9 @@
-;;   Copyright (c) Dragan Djuric. All rights reserved.
-;;   The use and distribution terms for this software are covered by the
-;;   Eclipse Public License 1.0 (http://opensource.org/licenses/eclipse-1.0.php) or later
-;;   which can be found in the file LICENSE at the root of this distribution.
-;;   By using this software in any fashion, you are agreeing to be bound by
-;;   the terms of this license.
+;;   COPYRIGHT (C) DRAGAN DJURIC. ALL RIGHTS RESERVED.
+;;   THE USE AND DISTRIBUTION TERMS FOR THIS SOFTWARE ARE COVERED BY THE
+;;   ECLIPSE PUBLIC LICENSE 1.0 (HTTP://OPENSOURCE.ORG/LICENSES/ECLIPSE-1.0.PHP) OR LATER
+;;   WHICH CAN BE FOUND IN THE FILE LICENSE AT THE ROOT OF THIS DISTRIBUTION.
+;;   BY USING THIS SOFTWARE IN ANY FASHION, YOU ARE AGREEING TO BE BOUND BY
+;;   THE TERMS OF THIS LICENSE.
 ;;   You must not remove this notice, or any other, from this software.
 
 (ns ^{:author "Dragan Djuric"}
@@ -71,10 +71,12 @@
   [[enq-marker!]], [[enq-wait!]], [[enq-barrier!]],
   [[finish!]], [[flush!]] [[with-queue]]
   "
-  (:require [uncomplicate.commons.core :refer [Releaseable release with-release]]
+  (:require [uncomplicate.commons
+             [core :refer [Releaseable release with-release clean-buffer]]
+             [utils :refer [mask]]]
             [uncomplicate.clojurecl
              [constants :refer :all]
-             [utils :refer [with-check with-check-arr mask error clean-buffer]]
+             [utils :refer [with-check with-check-arr error]]
              [info :refer [info build-info program-devices opencl-c-version version]]]
             [clojure.string :as str]
             [clojure.core.async :refer [go >!]])

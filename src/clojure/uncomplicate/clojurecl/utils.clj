@@ -11,74 +11,10 @@
   "Utility functions used as helpers in other ClojureCL namespaces.
   The user of the ClojureCL library would probably not need to use
   any of the functions defined here."
-  (:require [uncomplicate.clojurecl.constants :refer [dec-error]])
-  (:import clojure.lang.ExceptionInfo
-           [java.nio ByteBuffer DirectByteBuffer]))
+  (:require [uncomplicate.commons.utils :as cu]
+            [uncomplicate.clojurecl.constants :refer [dec-error]])
+  (:import clojure.lang.ExceptionInfo))
 
-;; ========= Bitfild masks ========================================
-
-(defn mask
-  "Converts keywords to a bitfield mask.
-
-  Given one or more keyword `flag`s, creates a long bitmask
-  that can be consumed by JOCL functions. Needs a hashmap `table` that
-  contains possible long mappings, 0-2 keywords, and a (possibly empty)
-  list of additional keywords.
-  If called with `nil` table or an unknown keyword, throws `Illegalargumentexception`.
-  The inverse function is [[unmask]].
-
-  Examples:
-
-      (mask {:a 1 :b 2 :c 4} [:a :c]) => 5
-      (mask {:a 1 :b 2 :c 4} :a [:c]) => 5
-      (mask {:a 1 :b 2 :c 4} :a :c []) => 5
-  "
-  (^long [table flag1 flag2 flags]
-         (apply bit-or (table flag1) (table flag2) (map table flags)))
-  (^long [table flag flags]
-         (apply bit-or 0 (table flag) (map table flags)))
-  (^long [table flags]
-         (apply bit-or 0 0 (map table flags))))
-
-(defn unmask
-  "Converts a bitfield `mask` to keywords.
-
-  Given a mapping `table` and a bitfield `mask`, returns a lazy sequence
-  with decoded keyword flags contained in the bitmask.
-  The reverse function is [[mask]].
-
-  Examples:
-
-      (unmask {:a 1 :b 2 :c 4} 5) =>  '(:a :c)
-  "
-  [table ^long mask]
-  (filter identity
-          (map (fn [[k v]]
-                 (if (= 0 (bit-and mask (long v)))
-                   nil
-                   k))
-               table)))
-
-(defn unmask1
-  "Converts a bitfield `mask` to one keyword.
-
-  Given a mapping `table` and a bitfield `mask`, returns the first decoded keyword
-  that is contained in the bitmask. This is useful when we know that just
-  one of the values in the table fits the bitmask, so the result of [[unmask]]
-  would contain one element anyway.
-  The reverse function is [[mask]].
-
-  Examples:
-
-      (unmask1 {:a 1 :b 2 :c 4} 2) => :b
-  "
-  [table ^long mask]
-  (some identity
-        (map (fn [[k v]]
-               (if (= 0 (bit-and mask (long v)))
-                   nil
-                   k))
-             table)))
 
 ;; ========== Error handling ======================================
 
@@ -117,12 +53,8 @@
 
       (with-check (some-jocl-call-that-returns-error-code) result)
   "
-  ([error-fn err-code form]
-   `(if (= 0 ~err-code)
-      ~form
-      (throw (~error-fn ~err-code ~(pr-str form)))))
   ([err-code form]
-   `(with-check error ~err-code ~form)))
+   `(cu/with-check error ~err-code ~form)))
 
 (defmacro with-check-arr
   "Evaluates `form` if the integer in the `err-code` primitive int array is `0`,
@@ -153,13 +85,3 @@
            (if (= :opencl-error (:type (ex-data ex-info#)))
              (:name (ex-data ex-info#))
              (throw ex-info#)))))
-
-(defn clean-buffer
-  "Cleans the direct byte buffer using JVM's cleaner, and releases the memory
-  that resides outside JVM, wihich might otherwise linger very long until garbage
-  collected. See the Java documentation for DirectByteBuffer for more info."
-  [^ByteBuffer buffer]
-  (do
-    (if (.isDirect buffer)
-      (.clean (.cleaner ^DirectByteBuffer buffer)))
-    true))
