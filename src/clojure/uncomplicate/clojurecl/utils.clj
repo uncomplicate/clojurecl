@@ -81,7 +81,7 @@
   put in the place of the expected result."
   [form]
   `(try ~form
-         (catch ExceptionInfo ex-info#
-           (if (= :opencl-error (:type (ex-data ex-info#)))
-             (:name (ex-data ex-info#))
-             (throw ex-info#)))))
+        (catch ExceptionInfo ex-info#
+          (if (= :opencl-error (:type (ex-data ex-info#)))
+            (:name (ex-data ex-info#))
+            (throw ex-info#)))))
