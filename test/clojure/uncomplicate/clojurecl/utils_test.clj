@@ -34,10 +34,8 @@
            (do (aset err 0 (if x 0 -1))
                x))
        err (int-array 1)]
-   (let [res (f :success err)]
-     (with-check-arr err res) => :success)
-   (let [res (f false err)]
-     (with-check-arr err res))) => (throws clojure.lang.ExceptionInfo))
+   (let [res (f :success err)] (with-check-arr err res) => :success)
+   (let [res (f false err)] (with-check-arr err res))) => (throws clojure.lang.ExceptionInfo))
 
 (facts
  "maybe tests"

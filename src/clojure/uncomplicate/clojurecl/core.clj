@@ -322,8 +322,8 @@
   the JOCL API."
   [props]
   (reduce (fn [^cl_context_properties cp [p v]]
-            (do (.addProperty cp (cl-context-properties p) v)
-                cp))
+            (.addProperty cp (cl-context-properties p) v)
+            cp)
           (cl_context_properties.)
           props))
 
@@ -600,11 +600,8 @@
   "
   ([buffer ^long flags ^long create-type ^cl_buffer_region region]
    (let [err (int-array 1)
-         res (CL/clCreateSubBuffer ^cl_mem (cl-mem buffer) flags
-                                   (int create-type)
-                                   region err)]
-     (with-check-arr err (->CLBuffer (cl-context buffer) res
-                                     (Pointer/to ^cl_mem res) (.size region)))))
+         res (CL/clCreateSubBuffer ^cl_mem (cl-mem buffer) flags (int create-type) region err)]
+     (with-check-arr err (->CLBuffer (cl-context buffer) res (Pointer/to ^cl_mem res) (.size region)))))
   ([buffer ^long flags region]
    (cl-sub-buffer* buffer flags CL/CL_BUFFER_CREATE_TYPE_REGION region)))
 
@@ -630,8 +627,7 @@
       (cl-sub-buffer cl-buff 8 16)
   "
   ([buffer origin size flag & flags]
-   (cl-sub-buffer* buffer (mask cl-mem-flags flag flags)
-                   (cl_buffer_region. origin size)))
+   (cl-sub-buffer* buffer (mask cl-mem-flags flag flags) (cl_buffer_region. origin size)))
   ([buffer origin size]
    (cl-sub-buffer* buffer 0 (cl_buffer_region. origin size))))
 
@@ -696,14 +692,12 @@
 (extend-type Long
   Argument
   (set-arg [this kernel n]
-    (with-check (CL/clSetKernelArg kernel n this nil)
-      kernel)))
+    (with-check (CL/clSetKernelArg kernel n this nil) kernel)))
 
 (extend-type Integer
   Argument
   (set-arg [this kernel n]
-    (with-check (CL/clSetKernelArg kernel n this nil)
-      kernel)))
+    (with-check (CL/clSetKernelArg kernel n this nil) kernel)))
 
 (extend-type (Class/forName "[F")
   Mem
@@ -713,9 +707,8 @@
     (* Float/BYTES (alength ^floats this)))
   Argument
   (set-arg [this kernel n]
-    (with-check (CL/clSetKernelArg kernel n
-                                   (* Float/BYTES (alength ^floats this))
-                                   (Pointer/to ^floats this))
+    (with-check
+      (CL/clSetKernelArg kernel n (* Float/BYTES (alength ^floats this)) (Pointer/to ^floats this))
       kernel)))
 
 (extend-type (Class/forName "[D")
@@ -726,9 +719,8 @@
     (* Double/BYTES (alength ^doubles this)))
   Argument
   (set-arg [this kernel n]
-    (with-check (CL/clSetKernelArg kernel n
-                                   (* Double/BYTES (alength ^doubles this))
-                                   (Pointer/to ^doubles this))
+    (with-check
+      (CL/clSetKernelArg kernel n (* Double/BYTES (alength ^doubles this)) (Pointer/to ^doubles this))
       kernel)))
 
 (extend-type (Class/forName "[I")
@@ -739,9 +731,8 @@
     (* Integer/BYTES (alength ^ints this)))
   Argument
   (set-arg [this kernel n]
-    (with-check (CL/clSetKernelArg kernel n
-                                   (* Integer/BYTES (alength ^ints this))
-                                   (Pointer/to ^ints this))
+    (with-check
+      (CL/clSetKernelArg kernel n (* Integer/BYTES (alength ^ints this)) (Pointer/to ^ints this))
       kernel)))
 
 (extend-type (Class/forName "[J")
@@ -752,9 +743,8 @@
     (* Long/BYTES (alength ^longs this)))
   Argument
   (set-arg [this kernel n]
-    (with-check (CL/clSetKernelArg kernel n
-                                   (* Long/BYTES (alength ^longs this))
-                                   (Pointer/to ^longs this))
+    (with-check
+      (CL/clSetKernelArg kernel n (* Long/BYTES (alength ^longs this)) (Pointer/to ^longs this))
       kernel)))
 
 (extend-type (Class/forName "[B")
@@ -765,9 +755,8 @@
     (alength ^bytes this))
   Argument
   (set-arg [this kernel n]
-    (with-check (CL/clSetKernelArg kernel n
-                                   (alength ^bytes this)
-                                   (Pointer/to ^bytes this))
+    (with-check
+      (CL/clSetKernelArg kernel n (alength ^bytes this) (Pointer/to ^bytes this))
       kernel)))
 
 (extend-type (Class/forName "[S")
@@ -778,8 +767,8 @@
     (* Short/BYTES (alength ^shorts this)))
   Argument
   (set-arg [this kernel n]
-    (with-check (CL/clSetKernelArg kernel n (* Short/BYTES (alength ^shorts this))
-                                   (Pointer/to ^shorts this))
+    (with-check
+      (CL/clSetKernelArg kernel n (* Short/BYTES (alength ^shorts this)) (Pointer/to ^shorts this))
       kernel)))
 
 (extend-type (Class/forName "[C")
@@ -790,8 +779,8 @@
     (* Character/BYTES (alength ^chars this)))
   Argument
   (set-arg [this kernel n]
-    (with-check (CL/clSetKernelArg kernel n (* Character/BYTES (alength ^chars this))
-                                   (Pointer/to ^chars this))
+    (with-check
+      (CL/clSetKernelArg kernel n (* Character/BYTES (alength ^chars this)) (Pointer/to ^chars this))
       kernel)))
 
 (extend-type ByteBuffer
@@ -878,8 +867,7 @@
 (deftype EventCallback [ch]
   EventCallbackFunction
   (function [this event status data]
-    (go (>! ch (->EventCallbackInfo
-                event (dec-command-execution-status status) data)))))
+    (go (>! ch (->EventCallbackInfo event (dec-command-execution-status status) data)))))
 
 (defn event-callback
   "Creates new `EventCallbackFunction` instance that puts
@@ -907,9 +895,7 @@
       (set-event-callback* (user-event) (event-callback))
   "
   ([e ^EventCallback callback ^long callback-type data]
-   (with-check
-     (CL/clSetEventCallback e callback-type callback data)
-     (.ch callback)))
+   (with-check (CL/clSetEventCallback e callback-type callback data) (.ch callback)))
   ([e ^EventCallback callback]
    (set-event-callback* e callback CL/CL_COMPLETE nil)))
 
@@ -947,12 +933,10 @@
 "
   ([channel callback-type]
    (let [callback (->EventCallback channel)
-         callb-type (get cl-command-execution-status
-                         callback-type CL/CL_COMPLETE)]
+         callb-type (get cl-command-execution-status callback-type CL/CL_COMPLETE)]
      (fn
        ([e callback-type data]
-        (set-event-callback* e callback
-                             (cl-command-execution-status callback-type) data))
+        (set-event-callback* e callback (cl-command-execution-status callback-type) data))
        ([e data]
         (set-event-callback* e callback callb-type data))
        ([e]
@@ -1012,8 +996,7 @@
   ([ctx source]
    (let [err (int-array 1)
          n (count source)
-         res (CL/clCreateProgramWithSource
-              ctx n (into-array String source) nil err)]
+         res (CL/clCreateProgramWithSource ctx n (into-array String source) nil err)]
      (with-check-arr err res)))
   ([source]
    (program-with-source *context* source)))
@@ -1050,18 +1033,14 @@
   "
   ([program devices options ch user-data]
    (let [err (CL/clBuildProgram program (count devices)
-                                (if devices
-                                  (into-array cl_device_id devices)
-                                  nil)
+                                (if devices (into-array cl_device_id devices) nil)
                                 options
                                 (if ch (->BuildCallback ch) nil)
                                 user-data)]
      (if (= CL/CL_SUCCESS err)
        program
        (throw (error err (map (partial build-info program)
-                              (if devices
-                                devices
-                                (program-devices program))))))))
+                              (if devices devices (program-devices program))))))))
   ([program devices options ch]
    (build-program! program devices options ch nil))
   ([program options ch]
@@ -1184,16 +1163,14 @@
          dim (alength global-array)]
      (if (= dim (alength local-array) (alength offset-array))
        (->WorkSize dim global-array local-array offset-array)
-       (throw (IllegalArgumentException.
-               "All work-sizes must have the same work-dimension.")))))
+       (throw (IllegalArgumentException. "All work-sizes must have the same work-dimension.")))))
   ([global local]
    (let [global-array (long-array global)
          local-array (long-array local)
          dim (alength global-array)]
      (if (= dim (alength local-array))
        (->WorkSize dim global-array local-array nil)
-       (throw (IllegalArgumentException.
-               "All work-sizes must have the same work-dimension.")))))
+       (throw (IllegalArgumentException. "All work-sizes must have the same work-dimension.")))))
   ([global]
    (let [global-array (long-array global)]
      (->WorkSize (alength global-array) global-array nil nil)))
@@ -1315,10 +1292,8 @@
   ([ctx device ^long size ^long properties]
    (let [err (int-array 1)
          props (let [clqp (cl_queue_properties.)]
-                 (when (< 0 properties)
-                   (.addProperty clqp CL/CL_QUEUE_PROPERTIES properties))
-                 (when (< 0 size)
-                   (.addProperty clqp CL/CL_QUEUE_SIZE size))
+                 (when (< 0 properties) (.addProperty clqp CL/CL_QUEUE_PROPERTIES properties))
+                 (when (< 0 size) (.addProperty clqp CL/CL_QUEUE_SIZE size))
                  clqp)
          res (CL/clCreateCommandQueueWithProperties ctx device props err)]
      (with-check-arr err res))))
@@ -1359,10 +1334,8 @@
   "
   ([ctx device x & properties]
    (if (integer? x)
-     (command-queue* ctx device x
-                     (mask cl-command-queue-properties properties))
-     (command-queue* ctx device 0
-                     (mask cl-command-queue-properties x properties))))
+     (command-queue* ctx device x (mask cl-command-queue-properties properties))
+     (command-queue* ctx device 0 (mask cl-command-queue-properties x properties))))
   ([ctx device]
    (command-queue* ctx device 0 0))
   ([device]
@@ -1530,9 +1503,7 @@
   ([queue cl-src cl-dst size wait-events ev]
    (enq-copy* cl-src queue cl-dst 0 0 size wait-events ev))
   ([queue cl-src cl-dst wait-events ev]
-   (enq-copy* cl-src queue cl-dst 0 0
-              (min (long (size cl-src)) (long (size cl-dst)))
-              wait-events ev))
+   (enq-copy* cl-src queue cl-dst 0 0 (min (long (size cl-src)) (long (size cl-dst))) wait-events ev))
   ([queue cl-src cl-dst size]
    (enq-copy* cl-src queue cl-dst 0 0 size nil nil))
   ([queue cl-src cl-dst]
@@ -1555,9 +1526,7 @@
   ([queue this pattern offset multiplier wait-events ev]
    (enq-fill* this queue pattern offset multiplier wait-events ev))
   ([queue this pattern wait-events ev]
-   (enq-fill* this queue pattern
-              0 (quot (long (size this)) (long (size pattern)))
-              wait-events ev))
+   (enq-fill* this queue pattern 0 (quot (long (size this)) (long (size pattern))) wait-events ev))
   ([queue this pattern]
    (enq-fill! queue this pattern nil nil))
   ([this pattern]
@@ -1596,7 +1565,7 @@
 
       (enq-map-buffer* queue cl-data true 0 CL/CL_WRITE (events ev-nd) ev-map)
   "
-  [queue cl blocking offset req-size flags ^objects wait-events event]
+  ^ByteBuffer [queue cl blocking offset req-size flags ^objects wait-events event]
   (if (< 0 (long req-size))
     (let [err (int-array 1)
           res (CL/clEnqueueMapBuffer queue (cl-mem cl) blocking flags offset
@@ -1640,25 +1609,21 @@
       (enq-map-buffer! queue cl-data [:write :read])
       (enq-map-buffer! cl-data :write)
   "
-  ([queue cl blocking offset req-size flags wait-events event]
+  (^ByteBuffer [queue cl blocking offset req-size flags wait-events event]
    (enq-map-buffer* queue cl blocking offset req-size
-                    (if (keyword? flags)
-                      (cl-map-flags flags)
-                      (mask cl-map-flags flags))
+                    (if (keyword? flags) (cl-map-flags flags) (mask cl-map-flags flags))
                     wait-events event))
-  ([queue cl offset req-size flags wait-events event]
+  (^ByteBuffer [queue cl offset req-size flags wait-events event]
    (enq-map-buffer! queue cl false offset req-size flags wait-events event))
-  ([queue cl flags wait-events event]
+  (^ByteBuffer [queue cl flags wait-events event]
    (enq-map-buffer! queue cl 0 (size cl) flags wait-events event))
-  ([queue cl flags event]
+  (^ByteBuffer [queue cl flags event]
    (enq-map-buffer! queue cl flags nil event))
-  ([queue cl flags]
+  (^ByteBuffer [queue cl flags]
    (enq-map-buffer* queue cl true 0 (size cl)
-                    (if (keyword? flags)
-                      (cl-map-flags flags)
-                      (mask cl-map-flags flags))
+                    (if (keyword? flags) (cl-map-flags flags) (mask cl-map-flags flags))
                     nil nil))
-  ([cl flags]
+  (^ByteBuffer [cl flags]
    (enq-map-buffer! *command-queue* cl flags)))
 
 (defn enq-unmap!
@@ -1781,17 +1746,13 @@
   "
   ([queue svm flags wait-events event]
    (enq-svm-map* queue svm false
-                 (if (keyword? flags)
-                   (cl-map-flags flags)
-                   (mask cl-map-flags flags))
+                 (if (keyword? flags) (cl-map-flags flags) (mask cl-map-flags flags))
                  wait-events event))
   ([queue svm flags event]
    (enq-svm-map! queue svm flags nil event))
   ([queue svm flags]
    (enq-svm-map* queue svm true
-                 (if (keyword? flags)
-                   (cl-map-flags flags)
-                   (mask cl-map-flags flags))
+                 (if (keyword? flags) (cl-map-flags flags) (mask cl-map-flags flags))
                  nil nil))
   ([svm flags]
    (enq-svm-map! *command-queue* svm flags)))
@@ -1857,9 +1818,7 @@
    (enq-marker! queue nil ev))
   ([queue ^objects wait-events ev]
    (with-check
-     (CL/clEnqueueMarkerWithWaitList queue
-                                     (if wait-events(alength wait-events) 0)
-                                     wait-events ev)
+     (CL/clEnqueueMarkerWithWaitList queue (if wait-events(alength wait-events) 0) wait-events ev)
      queue)))
 
 (defn enq-barrier!
@@ -1880,9 +1839,7 @@
    (enq-barrier! queue nil ev))
   ([queue ^objects wait-events ev]
    (with-check
-     (CL/clEnqueueBarrierWithWaitList queue
-                                      (if wait-events(alength wait-events) 0)
-                                      wait-events ev)
+     (CL/clEnqueueBarrierWithWaitList queue (if wait-events(alength wait-events) 0) wait-events ev)
      queue)))
 
 (defn finish!

@@ -170,11 +170,8 @@
 (defmacro ^:private info-string* [method clobject info]
   `(let [size# (info-count* ~method ~clobject ~info)
          res# (byte-array size#)
-         err# (~method ~clobject ~info
-                       (alength res#) (Pointer/to res#)
-                       nil)]
-     (with-check err#
-       (String. res# 0 (max 0 (dec size#))))))
+         err# (~method ~clobject ~info (alength res#) (Pointer/to res#) nil)]
+     (with-check err# (String. res# 0 (max 0 (dec size#))))))
 
 (defn ^:private to-set [s]
   (if (str/blank? s)
@@ -188,9 +185,7 @@
 (defmacro ^:private info-native* [method clobject info type size]
   `(let [bytesize# (info-count* ~method ~clobject ~info)
          res# (make-array ~type (/ bytesize# ~size))
-         err# (~method ~clobject ~info
-                       bytesize# (~native-pointer res#)
-                       nil)]
+         err# (~method ~clobject ~info bytesize# (~native-pointer res#) nil)]
      (with-check err# res#)))
 
 (defn ^:private pointer-to-buffer [^ByteBuffer b]
@@ -199,25 +194,16 @@
 (defmacro ^:private info-size*
   ([method clobject info num]
    `(let [res# (buffer (* Sizeof/size_t (long ~num)))
-          err# (~method ~clobject ~info
-                        (* Sizeof/size_t (long ~num))
-                        (~pointer-to-buffer res#)
-                        nil)]
+          err# (~method ~clobject ~info (* Sizeof/size_t (long ~num)) (~pointer-to-buffer res#) nil)]
       (with-check err#
-        (wrap-byte-seq (if (= 8 Sizeof/size_t)
-                         int64
-                         int32)
-                       (byte-seq res#)))))
+        (wrap-byte-seq (if (= 8 Sizeof/size_t) int64 int32) (byte-seq res#)))))
   ([method clobject info]
    `(first (info-size* ~method ~clobject ~info 1))))
 
 (defmacro ^:private info-long*
   ([method clobject info num]
    `(let [res# (long-array ~num)
-          err# (~method ~clobject ~info
-                        (* Sizeof/cl_long (long ~num))
-                        (Pointer/to res#)
-                        nil)]
+          err# (~method ~clobject ~info (* Sizeof/cl_long (long ~num)) (Pointer/to res#) nil)]
       (with-check err# res#)))
   ([method clobject info]
    `(aget (longs (info-long* ~method ~clobject ~info 1)) 0)))
@@ -225,10 +211,7 @@
 (defmacro ^:private info-int*
   ([method clobject info num]
    `(let [res# (int-array ~num)
-          err# (~method ~clobject ~info
-                        (* Sizeof/cl_int (long ~num))
-                        (Pointer/to res#)
-                        nil)]
+          err# (~method ~clobject ~info (* Sizeof/cl_int (long ~num)) (Pointer/to res#) nil)]
       (with-check err# res#)))
   ([method clobject info]
    `(aget (ints (info-int* ~method ~clobject ~info 1)) 0)))

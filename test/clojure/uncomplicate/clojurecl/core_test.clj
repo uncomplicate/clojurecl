@@ -30,8 +30,7 @@
  (count (platforms)) => (num-platforms)
 
  (let [p (first (platforms))]
-   (with-platform p
-     (platform-info)) => (info p)))
+   (with-platform p (platform-info)) => (info p)))
 
 ;; ================== Device tests ========================
 (facts
@@ -39,7 +38,6 @@
 
  (let [p (first (remove legacy? (platforms)))]
    (num-devices* p CL/CL_DEVICE_TYPE_ALL) => (num-devices p :all)
-   ;;(num-devices* nil CL/CL_DEVICE_TYPE_ALL) => (throws ExceptionInfo) ;;Some platforms just use first p
 
    (< 0 (num-devices p :all)) => true
    (< 0 (num-devices p :cpu)) => true
@@ -64,7 +62,6 @@
 
  (let [p (first (remove legacy? (platforms)))]
    (vec (devices* p CL/CL_DEVICE_TYPE_ALL)) => (devices p :all)
-   ;;(devices* nil CL/CL_DEVICE_TYPE_ALL) => (throws ExceptionInfo);;Some platforms just use first p
 
    (count (devices p :all)) => (num-devices p :all)
 
@@ -228,8 +225,7 @@
    (host-event) =not=> nil
 
    (alength (events (host-event) (host-event))) => 2
-   (alength ^objects (apply events (for [n (range 10)] (host-event))))
-   => 10)
+   (alength ^objects (apply events (for [n (range 10)] (host-event)))) => 10)
 
   (facts
    "EventCallback tests"
@@ -259,10 +255,8 @@
        program =not=> nil
        (:source (info program)) => src))
 
-    (with-release [program (build-program!
-                            (program-with-source
-                             [src]) nil "-cl-std=CL2.0"
-                             notifications :my-data)]
+    (with-release [program (build-program! (program-with-source [src]) nil "-cl-std=CL2.0"
+                                           notifications :my-data)]
       (facts
        "Program build tests."
        program =not=> nil
@@ -351,13 +345,9 @@
            mapped-write (enq-map-buffer! queue1 cl-data :write)]
        (.getFloat ^ByteBuffer mapped-read 4) => 171.0
        (.getFloat ^ByteBuffer mapped-write 4) => 171.0
-       (do (.putFloat ^ByteBuffer mapped-write 4 100.0)
-           (.getFloat ^ByteBuffer mapped-write 4))
-       => 100.0
+       (do (.putFloat ^ByteBuffer mapped-write 4 100.0) (.getFloat ^ByteBuffer mapped-write 4)) => 100.0
        (.getFloat ^ByteBuffer mapped-read 4) => 100.0
-       (do (.putFloat ^ByteBuffer mapped-read 4 100.0)
-           (.getFloat ^ByteBuffer mapped-read 4))
-       => 100.0
+       (do (.putFloat ^ByteBuffer mapped-read 4 100.0) (.getFloat ^ByteBuffer mapped-read 4)) => 100.0
        (enq-unmap! queue1 cl-data mapped-read) => queue1
        (enq-unmap! queue1 cl-data mapped-write) => queue1)))
 
@@ -366,8 +356,7 @@
                  ctx (context [dev])
                  queue (command-queue ctx dev)
                  svm (svm-buffer ctx (* cnt Float/BYTES) 0)
-                 program (build-program! (program-with-source ctx [src])
-                                         "-cl-std=CL2.0" nil)
+                 program (build-program! (program-with-source ctx [src]) "-cl-std=CL2.0" nil)
                  dumb-kernel (kernel program "dumb_kernel")]
     (facts
      "SVM tests" ;; ONLY BASIC TESTS, since i do not have an APU, and
@@ -375,9 +364,7 @@
      (ptr svm) =not=> nil
      (set-args! dumb-kernel svm Integer/BYTES (int-array [42])) => dumb-kernel
      (enq-svm-map! queue svm :write)
-     (do (.putFloat ^ByteBuffer (byte-buffer svm) 4 42.0)
-         (.getFloat ^ByteBuffer (byte-buffer svm) 4))
-     => 42.0
+     (.putFloat ^ByteBuffer (byte-buffer svm) 4 42.0) (.getFloat ^ByteBuffer (byte-buffer svm) 4) => 42.0
      (enq-svm-unmap! queue svm) => queue
      (enq-nd! queue dumb-kernel wsize) => queue
      (enq-svm-map! queue svm :read)
