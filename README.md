@@ -1,6 +1,6 @@
 # ClojureCL Documentation
 
-This is a documentation site for [ClojureCL](http://clojurecl.neanderthal.org).
+This is a documentation site for [ClojureCL](http://clojurecl.uncomplicate.org).
 
 ## Install Dependencies
 

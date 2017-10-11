@@ -36,6 +36,8 @@ ClojureCL is a Clojure library for High Performance Computing with OpenCL, which
 * CPUs from Intel, AMD, ARM etc;
 * Computing accelerators and embedded devices (Intel Xeon Phi, Parallella, etc.).
 
+If you need higher-level high performance functionality, such as matrix computations, try [Neanderthal](http://neanderthal.uncomplicate.org).
+
 ### On the TODO List
 
 * Images
@@ -61,4 +63,4 @@ ClojureCL currently works out of the box on Linux, Windows, and OS X. For other 
 
 ## Where to go next
 
-Hopefully this guide got you started and now you'd like to learn more. OpenCL programming requires a lot of knowledge about the OpenCL model, devices and specifics of parallel computations. The best beginner's guide, in my opinion, is the [OpenCL in Action](http://www.amazon.com/OpenCL-Action-Accelerate-Graphics-Computations/dp/1617290173) book. I expect to build a comprehensive base of articles and references for exploring this topic, so please check the [All Guides](/articles/guides.html) page from time to time. Of course, you should also check the [ClojureCL API](/codox) for specific details, and feel free to take a gander at [the source](https://github.com/uncomplicate/neanderthal) while you are there.
+Hopefully this guide got you started and now you'd like to learn more. OpenCL programming requires a lot of knowledge about the OpenCL model, devices and specifics of parallel computations. The best beginner's guide, in my opinion, is the [OpenCL in Action](http://www.amazon.com/OpenCL-Action-Accelerate-Graphics-Computations/dp/1617290173) book. I expect to build a comprehensive base of articles and references for exploring this topic, so please check the [All Guides](/articles/guides.html) page from time to time. Of course, you should also check the [ClojureCL API](/codox) for specific details, and feel free to take a glance at [the source](https://github.com/uncomplicate/clojurecl) while you are there.

@@ -8,8 +8,8 @@ layout: article
 
 OpenCL is a standard for heterogeneous parallel computing and GPGPU. It is similar to CUDA, but open and supported on
 a multitude of hardware platforms instead of proprietary CUDA. It brings a lot of power, but do not expect it
-to be an easy ride if you've never programmed anything on the GPU or embedded devices. With ClojureCL, it it
-not difficult as in C (OpenCL Hello World in C is a hundred lines of source code, in ClojureCL it's only a few), but
+to be an easy ride if you've never programmed anything on the GPU or embedded devices. With ClojureCL, it is
+not as difficult as in C (OpenCL Hello World in C is a hundred lines of source code, in ClojureCL it's only a few), but
 you still have to grasp the concepts of parallel programming that are different than your usual x86 CPU Java, C,
 Clojure, C#, Python or Ruby code. **The good news is that you can use any OpenCL book to learn ClojureCL, and we
 even provide [ClojureCL code](https://github.com/uncomplicate/clojurecl/tree/master/test/clojure/uncomplicate/clojurecl/examples/openclinaction) for the examples used in the [OpenCL in Action](http://www.amazon.com/OpenCL-Action-Accelerate-Graphics-Computations/dp/1617290173) book.**

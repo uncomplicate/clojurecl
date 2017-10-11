@@ -18,6 +18,7 @@ To subscribe for announcements of releases, important changes and so on, please 
 A collection of Clojure libraries, currently containing:
 
 * [ClojureCL](http://clojurecl.uncomplicate.org) - you are reading about it.
+* [ClojureCUDA](http://clojurecl.uncomplicate.org) - Rimilar to ClojureCL, but uses Nvidia's CUDA (for better and for worse).
 * [Neanderthal](http://neanderthal.uncomplicate.org) - Fast matrix computations and linear algebra in Clojure (CPU and GPU).
 * [Fluokitten](http://fluokitten.uncomplicate.org) - Category Theory in idiomatic Clojure.
 
@@ -32,7 +33,7 @@ Here are some ways in which you can help:
 * Contribute your example code to be added to ClojureCL tests.
 * Contribute articles and tutorials.
 
-The source code of the site is [here](https://github.com/clojurecl/neanderthal/tree/gh-pages). Please fork it on GitHub, make your changes, and issue a pull request, or simply contact us through the mailing list to see what is your preferred means of sending the changes.
+The source code of the site is [here](https://github.com/uncomplicate/clojurecl/tree/gh-pages). Please fork it on GitHub, make your changes, and issue a pull request, or simply contact us through the mailing list to see what is your preferred means of sending the changes.
 
 ## Report Issues
 
