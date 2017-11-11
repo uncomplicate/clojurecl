@@ -15,8 +15,9 @@
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :dependencies [[org.clojure/clojure "1.8.0"]
                  [org.jocl/jocl "2.0.0"]
-                 [org.clojure/core.async "0.2.395"]
-                 [uncomplicate/commons "0.3.0"]]
+                 [org.clojure/core.async "0.3.442"]
+                 [uncomplicate/commons "0.3.0"]
+                 [vertigo "0.1.4"]]
 
   :codox {:metadata {:doc/format :markdown}
           :src-dir-uri "http://github.com/uncomplicate/clojurecl/blob/master/"
@@ -29,8 +30,7 @@
                                  *assert* true
                                  *unchecked-math* :warn-on-boxed
                                  *print-length* 128}
-                   :dependencies [[midje "1.8.3"]
-                                  [vertigo "0.1.4"]]}}
+                   :dependencies [[midje "1.8.3"]]}}
 
   :javac-options ["-target" "1.8" "-source" "1.8" "-Xlint:-options"]
   :source-paths ["src/clojure" "src/opencl"]
