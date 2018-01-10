@@ -72,7 +72,7 @@
   [[finish!]], [[flush!]] [[with-queue]]
   "
   (:require [uncomplicate.commons
-             [core :refer [Releaseable release with-release clean-buffer]]
+             [core :refer [Releaseable release with-release]]
              [utils :refer [mask]]]
             [uncomplicate.clojurecl
              [constants :refer :all]
@@ -1663,7 +1663,7 @@
                                            wait-events event)]
        (with-check err queue))
      (do
-       (clean-buffer host)
+       (release host)
        queue)))
   ([queue cl host event]
    (enq-unmap! queue cl host nil event))

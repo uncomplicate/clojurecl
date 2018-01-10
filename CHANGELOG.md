@@ -1,5 +1,10 @@
 # [ClojureCL](http://clojurecl.uncomplicate.org) - notable changes between versions
 
+## 0.8.0
+
+* Updated to Java 9 modules. Requires add-open jvm argument.
+* Clojure dep updated to 1.9.0
+
 ## 0.7.2
 
 * Fixed vertigo dependency.
