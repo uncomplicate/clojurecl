@@ -84,7 +84,7 @@
             cl_context cl_command_queue cl_mem cl_program cl_kernel cl_sampler
             cl_event cl_buffer_region cl_queue_properties
             Sizeof Pointer CreateContextFunction EventCallbackFunction
-            BuildProgramFunction]
+            BuildProgramFunction JOCLAccessor]
            [java.nio ByteBuffer ByteOrder]))
 
 (def ^{:dynamic true
@@ -140,6 +140,9 @@
   Releaseable
   (release [s]
     (with-check (CL/clReleaseSampler s) true)))
+
+(defn native-pointer ^long [npo]
+  (JOCLAccessor/getNativePointer npo))
 
 ;; =============== Platform =========================================
 
