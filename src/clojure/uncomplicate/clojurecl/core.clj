@@ -933,7 +933,7 @@
       (enq-read! comm-queue cl-object host-object e
       (follow e)
       (:event (<!! notifications))
-"
+  "
   ([channel callback-type]
    (let [callback (->EventCallback channel)
          callb-type (get cl-command-execution-status callback-type CL/CL_COMPLETE)]
@@ -1117,7 +1117,7 @@
       (set-arg! my-kernel 1 cl-buffer1)
       (set-arg! my-kernel 2 (int-array 8))
       (set-arg! my-kernel 3 42)
-"
+  "
   [kernel n value]
   (set-arg value kernel n))
 
@@ -1158,7 +1158,7 @@
       (work-size [1024 256] [16 16])
       (work-size [256])
       (work-size) ; same as (work-size [1])
-"
+  "
   ([global local offset]
    (let [global-array (long-array global)
          local-array (long-array local)
@@ -1856,7 +1856,7 @@
   Example:
 
       (finish! my-queue)
-"
+  "
   ([queue]
    (with-check (CL/clFinish queue) queue))
   ([]
@@ -1872,7 +1872,7 @@
   Example:
 
       (flush! my-queue)
-"
+  "
   [queue]
   (with-check (CL/clFlush queue) queue ))
 
