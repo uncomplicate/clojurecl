@@ -49,7 +49,7 @@
          "Test 1D reduction."
          (set-arg! sum-reduction-kernel 0 cl-acc)
          (set-args! sum-reduce-kernel cl-acc cl-data)
-         (enq-reduce queue sum-reduce-kernel sum-reduction-kernel cnt wgs)
+         (enq-reduce! queue sum-reduce-kernel sum-reduction-kernel cnt wgs)
          (enq-read-double queue cl-acc) => 3926780329410.0)))
 
     (let [wgs-m 4
@@ -64,7 +64,7 @@
 
          (set-arg! sum-reduction-horizontal 0 cl-acc)
          (set-args! sum-reduce-horizontal cl-acc cl-data)
-         (enq-reduce queue sum-reduce-horizontal sum-reduction-horizontal cnt-m cnt-n wgs-m wgs-n)
+         (enq-reduce! queue sum-reduce-horizontal sum-reduction-horizontal cnt-m cnt-n wgs-m wgs-n)
          (enq-read! queue cl-acc res)
          (apply + (seq res)) => (roughly 3.92678032941E12))))
 
@@ -80,6 +80,6 @@
 
          (set-arg! sum-reduction-vertical 0 cl-acc)
          (set-args! sum-reduce-vertical cl-acc cl-data)
-         (enq-reduce queue sum-reduce-vertical sum-reduction-vertical cnt-n cnt-m wgs-m wgs-n)
+         (enq-reduce! queue sum-reduce-vertical sum-reduction-vertical cnt-n cnt-m wgs-m wgs-n)
          (enq-read! queue cl-acc res)
          (apply + (seq res)) => (roughly 3.92678032941E12))))))

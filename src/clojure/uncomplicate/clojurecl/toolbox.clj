@@ -19,7 +19,7 @@
     (quot (+ n (dec max-local-size)) max-local-size)
     1))
 
-(defn enq-reduce
+(defn enq-reduce!
   ([queue main-kernel reduction-kernel n local-n]
    (loop [queue (enq-nd! queue main-kernel (work-size-1d n local-n))
           global-size (count-work-groups local-n n)]
