@@ -1,5 +1,9 @@
 # [ClojureCL](http://clojurecl.uncomplicate.org) - notable changes between versions
 
+## 0.9.0
+
+* Simplified toolbox enq-reduce for 2D reductions
+
 ## 0.8.0
 
 * Updated to Java 9 modules. Requires add-open jvm argument.

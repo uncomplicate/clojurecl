@@ -103,7 +103,7 @@
 (let [p (first (remove legacy? (platforms)))]
   (with-platform p
     (with-release [devs (devices p)
-                   dev (first (filter #(<= 2.0 (:version (opencl-c-version %))) devs))]
+                   dev (first (filter #(<= 2.0 (double (:version (opencl-c-version %)))) devs))]
 
       (facts
        "context-properties tests"
