@@ -66,7 +66,7 @@ inline ACCUMULATOR work_group_reduction_sum_2 (const REAL value) {
 }
 
 __kernel void sum_reduction (__global ACCUMULATOR* acc) {
-    ACCUMULATOR sum = work_group_reduction_sum(acc[get_global_id(0)]);
+    const ACCUMULATOR sum = work_group_reduction_sum(acc[get_global_id(0)]);
     if (get_local_id(0) == 0) {
         acc[get_group_id(0)] = sum;
     }

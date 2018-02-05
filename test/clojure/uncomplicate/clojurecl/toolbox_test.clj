@@ -14,22 +14,20 @@
              [legacy :refer [command-queue-1]]
              [info :refer :all]
              [toolbox :refer :all]]
-            [vertigo
-             [bytes :refer [direct-buffer byte-seq]]
-             [structs :refer [wrap-byte-seq float32]]])
+            [vertigo.bytes :refer [direct-buffer]])
   (:import java.nio.ByteBuffer))
 
 (let [cnt-m 311
       cnt-n 9011
-      cnt (* cnt-m cnt-n)]
+      cnt (* cnt-m cnt-n)
+      program-source [(slurp "src/opencl/uncomplicate/clojurecl/kernels/reduction.cl")
+                      (slurp "test/opencl/toolbox_test.cl")]]
 
   (with-release [dev (first (devices (first (remove legacy? (platforms)))))
                  ctx (context [dev])
                  queue (command-queue ctx dev)
                  wgs (max-work-group-size dev)
-                 program (build-program! (program-with-source
-                                          ctx [(slurp "src/opencl/uncomplicate/clojurecl/kernels/reduction.cl")
-                                               (slurp "test/opencl/toolbox_test.cl")])
+                 program (build-program! (program-with-source ctx program-source)
                                          (format "-cl-std=CL2.0 -DREAL=float -DACCUMULATOR=double -DWGS=%d" wgs)
                                          nil)
                  data (let [d (direct-buffer (* cnt Float/BYTES))]
@@ -61,15 +59,14 @@
                      cl-acc (cl-buffer ctx acc-size :read-write)]
 
         (facts
-
          (set-arg! sum-reduction-horizontal 0 cl-acc)
          (set-args! sum-reduce-horizontal cl-acc cl-data)
          (enq-reduce! queue sum-reduce-horizontal sum-reduction-horizontal cnt-m cnt-n wgs-m wgs-n)
          (enq-read! queue cl-acc res)
          (apply + (seq res)) => (roughly 3.92678032941E12))))
 
-    (let [wgs-m 4
-          wgs-n 32
+    (let [wgs-m 32
+          wgs-n 4
           acc-size (* Double/BYTES (max 1 (* cnt-n (count-work-groups wgs-m cnt-m))))
           res (double-array cnt-n)]
       (with-release [sum-reduction-vertical (kernel program "sum_reduction_vertical")
@@ -77,9 +74,8 @@
                      cl-acc (cl-buffer ctx acc-size :read-write)]
 
         (facts
-
          (set-arg! sum-reduction-vertical 0 cl-acc)
          (set-args! sum-reduce-vertical cl-acc cl-data)
-         (enq-reduce! queue sum-reduce-vertical sum-reduction-vertical cnt-n cnt-m wgs-m wgs-n)
+         (enq-reduce! queue sum-reduce-vertical sum-reduction-vertical cnt-n cnt-m wgs-n wgs-m)
          (enq-read! queue cl-acc res)
          (apply + (seq res)) => (roughly 3.92678032941E12))))))
