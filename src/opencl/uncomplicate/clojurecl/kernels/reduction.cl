@@ -1,5 +1,9 @@
+#ifndef REAL
+#define REAL float
+#endif
+
 #ifndef ACCUMULATOR
-#define ACCUMULATOR double
+#define ACCUMULATOR float
 #endif
 
 #ifndef WGS

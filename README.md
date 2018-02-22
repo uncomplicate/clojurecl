@@ -4,7 +4,7 @@ ClojureCL is a Clojure library for parallell computations with OpenCL. It suppor
 
 ## How to use it
 
-Read the documentation at [ClojureCL Web Site](http://clojurecl.uncomplicate.org).
+Read the documentation at [ClojureCL Web Site](https://clojurecl.uncomplicate.org).
 
 ## License
 
