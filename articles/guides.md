@@ -17,6 +17,12 @@ even provide [ClojureCL code](https://github.com/uncomplicate/clojurecl/tree/mas
 Once you get past the beginner's steep learning curve, it makes sense, and opens a whole new world of high-performance
 computing - you practically have a supercomputer on your desktop.
 
+## A series of tutorials about interactive GPU programming
+
+* [Hello CUDA](https://dragan.rocks/articles/18/Interactive-GPU-Programming-1-Hello-CUDA)
+* [Hello OpenCL](https://dragan.rocks/articles/18/Interactive-GPU-Programming-2-Hello-OpenCL)
+* [CUDA Context Shenanigans](https://dragan.rocks/articles/18/Interactive-GPU-Programming-3-CUDA-Context)
+
 ## Where to find OpenCL books, tutorials, and documentation
 
 Learning OpenCL programming requires learning the details of OpenCL C language and OpenCL API, but even more important is learning the main concept of high performance computing, generally applicable in OpenCL, CUDA, Open MPI
