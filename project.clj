@@ -16,7 +16,7 @@
   :dependencies [[org.clojure/clojure "1.9.0"]
                  [org.jocl/jocl "2.0.0"]
                  [org.clojure/core.async "0.4.474"]
-                 [uncomplicate/commons "0.4.0"]
+                 [uncomplicate/commons "0.5.0-SNAPSHOT"]
                  [vertigo "0.1.4"]]
 
   :codox {:metadata {:doc/format :markdown}

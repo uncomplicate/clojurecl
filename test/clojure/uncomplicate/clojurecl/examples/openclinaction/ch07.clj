@@ -36,8 +36,7 @@
                     read-event (event)]
        (facts
         (set-args! user-event-kernel cl-v) => user-event-kernel
-        (enq-nd! cqueue user-event-kernel
-                          work-sizes (events user-event) kernel-event)
+        (enq-nd! cqueue user-event-kernel work-sizes (events user-event) kernel-event)
         => cqueue
         (enq-read! cqueue cl-v v (events kernel-event) read-event) => cqueue
         (follow read-event) => notifications

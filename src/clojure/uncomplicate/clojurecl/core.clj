@@ -214,7 +214,9 @@
         err (CL/clGetDeviceIDs platform device-type 0 nil res)]
     (if (= CL/CL_DEVICE_NOT_FOUND err)
       0
-      (with-check err (aget res 0)))))
+      (with-check err
+        {:platform (info platform) :device-type device-type}
+        (aget res 0)))))
 
 (defn num-devices
   "Queries `platform` for the number of devices of one or a combination of
@@ -276,7 +278,9 @@
         res (make-array cl_device_id num-devices)]
     (if (< 0 num-devices)
       (let [err (CL/clGetDeviceIDs platform device-type num-devices res nil)]
-        (with-check err res))
+        (with-check err
+          {:platform (info platform) :device-type device-type}
+          res))
       res)))
 
 (defn devices
@@ -357,7 +361,9 @@
                                 (alength devices) devices
                                 (if ch (->CreateContextCallback ch) nil)
                                 user-data err)]
-    (with-check-arr err res)))
+    (with-check-arr err
+      {:devices (map info devices)}
+      res)))
 
 (defn context
   "Creates `cl_context` for a vector of `device`s, with optional
@@ -492,7 +498,9 @@
     ctx)
   Argument
   (set-arg [_ kernel n]
-    (with-check (CL/clSetKernelArg kernel n Sizeof/cl_mem cl*) kernel)))
+    (with-check (CL/clSetKernelArg kernel n Sizeof/cl_mem cl*)
+      {:kernel (info kernel) :n n}
+      kernel)))
 
 (defn cl-buffer?
   "Checks whether an object is a CL buffer."
@@ -518,7 +526,9 @@
     (.order (.getByteBuffer svm* offset size) (ByteOrder/nativeOrder)))
   Argument
   (set-arg [_ kernel n]
-    (with-check (CL/clSetKernelArgSVMPointer kernel n svm*) kernel)))
+    (with-check (CL/clSetKernelArgSVMPointer kernel n svm*)
+      {:kernel (info kernel) :n n}
+      kernel)))
 
 (defn svm-buffer?
   "Checks whether an object is an SVM buffer."
@@ -547,7 +557,9 @@
   ([ctx ^long size ^long flags]
    (let [err (int-array 1)
          res (CL/clCreateBuffer ctx flags size nil err)]
-     (with-check-arr err (->CLBuffer ctx res (Pointer/to ^cl_mem res) size)))))
+     (with-check-arr err
+       {:ctx (info ctx) :size size}
+       (->CLBuffer ctx res (Pointer/to ^cl_mem res) size)))))
 
 (defn cl-buffer
   "Creates a cl buffer object ([[CLBuffer]]) in `ctx`, given `size` in bytes
@@ -695,12 +707,16 @@
 (extend-type Long
   Argument
   (set-arg [this kernel n]
-    (with-check (CL/clSetKernelArg kernel n this nil) kernel)))
+    (with-check (CL/clSetKernelArg kernel n this nil)
+      {:kernel (info kernel) :n n}
+      kernel)))
 
 (extend-type Integer
   Argument
   (set-arg [this kernel n]
-    (with-check (CL/clSetKernelArg kernel n this nil) kernel)))
+    (with-check (CL/clSetKernelArg kernel n this nil)
+      {:kernel (info kernel) :n n}
+      kernel)))
 
 (extend-type (Class/forName "[F")
   Mem
@@ -712,6 +728,7 @@
   (set-arg [this kernel n]
     (with-check
       (CL/clSetKernelArg kernel n (* Float/BYTES (alength ^floats this)) (Pointer/to ^floats this))
+      {:kernel (info kernel) :n n}
       kernel)))
 
 (extend-type (Class/forName "[D")
@@ -724,6 +741,7 @@
   (set-arg [this kernel n]
     (with-check
       (CL/clSetKernelArg kernel n (* Double/BYTES (alength ^doubles this)) (Pointer/to ^doubles this))
+      {:kernel (info kernel) :n n}
       kernel)))
 
 (extend-type (Class/forName "[I")
@@ -736,6 +754,7 @@
   (set-arg [this kernel n]
     (with-check
       (CL/clSetKernelArg kernel n (* Integer/BYTES (alength ^ints this)) (Pointer/to ^ints this))
+      {:kernel (info kernel) :n n}
       kernel)))
 
 (extend-type (Class/forName "[J")
@@ -748,6 +767,7 @@
   (set-arg [this kernel n]
     (with-check
       (CL/clSetKernelArg kernel n (* Long/BYTES (alength ^longs this)) (Pointer/to ^longs this))
+      {:kernel (info kernel) :n n}
       kernel)))
 
 (extend-type (Class/forName "[B")
@@ -760,6 +780,7 @@
   (set-arg [this kernel n]
     (with-check
       (CL/clSetKernelArg kernel n (alength ^bytes this) (Pointer/to ^bytes this))
+      {:kernel (info kernel) :n n}
       kernel)))
 
 (extend-type (Class/forName "[S")
@@ -772,6 +793,7 @@
   (set-arg [this kernel n]
     (with-check
       (CL/clSetKernelArg kernel n (* Short/BYTES (alength ^shorts this)) (Pointer/to ^shorts this))
+      {:kernel (info kernel) :n n}
       kernel)))
 
 (extend-type (Class/forName "[C")
@@ -784,6 +806,7 @@
   (set-arg [this kernel n]
     (with-check
       (CL/clSetKernelArg kernel n (* Character/BYTES (alength ^chars this)) (Pointer/to ^chars this))
+      {:kernel (info kernel) :n n}
       kernel)))
 
 (extend-type ByteBuffer
@@ -819,7 +842,7 @@
   ([ctx]
    (let [err (int-array 1)
          res (CL/clCreateUserEvent ctx err)]
-     (with-check-arr err res))))
+     (with-check-arr err {:ctx (info ctx)} res))))
 
 (defn events
   "Creates an array of `cl_event`s. Arrays of events are
@@ -869,8 +892,8 @@
 
 (deftype EventCallback [ch]
   EventCallbackFunction
-  (function [this event status data]
-    (go (>! ch (->EventCallbackInfo event (dec-command-execution-status status) data)))))
+  (function [this ev status data]
+    (go (>! ch (->EventCallbackInfo ev (dec-command-execution-status status) data)))))
 
 (defn event-callback
   "Creates new `EventCallbackFunction` instance that puts
@@ -1000,7 +1023,7 @@
    (let [err (int-array 1)
          n (count source)
          res (CL/clCreateProgramWithSource ctx n (into-array String source) nil err)]
-     (with-check-arr err res)))
+     (with-check-arr err {:ctx (info ctx) :source source} res)))
   ([source]
    (program-with-source *context* source)))
 
@@ -1084,7 +1107,7 @@
   ([program name]
    (let [err (int-array 1)
          res (CL/clCreateKernel program name err)]
-     (with-check-arr err res)))
+     (with-check-arr err {:name name} res)))
   ([program]
    (let [nk (num-kernels program)
          res (make-array cl_kernel nk)
@@ -1126,7 +1149,7 @@
   and returns the changed `cl_kernel` object.
   Equivalent to calling [[set-arg!]] for each provided argument.
 
-  Examples:
+  Examples:n
 
       (set-args! my-kernel cl-buffer-0)
       (set-args! my-kernel cl-buffer-0 cl-buffer-1 (int-array 8) 42)
@@ -1299,7 +1322,7 @@
                  (when (< 0 size) (.addProperty clqp CL/CL_QUEUE_SIZE size))
                  clqp)
          res (CL/clCreateCommandQueueWithProperties ctx device props err)]
-     (with-check-arr err res))))
+     (with-check-arr err {:device device} res))))
 
 (defn command-queue
   "Creates a host or device command queue on a specific device.
@@ -1377,6 +1400,7 @@
                                 (.global work-size) (.local work-size)
                                 (if wait-events (alength wait-events) 0)
                                 wait-events event)
+     {:kernel kernel}
      queue))
   ([queue kernel work-size event]
    (enq-nd! queue kernel work-size nil event))

@@ -242,6 +242,10 @@
 (defprotocol InfoProperties
   (properties [this]))
 
+(extend-protocol Info
+  nil
+  (info [this]
+    :nil))
 ;; =================== Platform ===================================
 
 (defn version [platform]

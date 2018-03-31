@@ -3,6 +3,7 @@
 ## 0.9.0
 
 * Simplified toolbox enq-reduce for 2D reductions
+* Enhanced error info details.
 
 ## 0.8.0
 

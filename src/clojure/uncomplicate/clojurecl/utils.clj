@@ -44,7 +44,7 @@
    (error err-code nil)))
 
 (defmacro with-check
-  "Evaluates `form` if `err-code` is not zero (`CL_SUCCESS`), otherwise throws
+  "Evaluates `form` if `status` is not zero (`CL_SUCCESS`), otherwise throws
   an appropriate `ExceptionInfo` with decoded informative details.
   It helps fith JOCL methods that return error codes directly, while
   returning computation results through side-effects in arguments.
@@ -53,11 +53,16 @@
 
       (with-check (some-jocl-call-that-returns-error-code) result)
   "
-  ([err-code form]
-   `(cu/with-check error ~err-code ~form)))
+  ([status form]
+   `(cu/with-check error ~status ~form))
+  ([status details form]
+   `(let [status# ~status]
+      (if (= 0 status#)
+        ~form
+        (throw (error status# ~details))))))
 
 (defmacro with-check-arr
-  "Evaluates `form` if the integer in the `err-code` primitive int array is `0`,
+  "Evaluates `form` if the integer in the `status` primitive int array is `0`,
   Otherwise throws an exception corresponding to the error code.
   Similar to [[with-check]], but with the error code being held in an array instead
   of being a primitive number. It helps with JOCL methods that return results
@@ -67,8 +72,10 @@
             res (some-jocl-call err)]
          (with-checl-arr err res))
   "
-  [err-code form]
-  `(with-check (aget (ints ~err-code) 0) ~form))
+  ([status form]
+   `(with-check (aget (ints ~status) 0) ~form))
+  ([status details form]
+   `(with-check (aget (ints ~status) 0) ~details ~form)))
 
 (defmacro maybe
   "Evaluates form in try/catch block; if an OpenCL-related exception is caught,
