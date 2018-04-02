@@ -10,12 +10,12 @@
   (:require [midje.sweet :refer :all]
             [clojure.java.io :as io]
             [clojure.core.async :refer [chan <!!]]
-            [uncomplicate.commons.core :refer [with-release]]
+            [uncomplicate.commons
+             [core :refer [with-release]]
+             [utils :refer [direct-buffer]]]
             [uncomplicate.clojurecl
              [core :refer :all]
-             [info :refer [info durations profiling-info]]]
-            [vertigo
-             [bytes :refer [direct-buffer]]]))
+             [info :refer [info durations profiling-info]]]))
 
 (set! *unchecked-math* true)
 

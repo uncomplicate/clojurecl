@@ -12,10 +12,7 @@
             [uncomplicate.commons.core :refer [with-release]]
             [uncomplicate.clojurecl
              [core :refer :all]
-             [info :refer [info]]]
-            [vertigo
-             [bytes :refer [direct-buffer byte-seq]]
-             [structs :refer [wrap-byte-seq int8]]]))
+             [info :refer [info]]]))
 
 (with-release [dev (first (devices (first (platforms))))
                ctx (context [dev])

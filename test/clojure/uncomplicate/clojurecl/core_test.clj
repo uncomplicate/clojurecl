@@ -8,14 +8,13 @@
 
 (ns uncomplicate.clojurecl.core-test
   (:require [midje.sweet :refer :all]
-            [uncomplicate.commons.core :refer [release with-release]]
+            [uncomplicate.commons
+             [core :refer [release with-release]]
+             [utils :refer [direct-buffer]]]
             [uncomplicate.clojurecl
              [core :refer :all]
              [info :refer [info reference-count mem-base-addr-align opencl-c-version]]]
-            [clojure.core.async :refer [go >! <! <!! chan]]
-            [vertigo
-             [bytes :refer [direct-buffer byte-seq]]
-             [structs :refer [wrap-byte-seq float32]]])
+            [clojure.core.async :refer [go >! <! <!! chan]])
   (:import [uncomplicate.clojurecl.core CLBuffer SVMBuffer]
            [org.jocl CL Pointer cl_device_id cl_context_properties cl_mem]
            [clojure.lang ExceptionInfo]
@@ -338,7 +337,7 @@
 
      (:event (<!! notifications)) => ev-read
 
-     (vec  (wrap-byte-seq float32 (byte-seq data)))
+     (vec (let [res (float-array cnt)] (.get (.asFloatBuffer ^ByteBuffer data) res) res))
      => [168.0 171.0 174.0 177.0 180.0 183.0 186.0 189.0]
 
      (let [mapped-read (enq-map-buffer! queue1 cl-data :read)
@@ -364,7 +363,8 @@
      (ptr svm) =not=> nil
      (set-args! dumb-kernel svm Integer/BYTES (int-array [42])) => dumb-kernel
      (enq-svm-map! queue svm :write)
-     (.putFloat ^ByteBuffer (byte-buffer svm) 4 42.0) (.getFloat ^ByteBuffer (byte-buffer svm) 4) => 42.0
+     (.putFloat ^ByteBuffer (byte-buffer svm) 4 42.0)
+     (.getFloat ^ByteBuffer (byte-buffer svm) 4) => 42.0
      (enq-svm-unmap! queue svm) => queue
      (enq-nd! queue dumb-kernel wsize) => queue
      (enq-svm-map! queue svm :read)

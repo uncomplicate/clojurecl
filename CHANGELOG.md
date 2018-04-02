@@ -4,6 +4,7 @@
 
 * Simplified toolbox enq-reduce for 2D reductions
 * Enhanced error info details.
+* Removed vertigo dependency.
 
 ## 0.8.0
 

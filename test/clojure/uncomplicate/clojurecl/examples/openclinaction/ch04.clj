@@ -10,13 +10,12 @@
   (:require [midje.sweet :refer :all]
             [clojure.java.io :as io]
             [clojure.core.async :refer [chan <!!]]
-            [uncomplicate.commons.core :refer [with-release]]
+            [uncomplicate.commons
+             [core :refer [with-release]]
+             [utils :refer [direct-buffer]]]
             [uncomplicate.clojurecl
              [core :refer :all]
-             [info :refer [info endian-little]]]
-            [vertigo
-             [bytes :refer [direct-buffer byte-seq]]
-             [structs :refer [wrap-byte-seq int8]]]))
+             [info :refer [info endian-little]]]))
 
 (let [notifications (chan)
       follow (register notifications)]
@@ -40,8 +39,10 @@
          (enq-nd! cqueue hello-kernel work-sizes) => cqueue
          (enq-read! cqueue cl-msg host-msg read-complete) => cqueue
          (follow read-complete host-msg) => notifications
-         (apply str (map char
-                         (wrap-byte-seq int8 (byte-seq (:data (<!! notifications))))))
+         (let [data ^java.nio.ByteBuffer (:data (<!! notifications))
+               res ^bytes (make-array Byte/TYPE 16)]
+           (dotimes [i 16] (aset res i (.get data i)))
+           (apply str (map (comp char) res)))
          => "Hello kernel!!!\0")))
 
     (facts

@@ -10,11 +10,12 @@
   (:require [midje.sweet :refer :all]
             [clojure.java.io :as io]
             [clojure.core.async :refer [<!! chan timeout <! go]]
-            [uncomplicate.commons.core :refer [with-release]]
+            [uncomplicate.commons
+             [core :refer [with-release]]
+             [utils :refer [direct-buffer]]]
             [uncomplicate.clojurecl
              [core :refer :all]
-             [info :refer [profiling-info durations end opencl-c-version]]]
-            [vertigo.bytes :refer [direct-buffer]]))
+             [info :refer [profiling-info durations end opencl-c-version]]]))
 
 (with-release [dev (first (sort-by-cl-version (devices (first (platforms)))))
                ctx (context [dev])

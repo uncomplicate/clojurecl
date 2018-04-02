@@ -8,13 +8,14 @@
 
 (ns uncomplicate.clojurecl.toolbox-test
   (:require [midje.sweet :refer :all]
-            [uncomplicate.commons.core :refer [release with-release]]
+            [uncomplicate.commons
+             [core :refer [release with-release]]
+             [utils :refer [direct-buffer]]]
             [uncomplicate.clojurecl
              [core :refer :all]
              [legacy :refer [command-queue-1]]
              [info :refer :all]
-             [toolbox :refer :all]]
-            [vertigo.bytes :refer [direct-buffer]])
+             [toolbox :refer :all]])
   (:import java.nio.ByteBuffer))
 
 (let [cnt-m 311

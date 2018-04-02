@@ -139,23 +139,31 @@
   [[->EventInfo]], [[->Profilinginfo]], [[->MemObjectInfo]],
   "
   (:require [clojure.string :as str]
-            [uncomplicate.commons.utils :refer [unmask unmask1]]
+            [uncomplicate.commons.utils :refer [unmask unmask1 buffer direct-buffer]]
             [uncomplicate.clojurecl
              [constants :refer :all]
-             [utils :refer :all]]
-            [vertigo
-             [bytes :refer [buffer direct-buffer byte-seq byte-count slice]]
-             [structs :refer [int32 int64 wrap-byte-seq]]])
+             [utils :refer :all]])
   (:import [org.jocl CL cl_platform_id  cl_device_id cl_context cl_command_queue
             cl_program cl_kernel cl_sampler cl_event cl_device_partition_property
             cl_mem Sizeof Pointer]
-           [java.nio ByteBuffer]))
+           [java.nio ByteBuffer IntBuffer LongBuffer]))
 
 ;; TODO Check for memory leaks. Some of the returned resources should be released
 ;; after showing them in the big info function (contexts, devices, etc...)
 ;;actually, this is not that hard: info should pick up which data to show, for example
 ;;just name of the device, and release the resource immediately. the low-level function
 ;;should just return the raw id, of which the user should be responsible.
+
+(defn ^:private get-array [^ByteBuffer buf]
+  (if (= Sizeof/size_t 8)
+    (let [b (.asLongBuffer buf)
+          res (long-array (.capacity b))]
+      (.get b res)
+      res)
+    (let [b (.asIntBuffer buf)
+          res (int-array (.capacity b))]
+      (.get b res)
+      res)))
 
 ;; =================== Info* utility macros ===============================
 
@@ -196,7 +204,7 @@
    `(let [res# (buffer (* Sizeof/size_t (long ~num)))
           err# (~method ~clobject ~info (* Sizeof/size_t (long ~num)) (~pointer-to-buffer res#) nil)]
       (with-check err#
-        (wrap-byte-seq (if (= 8 Sizeof/size_t) int64 int32) (byte-seq res#)))))
+        (vec (get-array res#)))))
   ([method clobject info]
    `(first (info-size* ~method ~clobject ~info 1))))
 
@@ -1282,10 +1290,7 @@
                  ~program ~device ~info Sizeof/size_t
                  (~pointer-to-buffer res#) nil)]
        (with-check err#
-         (first (wrap-byte-seq (if (= 4 Sizeof/size_t)
-                                 int32
-                                 int64)
-                               (byte-seq res#)))))))
+         (first (seq (get-array res#)))))))
 
 ;; -- Program Build Info functions --------------------------------------------
 
