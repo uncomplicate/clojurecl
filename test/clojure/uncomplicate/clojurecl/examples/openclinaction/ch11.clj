@@ -10,10 +10,10 @@
   (:require [midje.sweet :refer :all]
             [clojure.java.io :as io]
             [clojure.core.async :refer [chan <!!]]
-            [uncomplicate.commons.core :refer [with-release]]
+            [uncomplicate.commons.core :refer [with-release info]]
             [uncomplicate.clojurecl
              [core :refer :all]
-             [info :refer [info durations profiling-info opencl-c-version]]]))
+             [info :refer [durations profiling-info opencl-c-version]]]))
 
 (set! *unchecked-math* true)
 

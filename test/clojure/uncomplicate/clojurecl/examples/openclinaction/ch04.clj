@@ -11,11 +11,11 @@
             [clojure.java.io :as io]
             [clojure.core.async :refer [chan <!!]]
             [uncomplicate.commons
-             [core :refer [with-release]]
+             [core :refer [with-release info]]
              [utils :refer [direct-buffer]]]
             [uncomplicate.clojurecl
              [core :refer :all]
-             [info :refer [info endian-little]]]))
+             [info :refer [endian-little]]]))
 
 (let [notifications (chan)
       follow (register notifications)]

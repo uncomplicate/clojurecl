@@ -72,12 +72,12 @@
   [[finish!]], [[flush!]] [[with-queue]]
   "
   (:require [uncomplicate.commons
-             [core :refer [Releaseable release with-release]]
+             [core :refer [Releaseable release with-release info]]
              [utils :refer [mask]]]
             [uncomplicate.clojurecl
              [constants :refer :all]
              [utils :refer [with-check with-check-arr error]]
-             [info :refer [info build-info program-devices opencl-c-version version]]]
+             [info :refer [build-info program-devices opencl-c-version version]]]
             [clojure.string :as str]
             [clojure.core.async :refer [go >!]])
   (:import [org.jocl CL cl_platform_id cl_context_properties cl_device_id
@@ -201,7 +201,7 @@
   constants. If there are no such devices, returns 0.
 
   NOTE: You should prefer a higher-level [[num-devices]] function, unless you
-  already have a `device-type` in a long number form in your code.
+  code.
 
   When called with an invalid platform, throws [ExceptionInfo]
   (http://clojuredocs.org/clojure.core/ex-info).

@@ -11,11 +11,11 @@
             [clojure.java.io :as io]
             [clojure.core.async :refer [chan <!!]]
             [uncomplicate.commons
-             [core :refer [with-release]]
+             [core :refer [with-release info]]
              [utils :refer [direct-buffer]]]
             [uncomplicate.clojurecl
              [core :refer :all]
-             [info :refer [info durations profiling-info]]]))
+             [info :refer [durations profiling-info]]]))
 
 (set! *unchecked-math* true)
 

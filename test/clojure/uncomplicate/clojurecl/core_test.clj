@@ -9,11 +9,11 @@
 (ns uncomplicate.clojurecl.core-test
   (:require [midje.sweet :refer :all]
             [uncomplicate.commons
-             [core :refer [release with-release]]
+             [core :refer [release with-release info]]
              [utils :refer [direct-buffer]]]
             [uncomplicate.clojurecl
              [core :refer :all]
-             [info :refer [info reference-count mem-base-addr-align opencl-c-version]]]
+             [info :refer [reference-count mem-base-addr-align opencl-c-version]]]
             [clojure.core.async :refer [go >! <! <!! chan]])
   (:import [uncomplicate.clojurecl.core CLBuffer SVMBuffer]
            [org.jocl CL Pointer cl_device_id cl_context_properties cl_mem]

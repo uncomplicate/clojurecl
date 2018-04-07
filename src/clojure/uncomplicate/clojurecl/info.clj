@@ -139,7 +139,9 @@
   [[->EventInfo]], [[->Profilinginfo]], [[->MemObjectInfo]],
   "
   (:require [clojure.string :as str]
-            [uncomplicate.commons.utils :refer [unmask unmask1 buffer direct-buffer]]
+            [uncomplicate.commons
+             [core :refer [Info info]]
+             [utils :refer [unmask unmask1 buffer direct-buffer]]]
             [uncomplicate.clojurecl
              [constants :refer :all]
              [utils :refer :all]])
@@ -229,9 +231,6 @@
 
 ;; =================== Protocols ==================================
 
-(defprotocol Info
-  (info [this info-type] [this]))
-
 (defprotocol InfoExtensions
   (extensions [this]))
 
@@ -250,10 +249,6 @@
 (defprotocol InfoProperties
   (properties [this]))
 
-(extend-protocol Info
-  nil
-  (info [this]
-    :nil))
 ;; =================== Platform ===================================
 
 (defn version [platform]
