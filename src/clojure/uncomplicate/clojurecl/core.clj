@@ -1289,7 +1289,7 @@
   "Creates a host or device command queue on a specific device.
 
   ** If you need to support OpenCL 1.2 platforms, you MUST use the alternative
-  [command-queue-1*] function or or risk JVM crash. What is important is the
+  [[legacy/command-queue-1*]] function or or risk JVM crash. What is important is the
   version of the platform, not the devices. This function is for platforms
   (regardless of the devices) supporting OpenCL 2.0 and higher. **
 
@@ -1328,7 +1328,7 @@
   "Creates a host or device command queue on a specific device.
 
   ** If you need to support OpenCL 1.2 platforms, you MUST use the alternative
-  [command-queue-1] function or or risk JVM crash. What is important is the
+  [[legacy/command-queue-1*]] function or or risk JVM crash. What is important is the
   version of the platform, not the devices. This function is for platforms
   (regardless of the devices) supporting OpenCL 2.0 and higher. **
 
@@ -1927,7 +1927,8 @@
   "Dynamically binds [[*platform*]], [[*context*]] and [[*command-queue*]]
   to the first of the available platforms, the context containing the first
   device of that platform that supports the highest OpenCL version, and the queue on
-  the device in that context. Requires OpenCL 2.0 support in the platform."
+  the device in that context. Requires OpenCL 2.0 support in the platform.
+  If you're using OpenCL 1.2 or lower, use [[legacy/with-default-1]]"
   [& body]
   `(with-platform (first (remove legacy? (platforms)))
      (let [dev# (first (sort-by-cl-version (devices)))]
