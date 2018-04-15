@@ -29,8 +29,8 @@ Learning OpenCL programming requires learning the details of OpenCL C language a
 or other technologies.
 
 1. In my opinion, [OpenCL in Action](https://www.amazon.com/OpenCL-Action-Accelerate-Graphics-Computations/dp/1617290173) is by far the best, especially if you're a beginner.
-2. When you get past the beginning, you'll probably need a specific optimization guide for the platform you use. Look for is at the OpenCL page of your hardware vendor.
-3. [OpenCL API Specification](https://www.khronos.org/registry/cl/sdk/2.0/docs/man/xhtml/) and [The OpenCL C Specification](https://www.khronos.org/registry/cl/specs/opencl-2.0-openclc.pdf)(used for programming the kernels) are good references once you know what to look for.
+2. When you get past the beginning, you'll probably need a specific optimization guide for the platform you use. Look at the OpenCL page of your hardware vendor.
+3. [OpenCL API Specification](https://www.khronos.org/registry/cl/sdk/2.0/docs/man/xhtml/) and [The OpenCL C Specification](https://www.khronos.org/registry/cl/specs/opencl-2.0-openclc.pdf) (used for programming the kernels) are good references once you know what to look for.
 4. [There is a bunch of other OpenCL books](https://streamcomputing.eu/knowledge/for-developers/books/) that you might find useful after you've check out resources 1-3.
 5. Algorithms for parallel computations are generally different than classic algorithms from the textbook, and are
 usually platform-agnostic. You'll usually find a solution to your computation problem in a scientific paper or a general HPC book regardless of whether it is written for OpenCL, CUDA, or is thechnology neutral.
