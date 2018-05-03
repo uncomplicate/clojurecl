@@ -18,7 +18,7 @@
                  [org.clojure/core.async "0.4.474"]
                  [uncomplicate/commons "0.5.0"]]
 
-  :codox {:metadata {:doc/format :markdown}
+  :codox {:metadata {:doc/formt a:markdown}
           :src-dir-uri "http://github.com/uncomplicate/clojurecl/blob/master/"
           :src-linenum-anchor-prefix "L"
           :output-path "docs/codox"}

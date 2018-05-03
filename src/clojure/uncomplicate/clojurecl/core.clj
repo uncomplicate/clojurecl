@@ -497,9 +497,9 @@
   (cl-context [_]
     ctx)
   Argument
-  (set-arg [_ kernel n]
+  (set-arg [this kernel n]
     (with-check (CL/clSetKernelArg kernel n Sizeof/cl_mem cl*)
-      {:kernel (info kernel) :n n}
+      {:kernel (info kernel) :n n :arg (info this)}
       kernel)))
 
 (defn cl-buffer?
@@ -525,9 +525,9 @@
   (byte-buffer [_ offset size]
     (.order (.getByteBuffer svm* offset size) (ByteOrder/nativeOrder)))
   Argument
-  (set-arg [_ kernel n]
+  (set-arg [this kernel n]
     (with-check (CL/clSetKernelArgSVMPointer kernel n svm*)
-      {:kernel (info kernel) :n n}
+      {:kernel (info kernel) :n n :arg (info this)}
       kernel)))
 
 (defn svm-buffer?
@@ -708,14 +708,14 @@
   Argument
   (set-arg [this kernel n]
     (with-check (CL/clSetKernelArg kernel n this nil)
-      {:kernel (info kernel) :n n}
+      {:kernel (info kernel) :n n :arg (info this)}
       kernel)))
 
 (extend-type Integer
   Argument
   (set-arg [this kernel n]
     (with-check (CL/clSetKernelArg kernel n this nil)
-      {:kernel (info kernel) :n n}
+      {:kernel (info kernel) :n n :arg (info this)}
       kernel)))
 
 (extend-type (Class/forName "[F")
@@ -728,7 +728,7 @@
   (set-arg [this kernel n]
     (with-check
       (CL/clSetKernelArg kernel n (* Float/BYTES (alength ^floats this)) (Pointer/to ^floats this))
-      {:kernel (info kernel) :n n}
+      {:kernel (info kernel) :n n :arg (info this)}
       kernel)))
 
 (extend-type (Class/forName "[D")
@@ -741,7 +741,7 @@
   (set-arg [this kernel n]
     (with-check
       (CL/clSetKernelArg kernel n (* Double/BYTES (alength ^doubles this)) (Pointer/to ^doubles this))
-      {:kernel (info kernel) :n n}
+      {:kernel (info kernel) :n n :arg (info this)}
       kernel)))
 
 (extend-type (Class/forName "[I")
@@ -754,7 +754,7 @@
   (set-arg [this kernel n]
     (with-check
       (CL/clSetKernelArg kernel n (* Integer/BYTES (alength ^ints this)) (Pointer/to ^ints this))
-      {:kernel (info kernel) :n n}
+      {:kernel (info kernel) :n n :arg (info this)}
       kernel)))
 
 (extend-type (Class/forName "[J")
@@ -767,7 +767,7 @@
   (set-arg [this kernel n]
     (with-check
       (CL/clSetKernelArg kernel n (* Long/BYTES (alength ^longs this)) (Pointer/to ^longs this))
-      {:kernel (info kernel) :n n}
+      {:kernel (info kernel) :n n :arg (info this)}
       kernel)))
 
 (extend-type (Class/forName "[B")
@@ -780,7 +780,7 @@
   (set-arg [this kernel n]
     (with-check
       (CL/clSetKernelArg kernel n (alength ^bytes this) (Pointer/to ^bytes this))
-      {:kernel (info kernel) :n n}
+      {:kernel (info kernel) :n n :arg (info this)}
       kernel)))
 
 (extend-type (Class/forName "[S")
@@ -793,7 +793,7 @@
   (set-arg [this kernel n]
     (with-check
       (CL/clSetKernelArg kernel n (* Short/BYTES (alength ^shorts this)) (Pointer/to ^shorts this))
-      {:kernel (info kernel) :n n}
+      {:kernel (info kernel) :n n :arg (info this)}
       kernel)))
 
 (extend-type (Class/forName "[C")
@@ -806,7 +806,7 @@
   (set-arg [this kernel n]
     (with-check
       (CL/clSetKernelArg kernel n (* Character/BYTES (alength ^chars this)) (Pointer/to ^chars this))
-      {:kernel (info kernel) :n n}
+      {:kernel (info kernel) :n n :arg (info this)}
       kernel)))
 
 (extend-type ByteBuffer
@@ -1322,7 +1322,7 @@
                  (when (< 0 size) (.addProperty clqp CL/CL_QUEUE_SIZE size))
                  clqp)
          res (CL/clCreateCommandQueueWithProperties ctx device props err)]
-     (with-check-arr err {:device device} res))))
+     (with-check-arr err {:device (info device)} res))))
 
 (defn command-queue
   "Creates a host or device command queue on a specific device.
@@ -1400,7 +1400,7 @@
                                 (.global work-size) (.local work-size)
                                 (if wait-events (alength wait-events) 0)
                                 wait-events event)
-     {:kernel kernel}
+     {:kernel (info kernel)}
      queue))
   ([queue kernel work-size event]
    (enq-nd! queue kernel work-size nil event))
