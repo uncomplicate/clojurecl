@@ -1289,9 +1289,10 @@
   "Creates a host or device command queue on a specific device.
 
   ** If you need to support OpenCL 1.2 platforms, you MUST use the alternative
-  [[legacy/command-queue-1*]] function or or risk JVM crash. What is important is the
-  version of the platform, not the devices. This function is for platforms
-  (regardless of the devices) supporting OpenCL 2.0 and higher. **
+  [[legacy/command-queue-1*]] function. Otherwise, you will get an 
+  UnsupportedOperationException erorr. What is important is the version of the 
+  platform, not the devices. This function is for platforms (regardless of the 
+  devices) supporting OpenCL 2.0 and higher. **
 
   Arguments are:
 
@@ -1328,9 +1329,10 @@
   "Creates a host or device command queue on a specific device.
 
   ** If you need to support OpenCL 1.2 platforms, you MUST use the alternative
-  [[legacy/command-queue-1*]] function or or risk JVM crash. What is important is the
-  version of the platform, not the devices. This function is for platforms
-  (regardless of the devices) supporting OpenCL 2.0 and higher. **
+  [[legacy/command-queue-1*]] function. Otherwise, you will get an 
+  UnsupportedOperationException erorr. What is important is the version of the 
+  platform, not the devices. This function is for platforms (regardless of the 
+  devices) supporting OpenCL 2.0 and higher. **
 
   Arguments are:
 
