@@ -27,7 +27,7 @@
                     op-test-kernel (kernel prog "op_test")]
 
        (set-args! op-test-kernel cl-output) => op-test-kernel
-       (enq-nd! cqueue op-test-kernel work-sizes) => cqueue
+       (enq-kernel! cqueue op-test-kernel work-sizes) => cqueue
        (enq-read! cqueue cl-output host-output) => cqueue
        (vec host-output) => [-1 0 0 4])))
 
@@ -42,7 +42,7 @@
                     id-check-kernel (kernel prog "id_check")]
 
        (set-args! id-check-kernel cl-output) => id-check-kernel
-       (enq-nd! cqueue id-check-kernel work-sizes) => cqueue
+       (enq-kernel! cqueue id-check-kernel work-sizes) => cqueue
        (enq-read! cqueue cl-output host-output) => cqueue
        (seq host-output)
        => (just (roughly 35.0) (roughly 45.1) (roughly 55.2)
@@ -75,7 +75,7 @@
        => mod-round-kernel
        (enq-write! cqueue cl-mod-input host-mod-input) => cqueue
        (enq-write! cqueue cl-round-input host-round-input) => cqueue
-       (enq-nd! cqueue mod-round-kernel work-sizes) => cqueue
+       (enq-kernel! cqueue mod-round-kernel work-sizes) => cqueue
        (enq-read! cqueue cl-mod-output host-mod-output) => cqueue
        (enq-read! cqueue cl-round-output host-round-output) => cqueue
        (seq host-mod-output) => '(18.0 -5.0)
@@ -106,7 +106,7 @@
        => polar-rect-kernel
        (enq-write! cqueue cl-rvals rvals) => cqueue
        (enq-write! cqueue cl-angles angles) => cqueue
-       (enq-nd! cqueue polar-rect-kernel work-sizes) => cqueue
+       (enq-kernel! cqueue polar-rect-kernel work-sizes) => cqueue
        (enq-read! cqueue cl-xcoords xcoords) => cqueue
        (enq-read! cqueue cl-ycoords ycoords) => cqueue
        (seq xcoords) => (just (roughly 0.76536685) (roughly -0.70710677)
@@ -125,7 +125,7 @@
                     mad-test-kernel (kernel prog "mad_test")]
 
        (set-args! mad-test-kernel cl-output) => mad-test-kernel
-       (enq-nd! cqueue mad-test-kernel work-sizes) => cqueue
+       (enq-kernel! cqueue mad-test-kernel work-sizes) => cqueue
        (enq-read! cqueue cl-output output) => cqueue
        (vec output) => [-396694989 1118792])))
 
@@ -142,7 +142,7 @@
                     select-test-kernel (kernel prog "select_test")]
 
        (set-args! select-test-kernel cl-s1 cl-s2) => select-test-kernel
-       (enq-nd! cqueue select-test-kernel work-sizes) => cqueue
+       (enq-kernel! cqueue select-test-kernel work-sizes) => cqueue
        (enq-read! cqueue cl-s1 s1) => cqueue
        (enq-read! cqueue cl-s2 s2) => cqueue
        (vec s1) => [1.25 0.5 1.75 1.0]

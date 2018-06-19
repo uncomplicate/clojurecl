@@ -18,18 +18,11 @@
   (size [this]
     "Memory size of this cl or host object in bytes."))
 
-(defprotocol Contextual
-  "An object that has some dependency on a `cl_context`."
-  (cl-context [this]
-    "Context that is related to this object."))
-
 (defprotocol CLMem
   "A wrapper for `cl_mem` objects, that also holds a `Pointer` to the cl mem
   object, context that created it, and size in bytes. It is useful in many
   functions that need that (redundant in Java) data because of the C background
   of OpenCL functions."
-  (cl-mem [this]
-    "The raw JOCL `cl_mem` object.")
   (enq-copy* [this queue dst src-offset dst-offset cb wait-events ev]
     "A specific implementation for copying this `cl-mem` object to another cl mem.")
   (enq-fill* [this queue pattern offset multiplier wait-events ev]

@@ -37,7 +37,7 @@
      (-> cqueue
          (enq-write! (mem-objects 0) src-array-a)
          (enq-write! (mem-objects 1) src-array-b)
-         (enq-nd! sample-kernel work-sizes)
+         (enq-kernel! sample-kernel work-sizes)
          (enq-read! (mem-objects 2) dest-array))
      => cqueue
 
@@ -63,7 +63,7 @@
        (set-arg! sample-kernel 1 mem-object-b) => sample-kernel
        (set-arg! sample-kernel 2 mem-object-dest) => sample-kernel
 
-       (enq-nd! cqueue sample-kernel work-sizes) => cqueue
+       (enq-kernel! cqueue sample-kernel work-sizes) => cqueue
 
        (let [dest-buffer (enq-map-buffer! cqueue mem-object-dest :read)]
          (.getFloat ^ByteBuffer dest-buffer 0) => 102.0

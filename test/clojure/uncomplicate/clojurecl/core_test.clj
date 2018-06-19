@@ -13,7 +13,7 @@
              [utils :refer [direct-buffer]]]
             [uncomplicate.clojurecl
              [core :refer :all]
-             [info :refer [reference-count mem-base-addr-align opencl-c-version]]]
+             [info :refer [reference-count mem-base-addr-align opencl-c-version queue-context]]]
             [uncomplicate.clojurecl.internal
              [api :refer [size ptr byte-buffer]]
              [impl :refer :all]]
@@ -62,14 +62,14 @@
  "devices tests"
 
  (let [p (first (remove legacy? (platforms)))]
-   (vec (devices* p CL/CL_DEVICE_TYPE_ALL)) => (devices p :all)
+   ;;(vec (devices* p CL/CL_DEVICE_TYPE_ALL)) => (devices p :all)
 
    (count (devices p :all)) => (num-devices p :all)
 
    (devices p :gpu :cpu) => (concat (devices p :gpu) (devices p :cpu))
    (devices p :custom) => []
 
-   (type (first (devices p :cpu))) => cl_device_id
+   (type (first (devices p :cpu))) => uncomplicate.clojurecl.internal.impl.CLDevice
 
    (with-platform p
      (devices :all) => (devices p :all)
@@ -86,8 +86,7 @@
        da (first (devices p))
        db (first (devices p))]
    (reference-count da) => 1
-   (reference-count db) => 1
-   (do (release da) (reference-count da)) => 1))
+   (reference-count db) => 1))
 
 ;; ================== Context tests ========================
 
@@ -127,6 +126,7 @@
          ;; TODO I am not sure how this CreateContextFunction mechanism work.
          ;; It is implemented, but I do not know how to raise an error that
          ;; shoud then reported through the channel. Test it later.)
+
          (let [ch (chan)
                ctx (context* adevs props ch :some-data)]
            (reference-count ctx) => 1
@@ -152,21 +152,24 @@
        "queue tests"
        (with-release [ctx (context devs)
                       cl-data (cl-buffer ctx Float/BYTES :read-write)]
-         (let [queue (command-queue ctx dev)]
+         (let [queue (command-queue ctx dev)
+               cl-queue (deref queue)]
            (reference-count queue) => 1
-           (info queue :context) => ctx
-           (release queue) => true)
+           (queue-context queue) => ctx
+           (info queue :properties) => #{}
+           (release queue) => true
+           (reference-count cl-queue) => 0)
 
-         (let [queue (command-queue* ctx dev 0)]
+         (let [queue (command-queue* @ctx @dev 0)]
            (reference-count queue) => 1
-           (info queue :context) => ctx
+           (queue-context queue) => ctx
            (info queue :properties) => #{}
            (type (info queue :size)) => String
            (release queue) => true)
 
-         (let [queue (command-queue* ctx dev 0 5)]
+         (let [queue (command-queue* @ctx @dev 0 5)]
            (reference-count queue) => 1
-           (info queue :context) => ctx
+           (queue-context queue) => ctx
            (info queue :properties) => #{:queue-on-device :out-of-order-exec-mode}
            (info queue :size) => (info dev :queue-on-device-preferred-size)
            (release queue) => true)
@@ -174,24 +177,21 @@
          (with-context (context devs)
            (let [queue (command-queue dev)]
              (reference-count queue) => 1
-             (info queue :context) => *context*
+             (queue-context queue) => *context*
              (info queue :properties) => #{}
              (release queue) => true))
 
-         (let [queue (command-queue ctx dev :queue-on-device
-                                    :out-of-order-exec-mode :profiling)]
+         (let [queue (command-queue ctx dev :queue-on-device :out-of-order-exec-mode :profiling)]
            (reference-count queue) => 1
-           (info queue :context) => ctx
+           (queue-context queue) => ctx
            (info queue :properties) => #{:profiling :out-of-order-exec-mode
                                          :queue-on-device}
            (release queue) => true)
 
-         (let [queue (command-queue ctx dev 524288 :queue-on-device
-                                    :out-of-order-exec-mode :profiling)]
+         (let [queue (command-queue ctx dev 524288 :queue-on-device :out-of-order-exec-mode :profiling)]
            (reference-count queue) => 1
-           (info queue :context) => ctx
-           (info queue :properties) => #{:profiling :out-of-order-exec-mode
-                                         :queue-on-device}
+           (queue-context queue) => ctx
+           (info queue :properties) => #{:profiling :out-of-order-exec-mode :queue-on-device}
            (info queue :size) => 524288
            (release queue) => true)
 
@@ -207,8 +207,7 @@
                     (first (filter #(<= 2.0 (:version (opencl-c-version %)))
                                    (devices (first (remove legacy? (platforms)))))))]
      (with-release [cl-buf (cl-buffer (* 4 alignment Float/BYTES))
-                    cl-subbuf (cl-sub-buffer cl-buf (* alignment Float/BYTES)
-                                             (* alignment Float/BYTES))]
+                    cl-subbuf (cl-sub-buffer cl-buf (* alignment Float/BYTES) (* alignment Float/BYTES))]
        (cl-buffer? cl-subbuf) => true
        (let [data-arr (float-array (range (* 4 alignment)))
              buf-arr (float-array (* 4 alignment))
@@ -233,7 +232,7 @@
    (let [ch (chan)
          ev (host-event)]
      (->EventCallback ch) =not=> nil
-     (do (.function (event-callback ch) ev CL/CL_QUEUED :my-data)
+     (do (.function (->EventCallback ch) ev CL/CL_QUEUED :my-data)
          (:event (<!! ch)) => ev))
 
    (with-release [cl-buf (cl-buffer Float/BYTES)]
@@ -242,7 +241,7 @@
            follow (register notifications)]
        (enq-write! *command-queue* cl-buf (float-array 1) ev)
        (follow ev)
-       (:event (<!! notifications)) => ev)))
+       (:event (<!! notifications)) => @ev)))
 
   (let [src (slurp "test/opencl/core_test.cl")
         cnt 8
@@ -268,6 +267,7 @@
       ;; unprepared objects (kernels of unbuilt program).
       ;; Solve and test such cases systematically in info.clj
       ;; in a similar way as kernels check for program binaries first.
+
       (facts
        (info (program-with-source [src])) =not=> nil)
 
@@ -294,9 +294,9 @@
               data (float-array (range cnt))
               copy-data (float-array cnt)]
           (facts
-           "enq-nd!, enq-read!, enq-write!, enq-copy! enq-fill tests"
+           "enq-kernel!, enq-read!, enq-write!, enq-copy! enq-fill tests"
            (enq-write! cl-data data) => *command-queue*
-           (enq-nd! dumb-kernel wsize) => *command-queue*
+           (enq-kernel! dumb-kernel wsize) => *command-queue*
            (enq-read! cl-data data) => *command-queue*
            (vec data) => [84.0 86.0 88.0 90.0 92.0 94.0 96.0 98.0]
            (enq-copy! cl-data cl-copy-data) => *command-queue*
@@ -332,12 +332,12 @@
      "wait-events tests"
      (set-args! dumb-kernel cl-data Integer/BYTES (int-array [42]))
      (enq-write! queue1 cl-data data ev-write)
-     (enq-nd! queue1 dumb-kernel wsize (events ev-write) ev-nd1)
-     (enq-nd! queue2 dumb-kernel wsize (events ev-write ev-nd1) ev-nd2)
+     (enq-kernel! queue1 dumb-kernel wsize (events ev-write) ev-nd1)
+     (enq-kernel! queue2 dumb-kernel wsize (events ev-write ev-nd1) ev-nd2)
      (enq-read! queue1 cl-data data (events ev-nd2) ev-read)
      (follow ev-read)
 
-     (:event (<!! notifications)) => ev-read
+     (:event (<!! notifications)) => @ev-read
 
      (vec (let [res (float-array cnt)] (.get (.asFloatBuffer ^ByteBuffer data) res) res))
      => [168.0 171.0 174.0 177.0 180.0 183.0 186.0 189.0]
@@ -368,11 +368,16 @@
      (.putFloat ^ByteBuffer (byte-buffer svm) 4 42.0)
      (.getFloat ^ByteBuffer (byte-buffer svm) 4) => 42.0
      (enq-svm-unmap! queue svm) => queue
-     (enq-nd! queue dumb-kernel wsize) => queue
+     (enq-kernel! queue dumb-kernel wsize) => queue
      (enq-svm-map! queue svm :read)
      (.getFloat ^ByteBuffer (byte-buffer svm) 4) => 127.0
      (enq-svm-unmap! queue svm) => queue
 
      (svm-buffer* nil 4 0) => (throws IllegalArgumentException)
-     (svm-buffer* ctx 0 0) => (throws IllegalArgumentException)
+     (svm-buffer* @ctx 0 0) => (throws IllegalArgumentException)
      (svm-buffer ctx 4 0 :invalid-flag) => (throws NullPointerException))))
+
+(with-default-1
+  (facts "Legacy bindings"
+         *context* => truthy
+         *command-queue* => truthy))

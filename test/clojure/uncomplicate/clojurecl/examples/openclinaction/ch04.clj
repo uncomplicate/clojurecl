@@ -36,7 +36,7 @@
                       read-complete (event)]
 
          (set-args! hello-kernel cl-msg) => hello-kernel
-         (enq-nd! cqueue hello-kernel work-sizes) => cqueue
+         (enq-kernel! cqueue hello-kernel work-sizes) => cqueue
          (enq-read! cqueue cl-msg host-msg read-complete) => cqueue
          (follow read-complete host-msg) => notifications
          (let [data ^java.nio.ByteBuffer (:data (<!! notifications))
@@ -67,7 +67,7 @@
          (set-args! double-test cl-a cl-b cl-out) => double-test
          (enq-write! cqueue cl-a host-a) => cqueue
          (enq-write! cqueue cl-b host-b) => cqueue
-         (enq-nd! cqueue double-test work-sizes) => cqueue
+         (enq-kernel! cqueue double-test work-sizes) => cqueue
          (enq-read! cqueue cl-out host-out) => cqueue
          (seq host-out) => (map / host-a host-b))))
 
@@ -98,7 +98,7 @@
 
          (set-args! vector-bytes cl-data) => vector-bytes
          (enq-write! cqueue cl-data host-data) => cqueue
-         (enq-nd! cqueue vector-bytes work-sizes) => cqueue
+         (enq-kernel! cqueue vector-bytes work-sizes) => cqueue
          (enq-read! cqueue cl-data host-data) => cqueue
          (seq host-data) => (if (endian-little dev)
                               [3 2 1 0 7 6 5 4 11 10 9 8 15 14 13 12]

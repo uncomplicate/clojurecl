@@ -54,7 +54,7 @@
         ;; ============ Naive reduction ======================================
         (set-args! naive-reduction cl-data cl-output) => naive-reduction
         (enq-write! cqueue cl-data data) => cqueue
-        (enq-nd! cqueue naive-reduction (work-size [1]) nil profile-event)
+        (enq-kernel! cqueue naive-reduction (work-size [1]) nil profile-event)
         => cqueue
         (follow profile-event) => notifications
         (enq-read! cqueue cl-output output) => cqueue
@@ -65,7 +65,7 @@
         ;; ============= Scalar reduction ====================================
         (set-args! reduction-scalar cl-data cl-partial-sums cl-partial-output)
         => reduction-scalar
-        (enq-nd! cqueue reduction-scalar
+        (enq-kernel! cqueue reduction-scalar
                  (work-size [num-items] [workgroup-size])
                  nil profile-event)
         (follow profile-event)
@@ -77,13 +77,13 @@
         ;; =============== Vector reduction ==================================
         (set-args! reduction-vector cl-data cl-partial-sums cl-partial-output)
         => reduction-vector
-        (enq-nd! cqueue reduction-vector
+        (enq-kernel! cqueue reduction-vector
                  (work-size [(/ num-items 4)] [workgroup-size])
                  nil profile-event1)
         (follow profile-event1)
         (set-args! reduction-vector cl-partial-output cl-partial-sums cl-partial-output)
         => reduction-vector
-        (enq-nd! cqueue reduction-vector
+        (enq-kernel! cqueue reduction-vector
                  (work-size [(/ num-items 4 workgroup-size 4)] [workgroup-size])
                  nil profile-event2)
         (follow profile-event2)

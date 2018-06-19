@@ -48,7 +48,7 @@
         => string-search
         (enq-write! cqueue cl-text kafka) => cqueue
         (enq-write! cqueue cl-result result) => cqueue
-        (enq-nd! cqueue string-search work-size) => cqueue
+        (enq-kernel! cqueue string-search work-size) => cqueue
         (enq-read! cqueue cl-result result) => cqueue
         (finish! cqueue) => cqueue
         (vec result) => [330 237 110 116])))))

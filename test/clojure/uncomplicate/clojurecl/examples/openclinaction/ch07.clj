@@ -37,12 +37,12 @@
                     read-event (event)]
        (facts
         (set-args! user-event-kernel cl-v) => user-event-kernel
-        (enq-nd! cqueue user-event-kernel work-sizes (events user-event) kernel-event)
+        (enq-kernel! cqueue user-event-kernel work-sizes (events user-event) kernel-event)
         => cqueue
         (enq-read! cqueue cl-v v (events kernel-event) read-event) => cqueue
         (follow read-event) => notifications
         (set-status! user-event) => user-event
-        (:event (<!! notifications)) => read-event))))
+        (:event (<!! notifications)) => @read-event))))
 
   (facts
    "Listing 7.6. Page 155."
@@ -61,7 +61,7 @@
        (facts
         (set-args! profile-read cl-data num) => profile-read
 
-        (enq-nd! cqueue profile-read work-sizes)
+        (enq-kernel! cqueue profile-read work-sizes)
         (enq-read! cqueue cl-data data profile-event)
         (follow profile-event)
 
@@ -85,7 +85,7 @@
                     profile-event (event)]
        (facts
         (set-args! profile-items cl-x (int-array [num-ints])) => profile-items
-        (enq-nd! cqueue profile-items work-sizes nil profile-event)
+        (enq-kernel! cqueue profile-items work-sizes nil profile-event)
         (follow profile-event)
 
         (< 10000

@@ -13,7 +13,6 @@
              [utils :refer [direct-buffer]]]
             [uncomplicate.clojurecl
              [core :refer :all]
-             [legacy :refer [command-queue-1]]
              [info :refer :all]
              [toolbox :refer :all]])
   (:import java.nio.ByteBuffer))

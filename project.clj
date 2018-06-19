@@ -16,7 +16,8 @@
   :dependencies [[org.clojure/clojure "1.9.0"]
                  [org.jocl/jocl "2.0.0"]
                  [org.clojure/core.async "0.4.474"]
-                 [uncomplicate/commons "0.5.0"]]
+                 [uncomplicate/commons "0.6.0-SNAPSHOT"]
+                 [uncomplicate/fluokitten "0.7.0-SNAPSHOT"]]
 
   :codox {:metadata {:doc/formt a:markdown}
           :src-dir-uri "http://github.com/uncomplicate/clojurecl/blob/master/"

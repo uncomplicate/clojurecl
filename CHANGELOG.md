@@ -1,5 +1,18 @@
 # [ClojureCL](http://clojurecl.uncomplicate.org) - notable changes between versions
 
+## 0.10.0
+
+### Breaking Changes
+
+* enq-nd! renamed to enq-kernel!
+* XXX* methods moved to internal implementation namespace.
+* OpenCL 1 functions moved from legacy namespace to core.
+
+### Enhancements
+
+* JOCL objects are now wrapped to protect them from (accidental) repeated memory releases.
+* Improved info.
+
 ## 0.9.0
 
 * Simplified toolbox enq-reduce for 2D reductions

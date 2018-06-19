@@ -62,7 +62,7 @@
   [[num-kernels]], [[kernel]], [[set-arg!]], [[set-args!]], [[set-arg]].
 
   * [`cl_command_queue`](http://www.jocl.org/doc/org/jocl/cl_kernel.html):
-  [[command-queue]], [[work-size]], [[enq-nd!]],
+  [[command-queue]], [[work-size]], [[enq-kernel!]],
   [[enq-read!]], [[enq-write!]], [[enq-copy!]], [[enq-fill!]], [[enq-map-buffer!]], [[enq-unmap!]],
   [[enq-svm-map!]], [[enq-svm-unmap!]], [[enq-marker!]], [[enq-wait!]], [[enq-barrier!]],
   [[finish!]], [[flush!]] [[with-queue]].
@@ -70,6 +70,7 @@
   (:require [uncomplicate.commons
              [core :refer [release with-release info]]
              [utils :refer [mask]]]
+            [uncomplicate.fluokitten.core :refer [fmap fold]]
             [uncomplicate.clojurecl.info :refer [build-info program-devices opencl-c-version version]]
             [uncomplicate.clojurecl.internal
              [api :refer :all]
@@ -185,7 +186,7 @@
   "Queries `platform` for the devices of one or a combination of
   several `device-type`s:
   `:gpu`, `:cpu`, `:all`, `:accelerator`, `:custom`, `:default`,
-  and returns them in a vector containing `cl_device_id` objects.
+  and returns them in a vector containing [[internal/CLDevice]] objects.
 
   When called with only one argument `x`:
 
@@ -200,7 +201,7 @@
   (http://clojuredocs.org/clojure.core/ex-info). When called with an unknown
   device type, throws `NullPointerException`
 
-  See also [[devices*]].
+  See also [[internal/devices*]].
 
   Examples:
 
@@ -210,13 +211,13 @@
       (devices (first (platforms)) :gpu :cpu :accelerator)
   "
   ([platform device-type & device-types]
-   (vec (devices* platform (mask cl-device-type device-type device-types))))
+   (fmap wrap-device (vec (devices* platform (mask cl-device-type device-type device-types)))))
   ([x]
    (if (keyword? x)
      (devices *platform* x)
-     (vec (devices* x CL/CL_DEVICE_TYPE_ALL))))
+     (fmap wrap-device (vec (devices* x CL/CL_DEVICE_TYPE_ALL)))))
   ([]
-   (vec (devices* *platform* CL/CL_DEVICE_TYPE_ALL))))
+   (fmap wrap-device (vec (devices* *platform* CL/CL_DEVICE_TYPE_ALL)))))
 
 ;; ========================= Context ===========================================
 
@@ -233,7 +234,7 @@
           props))
 
 (defn context
-  "Creates `cl_context` for a vector of `device`s, with optional
+  "Create [[internal/CLContext]] for a vector of `device`s, with optional
   hashmap of `properties`, error reporting core.async channel `ch`
   and user data that should accompany the error report. If called with
   no arguments, creates a context using all devices of the default
@@ -253,9 +254,9 @@
         (context (devices (first (platforms))) {:platform p} (chan) :my-data)
   "
   ([devices properties ch user-data]
-   (context* (into-array cl_device_id devices)
-             (and (seq properties) (context-properties properties))
-             ch user-data))
+   (wrap-context (context* (into-array cl_device_id (fmap fold devices))
+                           (and (seq properties) (context-properties properties))
+                           ch user-data)))
   ([devices]
    (context devices nil nil nil))
   ([]
@@ -327,11 +328,11 @@
   (cl-buffer ctx 24 :write-only)
   "
   ([ctx size flag & flags]
-   (cl-buffer* ctx size (mask cl-mem-flags flag flags)))
+   (cl-buffer* (fold ctx) size (mask cl-mem-flags flag flags)))
   ([^long size flag]
-   (cl-buffer* *context* size (cl-mem-flags flag)))
+   (cl-buffer* (fold *context*) size (cl-mem-flags flag)))
   ([^long size]
-   (cl-buffer* *context* size 0)))
+   (cl-buffer* (fold *context*) size 0)))
 
 (defn cl-sub-buffer
   "Creates a cl buffer object ([[CLBuffer]]) that shares data with an existing
@@ -355,9 +356,9 @@
       (cl-sub-buffer cl-buff 8 16)
   "
   ([buffer origin size flag & flags]
-   (cl-sub-buffer* buffer (mask cl-mem-flags flag flags) (cl_buffer_region. origin size)))
+   (cl-sub-buffer* (fold buffer) (mask cl-mem-flags flag flags) (cl_buffer_region. origin size)))
   ([buffer origin size]
-   (cl-sub-buffer* buffer 0 (cl_buffer_region. origin size))))
+   (cl-sub-buffer* (fold buffer) 0 (cl_buffer_region. origin size))))
 
 (defn svm-buffer
   "Creates a svm buffer object ([[SVMBuffer]]) in `ctx`, given `size` and `alignment`
@@ -384,24 +385,24 @@
       (svm-buffer ctx 24 0 :fine-grain-buffer :atomics)
   "
   ([ctx size alignment & flags]
-   (svm-buffer* ctx size (mask cl-svm-mem-flags flags) alignment))
+   (svm-buffer* (fold ctx) size (mask cl-svm-mem-flags flags) alignment))
   ([^long size flag]
-   (svm-buffer* *context* size (cl-svm-mem-flags flag) 0))
+   (svm-buffer* (fold *context*) size (cl-svm-mem-flags flag) 0))
   ([^long size]
-   (svm-buffer* *context* size 0 0)))
+   (svm-buffer* (fold *context*) size 0 0)))
 
 ;; ============== Events ==========================================
 
 (defn event
-  "creates new `cl_event`.
+  "creates new [[internal/CLEvent]].
 
   see http://www.jocl.org/doc/org/jocl/cl_event.html.
   "
   []
-  (cl_event.))
+  (wrap-event (cl_event.)))
 
 (defn host-event
-  "Creates new `cl_event` on the host (in OpenCL terminology,
+  "Creates new [[internal/CLEvent]] on the host (in OpenCL terminology,
   known as \"user\" event.
 
   If called without `ctx` argument, uses [[*context*]].
@@ -415,7 +416,7 @@
    (host-event *context*))
   ([ctx]
    (let [err (int-array 1)
-         res (CL/clCreateUserEvent ctx err)]
+         res (CL/clCreateUserEvent (fold ctx) err)]
      (with-check-arr err {:ctx (info ctx)} res))))
 
 (defn events
@@ -425,40 +426,40 @@
    (make-array cl_event 0))
   (^objects [e]
    (doto ^objects (make-array cl_event 1)
-     (aset 0 e)))
+     (aset 0 (fold e))))
   (^objects [e0 e1]
    (doto ^objects (make-array cl_event 2)
-     (aset 0 e0)
-     (aset 1 e1)))
+     (aset 0 (fold e0))
+     (aset 1 (fold e1))))
   (^objects [e0 e1 e2]
    (doto ^objects (make-array cl_event 3)
-     (aset 0 e0)
-     (aset 1 e1)
-     (aset 2 e2)))
+     (aset 0 (fold e0))
+     (aset 1 (fold e1))
+     (aset 2 (fold e2))))
   (^objects [e0 e1 e2 e3]
    (doto ^objects (make-array cl_event 4)
-     (aset 0 e0)
-     (aset 1 e1)
-     (aset 2 e2)
-     (aset 3 e3)))
+     (aset 0 (fold e0))
+     (aset 1 (fold e1))
+     (aset 2 (fold e2))
+     (aset 3 (fold e3))))
   (^objects [e0 e1 e2 e3 e4]
    (doto ^objects (make-array cl_event 5)
-     (aset 0 e0)
-     (aset 1 e1)
-     (aset 2 e2)
-     (aset 3 e3)
-     (aset 4 e4)))
+     (aset 0 (fold e0))
+     (aset 1 (fold e1))
+     (aset 2 (fold e2))
+     (aset 3 (fold e3))
+     (aset 4 (fold e4))))
   (^objects [e0 e1 e2 e3 e4 & es]
    (let [len (+ 5 (count es))
          res (doto ^objects (make-array cl_event len)
-               (aset 0 e0)
-               (aset 1 e1)
-               (aset 2 e2)
-               (aset 3 e3)
-               (aset 4 e4))]
+               (aset 0 (fold e0))
+               (aset 1 (fold e1))
+               (aset 2 (fold e2))
+               (aset 3 (fold e3))
+               (aset 4 (fold e4)))]
      (loop [i 5 es es]
        (if (< i len)
-         (do (aset res i (first es))
+         (do (aset res i (fold (first es)))
              (recur (inc i) (next es)))
          res)))))
 
@@ -499,11 +500,11 @@
          callb-type (get cl-command-execution-status callback-type CL/CL_COMPLETE)]
      (fn
        ([e callback-type data]
-        (set-event-callback* e callback (cl-command-execution-status callback-type) data))
+        (set-event-callback* (fold e) callback (cl-command-execution-status callback-type) data))
        ([e data]
-        (set-event-callback* e callback callb-type data))
+        (set-event-callback* (fold e) callback callb-type data))
        ([e]
-        (set-event-callback* e callback callb-type nil)))))
+        (set-event-callback* (fold e) callback callb-type nil)))))
   ([channel]
    (register channel nil)))
 
@@ -522,7 +523,7 @@
       (set-status! ev -12) ;; indicates and error code -12
   "
   ([ev ^long status]
-   (let [err (CL/clSetUserEventStatus ev (if (< status 0) status CL/CL_COMPLETE))]
+   (let [err (CL/clSetUserEventStatus (fold ev) (if (< status 0) status CL/CL_COMPLETE))]
      (with-check err ev)))
   ([ev]
    (set-status! ev CL/CL_COMPLETE)))
@@ -530,7 +531,7 @@
 ;; ============= Program ==========================================
 
 (defn program-with-source
-  "Creates a `cl_program` for the context and loads the source code
+  "Creates a [[internal/CLPRogram]] for the context and loads the source code
   specified by the text strings given in the `source` sequence.
   When called with one argument, uses [[*context*]].
 
@@ -552,7 +553,7 @@
   ([ctx source]
    (let [err (int-array 1)
          n (count source)
-         res (CL/clCreateProgramWithSource ctx n (into-array String source) nil err)]
+         res (CL/clCreateProgramWithSource (fold ctx) n (into-array String source) nil err)]
      (with-check-arr err {:ctx (info ctx) :source source} res)))
   ([source]
    (program-with-source *context* source)))
@@ -563,9 +564,9 @@
 
   Accepts the following arguments (nil is allowed for all optional arguments):
 
-  * `program`: previously loaded `cl_program` that contains the program
+  * `program`: previously loaded [[internal/CLProgram]] that contains the program
   source or binary;
-  * `devices` (optional): an optional sequence of `cl_device`s associated with
+  * `devices` (optional): an optional sequence of [[internal/CLDevice]] associated with
   the program (if not supplied, all devices are used);
   * `options` (optional): an optional string of compiler options
   (such as \"-Dname=value\");
@@ -588,8 +589,8 @@
       (build-program! program [dev] \"-cl-std=CL2.0\" ch :my-data) ; async
   "
   ([program devices options ch user-data]
-   (let [err (CL/clBuildProgram program (count devices)
-                                (if devices (into-array cl_device_id devices) nil)
+   (let [err (CL/clBuildProgram (fold program) (count devices)
+                                (if devices (into-array cl_device_id (fmap fold devices)) nil)
                                 options
                                 (if ch (->BuildCallback ch) nil)
                                 user-data)]
@@ -613,7 +614,7 @@
   "
   ^long [program]
   (let [res (int-array 1)
-        err (CL/clCreateKernelsInProgram program 0 nil res)]
+        err (CL/clCreateKernelsInProgram (fold program) 0 nil res)]
     (with-check err (aget res 0))))
 
 (defn kernel
@@ -636,13 +637,13 @@
   "
   ([program name]
    (let [err (int-array 1)
-         res (CL/clCreateKernel program name err)]
+         res (CL/clCreateKernel (fold program) name err)]
      (with-check-arr err {:name name} res)))
   ([program]
    (let [nk (num-kernels program)
          res (make-array cl_kernel nk)
-         err (CL/clCreateKernelsInProgram program nk res nil)]
-     (vec (with-check err res)))))
+         err (CL/clCreateKernelsInProgram (fold program) nk res nil)]
+     (with-check err (fmap wrap-kernel (vec res))))))
 
 (defn set-arg!
   "Sets the argument value for a specific positional argument of a kernel.
@@ -672,7 +673,8 @@
       (set-arg! my-kernel 3 42)
   "
   [kernel n value]
-  (set-arg value kernel n))
+  (set-arg value (fold kernel) n)
+  kernel)
 
 (defn set-args!
   "Sets all provided arguments of `kernel`, starting from optional index `x`,
@@ -704,7 +706,7 @@
   holding as many arguments, as there are dimensions in the appropriate
   ND kernel. In OpenCL 2.0, it is usually 1, 2, or 3, depending on the device.
 
-  See [[enq-nd!]]
+  See [[enq-kernel!]]
   Examples:
 
       (work-size [102400 25600] [1024 128] [4 8])
@@ -819,7 +821,7 @@
   "Creates a host or device command queue on a specific device.
 
   ** If you need to support OpenCL 1.2 platforms, you MUST use the alternative
-  [[legacy/command-queue-1*]] function. Otherwise, you will get an
+  [[command-queue-1*]] function. Otherwise, you will get an
   UnsupportedOperationException erorr. What is important is the version of the
   platform, not the devices. This function is for platforms (regardless of the
   devices) supporting OpenCL 2.0 and higher. **
@@ -852,14 +854,63 @@
   "
   ([ctx device x & properties]
    (if (integer? x)
-     (command-queue* ctx device x (mask cl-command-queue-properties properties))
-     (command-queue* ctx device 0 (mask cl-command-queue-properties x properties))))
+     (wrap-command-queue (command-queue* (fold ctx) (fold device) x
+                                         (mask cl-command-queue-properties properties)))
+     (wrap-command-queue (command-queue* (fold ctx) (fold device) 0
+                                         (mask cl-command-queue-properties x properties)))))
   ([ctx device]
-   (command-queue* ctx device 0 0))
+   (wrap-command-queue (command-queue* (fold ctx) (fold device) 0 0)))
   ([device]
-   (command-queue* *context* device 0 0)))
+   (command-queue *context* device)))
 
-(defn enq-nd!
+(defn command-queue-1
+  "Creates a host or device command queue on a specific device.
+
+  ** If you need to support legacy OpenCL 1.2 or earlier platforms,
+  you MUST use this  function instead of [command-queue], which is for
+  OpenCL 2.0 and higher. What is important is the version of the platform,
+  not the devices.**
+
+  Arguments are:
+
+  * `ctx` - the `cl_context` for the queue;
+  * `device` - the `cl_device_id` for the queue;
+  * `x` - if integer, the size of the (on device) queue, otherwise treated
+  as property;
+  * `properties` - additional optional keyword properties: `:profiling`,
+  `:queue-on-device`, `:out-of-order-exec-mode`, and `queue-on-device-default`;
+
+  **Needs to be released after use.**
+
+  See also [[command-queue-1*]].
+
+  If called with invalid context or device, throws `ExceptionInfo`.
+  If called with any invalid property, throws NullPointerexception.
+
+  See https://www.khronos.org/registry/cl/sdk/2.0/docs/man/xhtml/clCreateCommandQueueWithProperties.html,
+  https://www.khronos.org/registry/cl/sdk/1.2/docs/man/xhtml/clCreateCommandQueue.html,
+  http://www.jocl.org/doc/org/jocl/CL.html#clCreateCommandQueueWithProperties-org.jocl.cl_context-org.jocl.cl_device_id-org.jocl.cl_queue_properties-int:A-
+  http://www.jocl.org/doc/org/jocl/CL.html#clCreateCommandQueue-org.jocl.cl_context-org.jocl.cl_device_id-long-int:A-
+
+  Examples:
+
+       (command-queue-1 ctx)
+       (command-queue-1 ctx dev)
+       (command-queue-1 ctx dev :profiling)
+       (command-queue-1 ctx dev 524288 :queue-on-device)
+  "
+  ([ctx device x & properties]
+   (if (integer? x)
+     (wrap-command-queue (command-queue-1* (fold ctx) (fold device) x
+                                           (mask cl-command-queue-properties properties)))
+     (wrap-command-queue (command-queue-1* (fold ctx) (fold device) 0
+                                           (mask cl-command-queue-properties x properties)))))
+  ([ctx device]
+   (wrap-command-queue (command-queue-1* (fold ctx) (fold device) 0 0)))
+  ([device]
+   (command-queue-1 *context* device)))
+
+(defn enq-kernel!
   "Enqueues a command to asynchronously execute a kernel on a device.
   Returns the queue.
 
@@ -882,24 +933,24 @@
 
   Examples:
 
-      (enq-nd! my-kernel (work-size [8]))
-      (enq-nd! my-queue my-kernel (work-size [8]))
-      (enq-nd! my-queue my-kernel (work-size [8] (events event1 event2) my-event))
+      (enq-kernel! my-kernel (work-size [8]))
+      (enq-kernel! my-queue my-kernel (work-size [8]))
+      (enq-kernel! my-queue my-kernel (work-size [8] (events event1 event2) my-event))
   "
   ([queue kernel ^WorkSize work-size ^objects wait-events event]
    (with-check
-     (CL/clEnqueueNDRangeKernel queue kernel (.workdim work-size) (.offset work-size)
+     (CL/clEnqueueNDRangeKernel (fold queue) (fold kernel) (.workdim work-size) (.offset work-size)
                                 (.global work-size) (.local work-size)
                                 (if wait-events (alength wait-events) 0)
-                                wait-events event)
+                                wait-events (fold event))
      {:kernel (info kernel)}
      queue))
   ([queue kernel work-size event]
-   (enq-nd! queue kernel work-size nil event))
+   (enq-kernel! queue kernel work-size nil event))
   ([queue kernel work-size]
-   (enq-nd! queue kernel work-size nil nil))
+   (enq-kernel! queue kernel work-size nil nil))
   ([kernel work-size]
-   (enq-nd! *command-queue* kernel work-size nil nil)))
+   (enq-kernel! *command-queue* kernel work-size nil nil)))
 
 (defn enq-read!
   "Enqueues a command to read from a cl object to host memory.
@@ -938,10 +989,10 @@
   "
   ([queue cl host blocking offset ^objects wait-events event]
    (with-check
-     (CL/clEnqueueReadBuffer queue (cl-mem cl) blocking offset
+     (CL/clEnqueueReadBuffer (fold queue) (fold cl) blocking offset
                              (min ^long (size cl) ^long (size host)) (ptr host)
                              (if wait-events (alength wait-events) 0)
-                             wait-events event)
+                             wait-events (fold event))
      queue))
   ([queue cl host wait-events event]
    (enq-read! queue cl host false 0 wait-events event))
@@ -991,10 +1042,10 @@
   "
   ([queue cl host blocking offset ^objects wait-events event]
    (with-check
-     (CL/clEnqueueWriteBuffer queue (cl-mem cl) blocking offset
+     (CL/clEnqueueWriteBuffer (fold queue) (fold cl) blocking offset
                               (min ^long (size cl) ^long (size host)) (ptr host)
                               (if wait-events (alength wait-events) 0)
-                              wait-events event)
+                              wait-events (fold event))
      queue))
   ([queue cl host wait-events event]
    (enq-write! queue cl host false 0 wait-events event))
@@ -1018,17 +1069,21 @@
       (enq-copy! my-queue cl-src cl-dst 4 8 32 (events) ev)
   "
   ([queue cl-src cl-dst src-offset dst-offset size wait-events ev]
-   (enq-copy* cl-src queue cl-dst src-offset dst-offset size wait-events ev))
+   (enq-copy* cl-src (fold queue) cl-dst src-offset dst-offset size wait-events (fold ev))
+   queue)
   ([queue cl-src cl-dst size wait-events ev]
-   (enq-copy* cl-src queue cl-dst 0 0 size wait-events ev))
+   (enq-copy* cl-src (fold queue) cl-dst 0 0 size wait-events (fold ev))
+   queue)
   ([queue cl-src cl-dst wait-events ev]
-   (enq-copy* cl-src queue cl-dst 0 0 (min ^long (size cl-src) ^long (size cl-dst)) wait-events ev))
+   (enq-copy* cl-src (fold queue) cl-dst 0 0 (min ^long (size cl-src) ^long (size cl-dst)) wait-events (fold ev))
+   queue)
   ([queue cl-src cl-dst size]
-   (enq-copy* cl-src queue cl-dst 0 0 size nil nil))
+   (enq-copy* cl-src (fold queue) cl-dst 0 0 size nil nil)
+   queue)
   ([queue cl-src cl-dst]
-   (enq-copy! queue cl-src cl-dst nil nil))
+   (enq-copy! queue cl-src cl-dst (min ^long (size cl-src) ^long (size cl-dst))))
   ([cl-src cl-dst]
-   (enq-copy! *command-queue* cl-src cl-dst nil nil)))
+   (enq-copy! *command-queue* cl-src cl-dst)))
 
 (defn enq-fill!
   "Enqueues a command to fill a buffer object with a [[Mem]] pattern.
@@ -1043,13 +1098,15 @@
       (enq-fill! my-queue cl-buf (float-array [1 2 3 4]) 2 (events) ev)
   "
   ([queue this pattern offset multiplier wait-events ev]
-   (enq-fill* this queue pattern offset multiplier wait-events ev))
+   (enq-fill* this (fold queue) pattern offset multiplier wait-events (fold ev))
+   queue)
   ([queue this pattern wait-events ev]
-   (enq-fill* this queue pattern 0 (quot ^long (size this) ^long (size pattern)) wait-events ev))
+   (enq-fill* this (fold queue) pattern 0 (quot ^long (size this) ^long (size pattern)) wait-events (fold ev))
+   queue)
   ([queue this pattern]
    (enq-fill! queue this pattern nil nil))
   ([this pattern]
-   (enq-fill! *command-queue* this pattern nil nil)))
+   (enq-fill! *command-queue* this pattern)))
 
 (defn enq-map-buffer!
   "Enqueues a command to map a region of the cl buffer into the host
@@ -1086,9 +1143,9 @@
       (enq-map-buffer! cl-data :write)
   "
   (^ByteBuffer [queue cl blocking offset req-size flags wait-events event]
-   (enq-map-buffer* queue cl blocking offset req-size
+   (enq-map-buffer* (fold queue) cl blocking offset req-size
                     (if (keyword? flags) (cl-map-flags flags) (mask cl-map-flags flags))
-                    wait-events event))
+                    wait-events (fold event)))
   (^ByteBuffer [queue cl offset req-size flags wait-events event]
    (enq-map-buffer! queue cl false offset req-size flags wait-events event))
   (^ByteBuffer [queue cl flags wait-events event]
@@ -1096,9 +1153,7 @@
   (^ByteBuffer [queue cl flags event]
    (enq-map-buffer! queue cl flags nil event))
   (^ByteBuffer [queue cl flags]
-   (enq-map-buffer* queue cl true 0 (size cl)
-                    (if (keyword? flags) (cl-map-flags flags) (mask cl-map-flags flags))
-                    nil nil))
+   (enq-map-buffer! (fold queue) cl true 0 (size cl) flags nil nil))
   (^ByteBuffer [cl flags]
    (enq-map-buffer! *command-queue* cl flags)))
 
@@ -1134,9 +1189,9 @@
   "
   ([queue cl ^ByteBuffer host ^objects wait-events event]
    (if (< 0 (.capacity host))
-     (let [err (CL/clEnqueueUnmapMemObject queue (cl-mem cl) host
+     (let [err (CL/clEnqueueUnmapMemObject (fold queue) (fold cl) host
                                            (if wait-events (alength wait-events) 0)
-                                           wait-events event)]
+                                           wait-events (fold event))]
        (with-check err queue))
      (do
        (release host)
@@ -1184,13 +1239,13 @@
       (enq-svm-map svm-data :write-invalidate-region)
   "
   ([queue svm flags wait-events event]
-   (enq-svm-map* queue svm false
+   (enq-svm-map* (fold queue) svm false
                  (if (keyword? flags) (cl-map-flags flags) (mask cl-map-flags flags))
-                 wait-events event))
+                 wait-events (fold event)))
   ([queue svm flags event]
    (enq-svm-map! queue svm flags nil event))
   ([queue svm flags]
-   (enq-svm-map* queue svm true
+   (enq-svm-map* (fold queue) svm true
                  (if (keyword? flags) (cl-map-flags flags) (mask cl-map-flags flags))
                  nil nil))
   ([svm flags]
@@ -1227,9 +1282,9 @@
       (enq-svm-unmap! svm-data byte-buff)
 "
   ([queue svm ^objects wait-events event]
-   (let [err (CL/clEnqueueSVMUnmap queue (ptr svm)
+   (let [err (CL/clEnqueueSVMUnmap (fold queue) (ptr svm)
                                    (if wait-events (alength wait-events) 0)
-                                   wait-events event)]
+                                   wait-events (fold event))]
      (with-check err queue)))
   ([queue svm event]
    (enq-svm-unmap! queue svm nil event))
@@ -1257,7 +1312,8 @@
    (enq-marker! queue nil ev))
   ([queue ^objects wait-events ev]
    (with-check
-     (CL/clEnqueueMarkerWithWaitList queue (if wait-events(alength wait-events) 0) wait-events ev)
+     (CL/clEnqueueMarkerWithWaitList (fold queue) (if wait-events (alength wait-events) 0)
+                                     wait-events (fold ev))
      queue)))
 
 (defn enq-barrier!
@@ -1278,7 +1334,8 @@
    (enq-barrier! queue nil ev))
   ([queue ^objects wait-events ev]
    (with-check
-     (CL/clEnqueueBarrierWithWaitList queue (if wait-events(alength wait-events) 0) wait-events ev)
+     (CL/clEnqueueBarrierWithWaitList (fold queue) (if wait-events (alength wait-events) 0)
+                                      wait-events (fold ev))
      queue)))
 
 (defn finish!
@@ -1294,7 +1351,7 @@
       (finish! my-queue)
   "
   ([queue]
-   (with-check (CL/clFinish queue) queue))
+   (with-check (CL/clFinish (fold queue)) queue))
   ([]
    (finish! *command-queue*)))
 
@@ -1310,7 +1367,7 @@
       (flush! my-queue)
   "
   [queue]
-  (with-check (CL/clFlush queue) queue ))
+  (with-check (CL/clFlush (fold queue)) queue))
 
 (defmacro with-queue
   "Dynamically binds `queue` to the default queue [[*command-queue*]].
@@ -1340,10 +1397,22 @@
   to the first of the available platforms, the context containing the first
   device of that platform that supports the highest OpenCL version, and the queue on
   the device in that context. Requires OpenCL 2.0 support in the platform.
-  If you're using OpenCL 1.2 or lower, use [[legacy/with-default-1]]"
+  If you're using OpenCL 1.2 or lower, use [[with-default-1]]"
   [& body]
   `(with-platform (first (remove legacy? (platforms)))
      (let [dev# (first (sort-by-cl-version (devices)))]
        (with-context (context [dev#])
          (with-queue (command-queue dev#)
+           ~@body)))))
+
+(defmacro with-default-1
+  "Dynamically binds [[*platform*]], [[*context*]] and [[*command-queue]]
+  to the first of the available platforms, the context containing the first
+  device of that platform, and the queue on the device in that context.
+  Supports pre-2.0 platforms."
+  [& body]
+  `(with-platform (first (platforms))
+     (let [dev# (first (sort-by-cl-version (devices)))]
+       (with-context (context [dev#])
+         (with-queue (command-queue-1 dev#)
            ~@body)))))

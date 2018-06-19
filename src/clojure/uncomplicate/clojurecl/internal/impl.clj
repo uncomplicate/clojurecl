@@ -8,15 +8,16 @@
 
 (ns ^{:author "Dragan Djuric"}
     uncomplicate.clojurecl.internal.impl
-  (:require [uncomplicate.commons
-             [core :refer [Releaseable release info]]]
+  (:require [uncomplicate.commons.core :refer [Releaseable release info]]
+            [uncomplicate.fluokitten.jvm]
             [uncomplicate.clojurecl.internal
              [api :refer :all]
              [constants :refer :all]
              [utils :refer [with-check with-check-arr]]]
             [clojure.core.async :refer [go >!]])
   (:import [java.nio ByteBuffer ByteOrder]
-           [org.jocl CL cl_platform_id cl_context_properties cl_device_id
+           clojure.lang.IDeref
+           [org.jocl CL cl_device_id cl_mem
             cl_context cl_command_queue cl_mem cl_program cl_kernel cl_sampler
             cl_event cl_buffer_region cl_queue_properties
             Sizeof Pointer CreateContextFunction EventCallbackFunction
@@ -64,8 +65,145 @@
   (release [s]
     (with-check (CL/clReleaseSampler s) true)))
 
+(defn ^:private equals-deref [this other]
+  (or (identical? this other)
+      (and (instance? (class this) other) (= (deref this) (deref other)))))
+
+(deftype CLCommandQueue [queue]
+  Object
+  (hashCode [this]
+    (hash (deref this)))
+  (equals [this other]
+    (equals-deref this other))
+  IDeref
+  (deref [_]
+    @queue)
+  Releaseable
+  (release [this]
+    (locking this
+      (when-let [q @queue]
+        (with-check (CL/clReleaseCommandQueue q) (vreset! queue nil))))
+    true))
+
+(deftype CLContext [ctx]
+  Object
+  (hashCode [this]
+    (hash (deref this)))
+  (equals [this other]
+    (equals-deref this other))
+  IDeref
+  (deref [_]
+    @ctx)
+  Releaseable
+  (release [this]
+    (locking this
+      (when-let [c @ctx]
+        (with-check (CL/clReleaseContext c) (vreset! ctx nil))))
+    true))
+
+(deftype CLDevice [device]
+  Object
+  (hashCode [this]
+    (hash (deref this)))
+  (equals [this other]
+    (equals-deref this other))
+  IDeref
+  (deref [_]
+    @device)
+  Releaseable
+  (release [this]
+    (locking this
+      (when-let [d @device]
+        (with-check (CL/clReleaseDevice d) (vreset! device nil))))
+    true))
+
+(deftype CLEvent [event]
+  Object
+  (hashCode [this]
+    (hash (deref this)))
+  (equals [this other]
+    (equals-deref this other))
+  IDeref
+  (deref [_]
+    @event)
+  Releaseable
+  (release [this]
+    (locking this
+      (when-let [e @event]
+        (with-check (CL/clReleaseEvent e) (vreset! event nil))))
+    true))
+
+(deftype CLKernel [kernel]
+  Object
+  (hashCode [this]
+    (hash (deref this)))
+  (equals [this other]
+    (equals-deref this other))
+  IDeref
+  (deref [_]
+    @kernel)
+  Releaseable
+  (release [this]
+    (locking this
+      (when-let [k @kernel]
+        (with-check (CL/clReleaseKernel k) (vreset! kernel nil))))
+    true))
+
+(deftype CLProgram [program]
+  Object
+  (hashCode [this]
+    (hash (deref this)))
+  (equals [this other]
+    (equals-deref this other))
+  IDeref
+  (deref [_]
+    @program)
+  Releaseable
+  (release [this]
+    (locking this
+      (when-let [p @program]
+        (with-check (CL/clReleaseProgram p) (vreset! program nil))))
+    true))
+
+(deftype CLSampler [sampler]
+  Object
+  (hashCode [this]
+    (hash (deref this)))
+  (equals [this other]
+    (equals-deref this other))
+  IDeref
+  (deref [_]
+    @sampler)
+  Releaseable
+  (release [this]
+    (locking this
+      (when-let [s @sampler]
+        (with-check (CL/clReleaseSampler s) (vreset! sampler nil))))
+    true))
+
 (defn native-pointer ^long [npo]
   (JOCLAccessor/getNativePointer npo))
+
+(defn wrap-command-queue [^cl_command_queue queue]
+  (when queue (->CLCommandQueue (volatile! queue))))
+
+(defn wrap-context [^cl_context ctx]
+  (when ctx (->CLContext (volatile! ctx))))
+
+(defn wrap-device [^cl_device_id dev]
+  (when dev (->CLDevice (volatile! dev))))
+
+(defn wrap-event [^cl_event event]
+  (when event (->CLEvent (volatile! event))))
+
+(defn wrap-kernel [^cl_kernel kernel]
+  (when kernel (->CLKernel (volatile! kernel))))
+
+(defn wrap-program [^cl_program program]
+  (when program (->CLProgram (volatile! program))))
+
+(defn wrap-sampler [^cl_sampler sampler]
+  (when sampler (->CLSampler (volatile! sampler))))
 
 ;; =============== Device ==========================================
 
@@ -76,7 +214,7 @@
   constants. If there are no such devices, returns 0.
 
   NOTE: You should prefer a higher-level [[num-devices]] function, unless you
-  code.
+  already have a `device-type` in a long number form in your code.
 
   When called with an invalid platform, throws [ExceptionInfo]
   (http://clojuredocs.org/clojure.core/ex-info).
@@ -132,7 +270,7 @@
     (go (>! ch (->CreateContextInfo errinfo private-info data)))))
 
 (defn context*
-  "Creates `cl_context` for an array of `device`s, with optional
+  "Creates `CLContext` for an array of `device`s, with optional
   `cl_context_properties`, error reporting core.async channel `ch`
   and user data that should accompany the error report.
 
@@ -157,60 +295,78 @@
 
 ;; =========================== Memory  =========================================
 
-(deftype CLBuffer [^cl_context ctx ^cl_mem cl ^Pointer cl* ^long s]
+(deftype CLBuffer [cl ^Pointer cl* ^long s]
+  Object
+  (hashCode [this]
+    (hash @cl))
+  (equals [this other]
+    (equals-deref this other))
+  IDeref
+  (deref [_]
+    @cl)
   Releaseable
-  (release [_]
-    (release cl))
+  (release [this]
+    (locking this
+      (when-let [c @cl]
+        (with-check (CL/clReleaseMemObject c)
+          (do
+            (vreset! cl nil)
+            (vreset! cl* nil)))))
+    true)
   Mem
   (ptr [_]
-    cl*)
+    @cl*)
   (size [_]
     s)
   CLMem
-  (cl-mem [_]
-    cl)
   (enq-copy* [this queue dst src-offset dst-offset size wait-events ev]
     (with-check
-      (CL/clEnqueueCopyBuffer queue cl (cl-mem dst) src-offset dst-offset size
+      (CL/clEnqueueCopyBuffer queue @cl @dst src-offset dst-offset size
                               (if wait-events (alength ^objects wait-events) 0)
                               wait-events ev)
       queue))
   (enq-fill* [this queue pattern offset multiplier wait-events ev]
     (with-check
-      (CL/clEnqueueFillBuffer queue cl (ptr pattern) (size pattern)
+      (CL/clEnqueueFillBuffer queue @cl (ptr pattern) (size pattern)
                               offset (* ^long (size pattern) ^long multiplier)
                               (if wait-events (alength ^objects wait-events) 0)
                               wait-events ev)
       queue))
-  Contextual
-  (cl-context [_]
-    ctx)
   Argument
   (set-arg [this kernel n]
-    (with-check (CL/clSetKernelArg kernel n Sizeof/cl_mem cl*)
+    (with-check (CL/clSetKernelArg kernel n Sizeof/cl_mem @cl*)
       {:kernel (info kernel) :n n :arg (info this)}
       kernel)))
 
-(deftype SVMBuffer [^cl_context ctx ^Pointer svm* ^long s]
+(deftype SVMBuffer [ctx svm* ^long s]
+  Object
+  (hashCode [this]
+    (hash @svm*))
+  (equals [this other]
+    (equals-deref this other))
+  IDeref
+  (deref [_]
+    @svm*)
   Releaseable
-  (release [_]
-    (CL/clSVMFree ctx svm*))
+  (release [this]
+    (locking this
+      (when-let [ss @svm*]
+        (CL/clSVMFree ctx ss)
+        (vreset! svm* nil)))
+    true)
   Mem
   (ptr [_]
-    svm*)
+    @svm*)
   (size [_]
     s)
-  Contextual
-  (cl-context [_]
-    ctx)
   SVMMem
   (byte-buffer [this]
     (byte-buffer this 0 s))
   (byte-buffer [_ offset size]
-    (.order (.getByteBuffer svm* offset size) (ByteOrder/nativeOrder)))
+    (.order (.getByteBuffer ^Pointer @svm* offset size) (ByteOrder/nativeOrder)))
   Argument
   (set-arg [this kernel n]
-    (with-check (CL/clSetKernelArgSVMPointer kernel n svm*)
+    (with-check (CL/clSetKernelArgSVMPointer kernel n @svm*)
       {:kernel (info kernel) :n n :arg (info this)}
       kernel)))
 
@@ -233,18 +389,18 @@
 
   (cl-buffer* ctx 24 CL/CL_MEM_READ_ONLY)
   "
-  ([ctx ^long size ^long flags]
+  ([^cl_context ctx ^long size ^long flags]
    (let [err (int-array 1)
          res (CL/clCreateBuffer ctx flags size nil err)]
      (with-check-arr err
        {:ctx (info ctx) :size size}
-       (->CLBuffer ctx res (Pointer/to ^cl_mem res) size)))))
+       (->CLBuffer (volatile! res) (volatile! (Pointer/to ^cl_mem res)) size)))))
 
 (defn cl-sub-buffer*
   "Creates a cl buffer object ([[CLBuffer]]) that shares data with an existing
   buffer object.
 
-  * `buffer` has to be a valid [[BLBuffer]] buffer object.
+  * `buffer` has to be a valid `cl_mem` buffer object.
   * `flags` is a bitfield that specifies allocation usage (see [[cl-buffer*]]).
   * `create-type` is a type of buffer object to be created (in OpenCL 2.0, only
   `CL/CL_BUFFER_CREATE_TYPE_REGION` is supported).
@@ -263,11 +419,12 @@
   (cl-sub-buffer* cl-buff CL/CL_MEM_READ_WRITE CL/CL_BUFFER_CREATE_TYPE_REGION region)
   (cl-sub-buffer* cl-buff CL/CL_MEM_READ_ONLY region)
   "
-  ([buffer ^long flags ^long create-type ^cl_buffer_region region]
+  ([^cl_mem buffer ^long flags ^long create-type ^cl_buffer_region region]
    (let [err (int-array 1)
-         res (CL/clCreateSubBuffer ^cl_mem (cl-mem buffer) flags (int create-type) region err)]
-     (with-check-arr err (->CLBuffer (cl-context buffer) res (Pointer/to ^cl_mem res) (.size region)))))
-  ([buffer ^long flags region]
+         res (CL/clCreateSubBuffer buffer flags (int create-type) region err)]
+     (with-check-arr err (->CLBuffer (volatile! res) (volatile! (Pointer/to ^cl_mem res))
+                                     (.size region)))))
+  ([^cl_mem buffer ^long flags region]
    (cl-sub-buffer* buffer flags CL/CL_BUFFER_CREATE_TYPE_REGION region)))
 
 (defn svm-buffer*
@@ -289,11 +446,11 @@
 
       (svm-buffer* ctx 24 (bit-or CL/CL_MEM_SVM_FINE_GRAIN_BUFFER CL/CL_MEM_SVM_ATOMICS) 0)
   "
-  [ctx ^long size ^long flags ^long alignment]
+  [^cl_context ctx ^long size ^long flags ^long alignment]
   (if (and ctx (< 0 size))
     (let [err (int-array 1)
           res (CL/clSVMAlloc ctx flags size alignment)]
-      (with-check-arr err (->SVMBuffer ctx res size)))
+      (with-check-arr err (->SVMBuffer ctx (volatile! res) size)))
     (throw (IllegalArgumentException.
             "To create a svm buffer, you must provide a context and a positive size."))))
 
@@ -418,14 +575,6 @@
   (function [this ev status data]
     (go (>! ch (->EventCallbackInfo ev (dec-command-execution-status status) data)))))
 
-(defn event-callback
-  "Creates new `EventCallbackFunction` instance that puts
-  [[EventCallbackInfo]] in the core.async channel when called.
-
-  See also [[set-event-callback*]] and [[register]]"
-  ^org.jocl.EventCallbackFunction [ch]
-  (->EventCallback ch))
-
 (defn set-event-callback*
   "Registers a callback function for an event and a specific command
   execution status. Returns the channel. MUST be called AFTER the event is
@@ -443,9 +592,9 @@
       (set-event-callback* (user-event) (event-callback) CL/CL_COMPLETE :my-data)
       (set-event-callback* (user-event) (event-callback))
   "
-  ([e ^EventCallback callback ^long callback-type data]
+  ([^cl_event e ^EventCallback callback ^long callback-type data]
    (with-check (CL/clSetEventCallback e callback-type callback data) (.ch callback)))
-  ([e ^EventCallback callback]
+  ([^cl_event e ^EventCallback callback]
    (set-event-callback* e callback CL/CL_COMPLETE nil)))
 
 ;; ============= Program ==========================================
@@ -463,7 +612,7 @@
   "Creates a host or device command queue on a specific device.
 
   ** If you need to support OpenCL 1.2 platforms, you MUST use the alternative
-  [[legacy/command-queue-1*]] function. Otherwise, you will get an
+  [[command-queue-1*]] function. Otherwise, you will get an
   UnsupportedOperationException erorr. What is important is the version of the
   platform, not the devices. This function is for platforms (regardless of the
   devices) supporting OpenCL 2.0 and higher. **
@@ -488,9 +637,9 @@
                                               CL/CL_QUEUE_ON_DEVICE))
       (command-queue* ctx dev CL/CL_QUEUE_PROFILING_ENABLED)
   "
-  ([ctx device ^long properties]
+  ([^cl_context ctx ^cl_device_id device ^long properties]
    (command-queue* ctx device 0 properties))
-  ([ctx device ^long size ^long properties]
+  ([^cl_context ctx ^cl_device_id device ^long size ^long properties]
    (let [err (int-array 1)
          props (let [clqp (cl_queue_properties.)]
                  (when (< 0 properties) (.addProperty clqp CL/CL_QUEUE_PROPERTIES properties))
@@ -498,6 +647,41 @@
                  clqp)
          res (CL/clCreateCommandQueueWithProperties ctx device props err)]
      (with-check-arr err {:device (info device)} res))))
+
+(defn command-queue-1*
+  "Creates a host or device command queue on a specific device.
+
+  ** If you need to support legacy OpenCL 1.2 or earlier platforms,
+  you MUST use this  function instead of [command-queue*], which is for
+  OpenCL 2.0 and higher. What is important is the version of the platform,
+  not the devices.**
+
+  Arguments are:
+
+  * `ctx` - the `cl_context` for the queue;
+  * `device` - the `cl_device_id` for the queue;
+  * `size` - the size of the (on device) queue;
+  * `properties` - long bitmask containing properties, defined by the OpenCL
+  standard are available as constants in the org.jocl.CL class.
+
+  This is a low-level version of [[command-queue-1]].
+
+  If called with invalid context or device, throws `ExceptionInfo`.
+
+  See https://www.khronos.org/registry/cl/sdk/1.2/docs/man/xhtml/clCreateCommandQueue.html,
+  http://www.jocl.org/doc/org/jocl/CL.html#clCreateCommandQueue-org.jocl.cl_context-org.jocl.cl_device_id-long-int:A-
+
+  Examples:
+      (command-queue-1* ctx dev 524288  (bit-or CL/CL_QUEUE_PROFILING_ENABLED
+                                                CL/CL_QUEUE_ON_DEVICE))
+      (command-queue-1* ctx dev CL/CL_QUEUE_PROFILING_ENABLED)
+  "
+  ([ctx device ^long properties]
+   (command-queue-1* ctx device 0 properties))
+  ([ctx device ^long size ^long properties]
+   (let [err (int-array 1)
+         res (CL/clCreateCommandQueue ctx device properties err)]
+     (with-check-arr err res))))
 
 (defn enq-map-buffer*
   "Enqueues a command to map a region of the cl buffer into the host
@@ -535,7 +719,7 @@
   ^ByteBuffer [queue cl blocking offset req-size flags ^objects wait-events event]
   (if (< 0 ^long req-size)
     (let [err (int-array 1)
-          res (CL/clEnqueueMapBuffer queue (cl-mem cl) blocking flags offset
+          res (CL/clEnqueueMapBuffer queue @cl blocking flags offset
                                      (min ^long req-size (- ^long (size cl) ^long offset))
                                      (if wait-events (alength wait-events) 0)
                                      wait-events event err)]
