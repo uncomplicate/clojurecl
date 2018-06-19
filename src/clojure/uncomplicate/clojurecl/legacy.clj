@@ -15,9 +15,9 @@
   support. Notable example is the [[command-queue-1]] function that is
   required if your platform does not support at least OpenCL 2.0."
   (:require [uncomplicate.commons.utils :refer [mask]]
-            [uncomplicate.clojurecl
+            [uncomplicate.clojurecl.core :refer :all]
+            [uncomplicate.clojurecl.internal
              [constants :refer :all]
-             [core :refer :all]
              [utils :refer [with-check with-check-arr error]]])
   (:import [org.jocl CL]))
 

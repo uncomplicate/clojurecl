@@ -14,9 +14,11 @@
             [uncomplicate.clojurecl
              [core :refer :all]
              [info :refer [reference-count mem-base-addr-align opencl-c-version]]]
+            [uncomplicate.clojurecl.internal
+             [api :refer [size ptr byte-buffer]]
+             [impl :refer :all]]
             [clojure.core.async :refer [go >! <! <!! chan]])
-  (:import [uncomplicate.clojurecl.core CLBuffer SVMBuffer]
-           [org.jocl CL Pointer cl_device_id cl_context_properties cl_mem]
+  (:import [org.jocl CL Pointer cl_device_id cl_context_properties cl_mem]
            [clojure.lang ExceptionInfo]
            [java.nio ByteBuffer]))
 
@@ -207,7 +209,7 @@
      (with-release [cl-buf (cl-buffer (* 4 alignment Float/BYTES))
                     cl-subbuf (cl-sub-buffer cl-buf (* alignment Float/BYTES)
                                              (* alignment Float/BYTES))]
-       (type cl-subbuf) => CLBuffer
+       (cl-buffer? cl-subbuf) => true
        (let [data-arr (float-array (range (* 4 alignment)))
              buf-arr (float-array (* 4 alignment))
              subbuf-arr (float-array alignment)]

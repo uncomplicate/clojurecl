@@ -142,7 +142,7 @@
             [uncomplicate.commons
              [core :refer [Info info]]
              [utils :refer [unmask unmask1 buffer direct-buffer]]]
-            [uncomplicate.clojurecl
+            [uncomplicate.clojurecl.internal
              [constants :refer :all]
              [utils :refer :all]])
   (:import [org.jocl CL cl_platform_id  cl_device_id cl_context cl_command_queue

@@ -7,7 +7,7 @@
 ;;   You must not remove this notice, or any other, from this software.
 
 (ns ^{:author "Dragan Djuric"}
-    uncomplicate.clojurecl.constants
+    uncomplicate.clojurecl.internal.constants
   "Defines constants and mappings from/to OpenCL constants.
 
   OpenCL API defines and uses numerous int/long C-style constants as arguments

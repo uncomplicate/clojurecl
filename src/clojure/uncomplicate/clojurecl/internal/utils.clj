@@ -7,12 +7,12 @@
 ;;   You must not remove this notice, or any other, from this software.
 
 (ns ^{:author "Dragan Djuric"}
-  uncomplicate.clojurecl.utils
+  uncomplicate.clojurecl.internal.utils
   "Utility functions used as helpers in other ClojureCL namespaces.
   The user of the ClojureCL library would probably not need to use
   any of the functions defined here."
   (:require [uncomplicate.commons.utils :as cu]
-            [uncomplicate.clojurecl.constants :refer [dec-error]])
+            [uncomplicate.clojurecl.internal.constants :refer [dec-error]])
   (:import clojure.lang.ExceptionInfo))
 
 

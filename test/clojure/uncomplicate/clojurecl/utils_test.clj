@@ -8,7 +8,7 @@
 
 (ns uncomplicate.clojurecl.utils-test
   (:require [midje.sweet :refer :all]
-            [uncomplicate.clojurecl.utils :refer :all]))
+            [uncomplicate.clojurecl.internal.utils :refer :all]))
 
 (facts
  "error tests"
