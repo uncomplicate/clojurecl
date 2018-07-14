@@ -25,6 +25,11 @@
 
 ;; =============== Release CL Resources ==================================
 
+(extend-type cl_device_id
+  Releaseable
+  (release [d]
+    (with-check (CL/clReleaseDevice d) true)))
+
 (extend-type cl_command_queue
   Releaseable
   (release [q]
@@ -34,11 +39,6 @@
   Releaseable
   (release [c]
     (with-check (CL/clReleaseContext c) true)))
-
-(extend-type cl_device_id
-  Releaseable
-  (release [d]
-    (with-check (CL/clReleaseDevice d) true)))
 
 (extend-type cl_event
   Releaseable

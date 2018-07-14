@@ -689,7 +689,7 @@
   "
   ([kernel x & values]
    (if (integer? x)
-     (loop [i ^long x values values]
+     (loop [i (long x) values values]
        (if-let [val (first values)]
          (do (set-arg! kernel i val)
              (recur (inc i) (next values)))
@@ -770,9 +770,9 @@
   "
   ([global0 global1 local0 local1 offset0 offset1]
    (->WorkSize 2
-               (doto (long-array 2) (aset 0 ^long global0) (aset 1 ^long global1))
-               (doto (long-array 2) (aset 0 ^long local0) (aset 1 ^long local1))
-               (doto (long-array 2) (aset 0 ^long offset0) (aset 1 ^long offset1))))
+               (doto (long-array 2) (aset 0 (long global0)) (aset 1 (long global1)))
+               (doto (long-array 2) (aset 0 (long local0)) (aset 1 (long local1)))
+               (doto (long-array 2) (aset 0 (long offset0)) (aset 1 (long offset1)))))
   ([^long global0 ^long global1 ^long local0 ^long local1]
    (->WorkSize 2
                (doto (long-array 2) (aset 0 global0) (aset 1 global1))
@@ -794,18 +794,18 @@
   "
   ([global0 global1 global2 local0 local1 local2 offset0 offset1 offset2]
    (->WorkSize 3
-               (doto (long-array 3) (aset 0 ^long global0)
-                     (aset 1 ^long global1) (aset 2 ^long global2))
-               (doto (long-array 3) (aset 0 ^long local0)
-                     (aset 1 ^long local1) (aset 2 ^long local2))
-               (doto (long-array 3) (aset 0 ^long offset0)
-                     (aset 1 ^long offset1) (aset 2 ^long offset2))))
+               (doto (long-array 3) (aset 0 (long global0))
+                     (aset 1 (long global1)) (aset 2 (long global2)))
+               (doto (long-array 3) (aset 0 (long local0))
+                     (aset 1 (long local1)) (aset 2 (long local2)))
+               (doto (long-array 3) (aset 0 (long offset0))
+                     (aset 1 (long offset1)) (aset 2 (long offset2)))))
   ([global0 global1 global2 local0 local1 local2]
    (->WorkSize 3
-               (doto (long-array 3) (aset 0 ^long global0)
-                     (aset 1 ^long global1) (aset 2 ^long global2))
-               (doto (long-array 3) (aset 0 ^long local0)
-                     (aset 1 ^long local1) (aset 2 ^long local2))
+               (doto (long-array 3) (aset 0 (long global0))
+                     (aset 1 (long global1)) (aset 2 (long global2)))
+               (doto (long-array 3) (aset 0 (long local0))
+                     (aset 1 (long local1)) (aset 2 (long local2)))
                nil))
   ([^long global0 ^long global1 ^long global2]
    (->WorkSize 3
@@ -990,7 +990,7 @@
   ([queue cl host blocking offset ^objects wait-events event]
    (with-check
      (CL/clEnqueueReadBuffer (fold queue) (fold cl) blocking offset
-                             (min ^long (size cl) ^long (size host)) (ptr host)
+                             (min (long (size cl)) (long (size host))) (ptr host)
                              (if wait-events (alength wait-events) 0)
                              wait-events (fold event))
      queue))
@@ -1043,7 +1043,7 @@
   ([queue cl host blocking offset ^objects wait-events event]
    (with-check
      (CL/clEnqueueWriteBuffer (fold queue) (fold cl) blocking offset
-                              (min ^long (size cl) ^long (size host)) (ptr host)
+                              (min (long (size cl)) (long (size host))) (ptr host)
                               (if wait-events (alength wait-events) 0)
                               wait-events (fold event))
      queue))
@@ -1075,13 +1075,14 @@
    (enq-copy* cl-src (fold queue) cl-dst 0 0 size wait-events (fold ev))
    queue)
   ([queue cl-src cl-dst wait-events ev]
-   (enq-copy* cl-src (fold queue) cl-dst 0 0 (min ^long (size cl-src) ^long (size cl-dst)) wait-events (fold ev))
+   (enq-copy* cl-src (fold queue) cl-dst 0 0 (min (long (size cl-src)) (long (size cl-dst)))
+              wait-events (fold ev))
    queue)
   ([queue cl-src cl-dst size]
    (enq-copy* cl-src (fold queue) cl-dst 0 0 size nil nil)
    queue)
   ([queue cl-src cl-dst]
-   (enq-copy! queue cl-src cl-dst (min ^long (size cl-src) ^long (size cl-dst))))
+   (enq-copy! queue cl-src cl-dst (min (long (size cl-src)) (long (size cl-dst)))))
   ([cl-src cl-dst]
    (enq-copy! *command-queue* cl-src cl-dst)))
 
@@ -1101,7 +1102,7 @@
    (enq-fill* this (fold queue) pattern offset multiplier wait-events (fold ev))
    queue)
   ([queue this pattern wait-events ev]
-   (enq-fill* this (fold queue) pattern 0 (quot ^long (size this) ^long (size pattern)) wait-events (fold ev))
+   (enq-fill* this (fold queue) pattern 0 (quot (long (size this)) (long (size pattern))) wait-events (fold ev))
    queue)
   ([queue this pattern]
    (enq-fill! queue this pattern nil nil))

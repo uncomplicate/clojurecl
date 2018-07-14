@@ -10,7 +10,7 @@
   (:require [midje.sweet :refer :all]
             [uncomplicate.commons
              [core :refer [release with-release info]]
-             [utils :refer [direct-buffer]]]
+             [utils :refer [direct-buffer put-float get-float]]]
             [uncomplicate.clojurecl
              [core :refer :all]
              [info :refer [reference-count mem-base-addr-align opencl-c-version queue-context]]]
@@ -18,11 +18,13 @@
              [api :refer [size ptr byte-buffer]]
              [impl :refer :all]]
             [clojure.core.async :refer [go >! <! <!! chan]])
-  (:import [org.jocl CL Pointer cl_device_id cl_context_properties cl_mem]
-           [clojure.lang ExceptionInfo]
-           [java.nio ByteBuffer]))
+  (:import java.nio.ByteBuffer
+           [org.jocl CL Pointer cl_device_id cl_context_properties cl_mem cl_event EventCallbackFunction]
+           uncomplicate.clojurecl.internal.impl.EventCallback
+           clojure.lang.ExceptionInfo))
 
-;; ================== Platform tests ========================
+
+
 (facts
  "Platform tests."
 
@@ -204,7 +206,7 @@
   (facts
    "cl-buffer and cl-sub-buffer reading/writing tests."
    (let [alignment (mem-base-addr-align
-                    (first (filter #(<= 2.0 (:version (opencl-c-version %)))
+                    (first (filter #(<= 2.0 (double (:version (opencl-c-version %))))
                                    (devices (first (remove legacy? (platforms)))))))]
      (with-release [cl-buf (cl-buffer (* 4 alignment Float/BYTES))
                     cl-subbuf (cl-sub-buffer cl-buf (* alignment Float/BYTES) (* alignment Float/BYTES))]
@@ -230,16 +232,18 @@
   (facts
    "EventCallback tests"
    (let [ch (chan)
-         ev (host-event)]
+         ev ^cl_event (host-event)
+         call-event-fun (fn [^EventCallbackFunction f] (.function f ev CL/CL_QUEUED :my-data))]
      (->EventCallback ch) =not=> nil
-     (do (.function (->EventCallback ch) ev CL/CL_QUEUED :my-data)
+     (do (call-event-fun (->EventCallback ch))
          (:event (<!! ch)) => ev))
 
-   (with-release [cl-buf (cl-buffer Float/BYTES)]
+   (with-release [cl-buf (cl-buffer Float/BYTES)
+                  cpu-buf (put-float (direct-buffer Float/BYTES) 0 1.0)]
      (let [ev (event)
            notifications (chan)
            follow (register notifications)]
-       (enq-write! *command-queue* cl-buf (float-array 1) ev)
+       (enq-write! *command-queue* cl-buf cpu-buf ev)
        (follow ev)
        (:event (<!! notifications)) => @ev)))
 
@@ -310,7 +314,7 @@
       src (slurp "test/opencl/core_test.cl")
       data (let [d (direct-buffer (* 8 Float/BYTES))]
              (dotimes [n cnt]
-               (.putFloat ^ByteBuffer d (* n Float/BYTES) n))
+               (put-float d n n))
              d)
       notifications (chan)
       follow (register notifications)
@@ -344,11 +348,11 @@
 
      (let [mapped-read (enq-map-buffer! queue1 cl-data :read)
            mapped-write (enq-map-buffer! queue1 cl-data :write)]
-       (.getFloat ^ByteBuffer mapped-read 4) => 171.0
-       (.getFloat ^ByteBuffer mapped-write 4) => 171.0
-       (do (.putFloat ^ByteBuffer mapped-write 4 100.0) (.getFloat ^ByteBuffer mapped-write 4)) => 100.0
-       (.getFloat ^ByteBuffer mapped-read 4) => 100.0
-       (do (.putFloat ^ByteBuffer mapped-read 4 100.0) (.getFloat ^ByteBuffer mapped-read 4)) => 100.0
+       (get-float mapped-read 1) => 171.0
+       (get-float mapped-write 1) => 171.0
+       (do (put-float mapped-write 1 100.0) (get-float mapped-write 1)) => 100.0
+       (get-float ^ByteBuffer mapped-read 1) => 100.0
+       (do (put-float mapped-read 1 100.0) (get-float mapped-read 1)) => 100.0
        (enq-unmap! queue1 cl-data mapped-read) => queue1
        (enq-unmap! queue1 cl-data mapped-write) => queue1)))
 
@@ -365,12 +369,12 @@
      (ptr svm) =not=> nil
      (set-args! dumb-kernel svm Integer/BYTES (int-array [42])) => dumb-kernel
      (enq-svm-map! queue svm :write)
-     (.putFloat ^ByteBuffer (byte-buffer svm) 4 42.0)
-     (.getFloat ^ByteBuffer (byte-buffer svm) 4) => 42.0
+     (put-float (byte-buffer svm) 1 42.0)
+     (get-float (byte-buffer svm) 1) => 42.0
      (enq-svm-unmap! queue svm) => queue
      (enq-kernel! queue dumb-kernel wsize) => queue
      (enq-svm-map! queue svm :read)
-     (.getFloat ^ByteBuffer (byte-buffer svm) 4) => 127.0
+     (get-float (byte-buffer svm) 1) => 127.0
      (enq-svm-unmap! queue svm) => queue
 
      (svm-buffer* nil 4 0) => (throws IllegalArgumentException)

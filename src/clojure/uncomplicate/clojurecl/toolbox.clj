@@ -28,7 +28,7 @@
        (recur (enq-kernel! queue reduction-kernel (work-size-1d global-size local-n))
               (count-work-groups local-n global-size)))))
   ([queue main-kernel reduction-kernel m n local-m local-n]
-   (if (or (< 1 ^long local-n) (<= ^long local-n ^long n))
+   (if (or (< 1 (long local-n)) (<= (long local-n) (long n)))
      (loop [queue (enq-kernel! queue main-kernel (work-size-2d m n local-m local-n))
             global-size (count-work-groups local-n n)]
        (if (= 1 global-size)
