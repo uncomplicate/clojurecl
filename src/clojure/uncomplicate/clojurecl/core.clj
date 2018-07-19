@@ -70,7 +70,7 @@
   (:require [uncomplicate.commons
              [core :refer [release with-release info]]
              [utils :refer [mask]]]
-            [uncomplicate.fluokitten.core :refer [fmap fold]]
+            [uncomplicate.fluokitten.core :refer [fmap]]
             [uncomplicate.clojurecl.info :refer [build-info program-devices opencl-c-version version]]
             [uncomplicate.clojurecl.internal
              [api :refer :all]
@@ -211,13 +211,13 @@
       (devices (first (platforms)) :gpu :cpu :accelerator)
   "
   ([platform device-type & device-types]
-   (fmap wrap-device (vec (devices* platform (mask cl-device-type device-type device-types)))))
+   (fmap wrap (vec (devices* platform (mask cl-device-type device-type device-types)))))
   ([x]
    (if (keyword? x)
      (devices *platform* x)
-     (fmap wrap-device (vec (devices* x CL/CL_DEVICE_TYPE_ALL)))))
+     (fmap wrap (vec (devices* x CL/CL_DEVICE_TYPE_ALL)))))
   ([]
-   (fmap wrap-device (vec (devices* *platform* CL/CL_DEVICE_TYPE_ALL)))))
+   (fmap wrap (vec (devices* *platform* CL/CL_DEVICE_TYPE_ALL)))))
 
 ;; ========================= Context ===========================================
 
@@ -254,7 +254,7 @@
         (context (devices (first (platforms))) {:platform p} (chan) :my-data)
   "
   ([devices properties ch user-data]
-   (wrap-context (context* (into-array cl_device_id (fmap fold devices))
+   (wrap (context* (into-array cl_device_id (fmap extract devices))
                            (and (seq properties) (context-properties properties))
                            ch user-data)))
   ([devices]
@@ -328,11 +328,11 @@
   (cl-buffer ctx 24 :write-only)
   "
   ([ctx size flag & flags]
-   (cl-buffer* (fold ctx) size (mask cl-mem-flags flag flags)))
+   (cl-buffer* (extract ctx) size (mask cl-mem-flags flag flags)))
   ([^long size flag]
-   (cl-buffer* (fold *context*) size (cl-mem-flags flag)))
+   (cl-buffer* (extract *context*) size (cl-mem-flags flag)))
   ([^long size]
-   (cl-buffer* (fold *context*) size 0)))
+   (cl-buffer* (extract *context*) size 0)))
 
 (defn cl-sub-buffer
   "Creates a cl buffer object ([[CLBuffer]]) that shares data with an existing
@@ -356,9 +356,9 @@
       (cl-sub-buffer cl-buff 8 16)
   "
   ([buffer origin size flag & flags]
-   (cl-sub-buffer* (fold buffer) (mask cl-mem-flags flag flags) (cl_buffer_region. origin size)))
+   (cl-sub-buffer* (extract buffer) (mask cl-mem-flags flag flags) (cl_buffer_region. origin size)))
   ([buffer origin size]
-   (cl-sub-buffer* (fold buffer) 0 (cl_buffer_region. origin size))))
+   (cl-sub-buffer* (extract buffer) 0 (cl_buffer_region. origin size))))
 
 (defn svm-buffer
   "Creates a svm buffer object ([[SVMBuffer]]) in `ctx`, given `size` and `alignment`
@@ -385,11 +385,11 @@
       (svm-buffer ctx 24 0 :fine-grain-buffer :atomics)
   "
   ([ctx size alignment & flags]
-   (svm-buffer* (fold ctx) size (mask cl-svm-mem-flags flags) alignment))
+   (svm-buffer* (extract ctx) size (mask cl-svm-mem-flags flags) alignment))
   ([^long size flag]
-   (svm-buffer* (fold *context*) size (cl-svm-mem-flags flag) 0))
+   (svm-buffer* (extract *context*) size (cl-svm-mem-flags flag) 0))
   ([^long size]
-   (svm-buffer* (fold *context*) size 0 0)))
+   (svm-buffer* (extract *context*) size 0 0)))
 
 ;; ============== Events ==========================================
 
@@ -399,7 +399,7 @@
   see http://www.jocl.org/doc/org/jocl/cl_event.html.
   "
   []
-  (wrap-event (cl_event.)))
+  (wrap (cl_event.)))
 
 (defn host-event
   "Creates new [[internal/CLEvent]] on the host (in OpenCL terminology,
@@ -416,8 +416,8 @@
    (host-event *context*))
   ([ctx]
    (let [err (int-array 1)
-         res (CL/clCreateUserEvent (fold ctx) err)]
-     (with-check-arr err {:ctx (info ctx)} res))))
+         res (CL/clCreateUserEvent (extract ctx) err)]
+     (with-check-arr err {:ctx (info ctx)} (wrap res)))))
 
 (defn events
   "Creates an array of `cl_event`s. Arrays of events are
@@ -426,40 +426,40 @@
    (make-array cl_event 0))
   (^objects [e]
    (doto ^objects (make-array cl_event 1)
-     (aset 0 (fold e))))
+     (aset 0 (extract e))))
   (^objects [e0 e1]
    (doto ^objects (make-array cl_event 2)
-     (aset 0 (fold e0))
-     (aset 1 (fold e1))))
+     (aset 0 (extract e0))
+     (aset 1 (extract e1))))
   (^objects [e0 e1 e2]
    (doto ^objects (make-array cl_event 3)
-     (aset 0 (fold e0))
-     (aset 1 (fold e1))
-     (aset 2 (fold e2))))
+     (aset 0 (extract e0))
+     (aset 1 (extract e1))
+     (aset 2 (extract e2))))
   (^objects [e0 e1 e2 e3]
    (doto ^objects (make-array cl_event 4)
-     (aset 0 (fold e0))
-     (aset 1 (fold e1))
-     (aset 2 (fold e2))
-     (aset 3 (fold e3))))
+     (aset 0 (extract e0))
+     (aset 1 (extract e1))
+     (aset 2 (extract e2))
+     (aset 3 (extract e3))))
   (^objects [e0 e1 e2 e3 e4]
    (doto ^objects (make-array cl_event 5)
-     (aset 0 (fold e0))
-     (aset 1 (fold e1))
-     (aset 2 (fold e2))
-     (aset 3 (fold e3))
-     (aset 4 (fold e4))))
+     (aset 0 (extract e0))
+     (aset 1 (extract e1))
+     (aset 2 (extract e2))
+     (aset 3 (extract e3))
+     (aset 4 (extract e4))))
   (^objects [e0 e1 e2 e3 e4 & es]
    (let [len (+ 5 (count es))
          res (doto ^objects (make-array cl_event len)
-               (aset 0 (fold e0))
-               (aset 1 (fold e1))
-               (aset 2 (fold e2))
-               (aset 3 (fold e3))
-               (aset 4 (fold e4)))]
+               (aset 0 (extract e0))
+               (aset 1 (extract e1))
+               (aset 2 (extract e2))
+               (aset 3 (extract e3))
+               (aset 4 (extract e4)))]
      (loop [i 5 es es]
        (if (< i len)
-         (do (aset res i (fold (first es)))
+         (do (aset res i (extract (first es)))
              (recur (inc i) (next es)))
          res)))))
 
@@ -500,11 +500,11 @@
          callb-type (get cl-command-execution-status callback-type CL/CL_COMPLETE)]
      (fn
        ([e callback-type data]
-        (set-event-callback* (fold e) callback (cl-command-execution-status callback-type) data))
+        (set-event-callback* (extract e) callback (cl-command-execution-status callback-type) data))
        ([e data]
-        (set-event-callback* (fold e) callback callb-type data))
+        (set-event-callback* (extract e) callback callb-type data))
        ([e]
-        (set-event-callback* (fold e) callback callb-type nil)))))
+        (set-event-callback* (extract e) callback callb-type e)))))
   ([channel]
    (register channel nil)))
 
@@ -523,7 +523,7 @@
       (set-status! ev -12) ;; indicates and error code -12
   "
   ([ev ^long status]
-   (let [err (CL/clSetUserEventStatus (fold ev) (if (< status 0) status CL/CL_COMPLETE))]
+   (let [err (CL/clSetUserEventStatus (extract ev) (if (< status 0) status CL/CL_COMPLETE))]
      (with-check err ev)))
   ([ev]
    (set-status! ev CL/CL_COMPLETE)))
@@ -531,7 +531,7 @@
 ;; ============= Program ==========================================
 
 (defn program-with-source
-  "Creates a [[internal/CLPRogram]] for the context and loads the source code
+  "Creates a [[internal/CLProgram]] for the context and loads the source code
   specified by the text strings given in the `source` sequence.
   When called with one argument, uses [[*context*]].
 
@@ -553,8 +553,8 @@
   ([ctx source]
    (let [err (int-array 1)
          n (count source)
-         res (CL/clCreateProgramWithSource (fold ctx) n (into-array String source) nil err)]
-     (with-check-arr err {:ctx (info ctx) :source source} res)))
+         res (CL/clCreateProgramWithSource (extract ctx) n (into-array String source) nil err)]
+     (with-check-arr err {:ctx (info ctx) :source source} (wrap res))))
   ([source]
    (program-with-source *context* source)))
 
@@ -589,8 +589,8 @@
       (build-program! program [dev] \"-cl-std=CL2.0\" ch :my-data) ; async
   "
   ([program devices options ch user-data]
-   (let [err (CL/clBuildProgram (fold program) (count devices)
-                                (if devices (into-array cl_device_id (fmap fold devices)) nil)
+   (let [err (CL/clBuildProgram (extract program) (count devices)
+                                (if devices (into-array cl_device_id (fmap extract devices)) nil)
                                 options
                                 (if ch (->BuildCallback ch) nil)
                                 user-data)]
@@ -614,7 +614,7 @@
   "
   ^long [program]
   (let [res (int-array 1)
-        err (CL/clCreateKernelsInProgram (fold program) 0 nil res)]
+        err (CL/clCreateKernelsInProgram (extract program) 0 nil res)]
     (with-check err (aget res 0))))
 
 (defn kernel
@@ -637,13 +637,13 @@
   "
   ([program name]
    (let [err (int-array 1)
-         res (CL/clCreateKernel (fold program) name err)]
-     (with-check-arr err {:name name} res)))
+         res (CL/clCreateKernel (extract program) name err)]
+     (with-check-arr err {:name name} (wrap res))))
   ([program]
    (let [nk (num-kernels program)
          res (make-array cl_kernel nk)
-         err (CL/clCreateKernelsInProgram (fold program) nk res nil)]
-     (with-check err (fmap wrap-kernel (vec res))))))
+         err (CL/clCreateKernelsInProgram (extract program) nk res nil)]
+     (with-check err (fmap wrap (vec res))))))
 
 (defn set-arg!
   "Sets the argument value for a specific positional argument of a kernel.
@@ -673,7 +673,7 @@
       (set-arg! my-kernel 3 42)
   "
   [kernel n value]
-  (set-arg value (fold kernel) n)
+  (set-arg value (extract kernel) n)
   kernel)
 
 (defn set-args!
@@ -854,12 +854,12 @@
   "
   ([ctx device x & properties]
    (if (integer? x)
-     (wrap-command-queue (command-queue* (fold ctx) (fold device) x
+     (wrap (command-queue* (extract ctx) (extract device) x
                                          (mask cl-command-queue-properties properties)))
-     (wrap-command-queue (command-queue* (fold ctx) (fold device) 0
+     (wrap (command-queue* (extract ctx) (extract device) 0
                                          (mask cl-command-queue-properties x properties)))))
   ([ctx device]
-   (wrap-command-queue (command-queue* (fold ctx) (fold device) 0 0)))
+   (wrap (command-queue* (extract ctx) (extract device) 0 0)))
   ([device]
    (command-queue *context* device)))
 
@@ -901,12 +901,12 @@
   "
   ([ctx device x & properties]
    (if (integer? x)
-     (wrap-command-queue (command-queue-1* (fold ctx) (fold device) x
+     (wrap (command-queue-1* (extract ctx) (extract device) x
                                            (mask cl-command-queue-properties properties)))
-     (wrap-command-queue (command-queue-1* (fold ctx) (fold device) 0
+     (wrap (command-queue-1* (extract ctx) (extract device) 0
                                            (mask cl-command-queue-properties x properties)))))
   ([ctx device]
-   (wrap-command-queue (command-queue-1* (fold ctx) (fold device) 0 0)))
+   (wrap (command-queue-1* (extract ctx) (extract device) 0 0)))
   ([device]
    (command-queue-1 *context* device)))
 
@@ -939,10 +939,10 @@
   "
   ([queue kernel ^WorkSize work-size ^objects wait-events event]
    (with-check
-     (CL/clEnqueueNDRangeKernel (fold queue) (fold kernel) (.workdim work-size) (.offset work-size)
+     (CL/clEnqueueNDRangeKernel (extract queue) (extract kernel) (.workdim work-size) (.offset work-size)
                                 (.global work-size) (.local work-size)
                                 (if wait-events (alength wait-events) 0)
-                                wait-events (fold event))
+                                wait-events (extract event))
      {:kernel (info kernel)}
      queue))
   ([queue kernel work-size event]
@@ -989,10 +989,10 @@
   "
   ([queue cl host blocking offset ^objects wait-events event]
    (with-check
-     (CL/clEnqueueReadBuffer (fold queue) (fold cl) blocking offset
+     (CL/clEnqueueReadBuffer (extract queue) (extract cl) blocking offset
                              (min (long (size cl)) (long (size host))) (ptr host)
                              (if wait-events (alength wait-events) 0)
-                             wait-events (fold event))
+                             wait-events (extract event))
      queue))
   ([queue cl host wait-events event]
    (enq-read! queue cl host false 0 wait-events event))
@@ -1042,10 +1042,10 @@
   "
   ([queue cl host blocking offset ^objects wait-events event]
    (with-check
-     (CL/clEnqueueWriteBuffer (fold queue) (fold cl) blocking offset
+     (CL/clEnqueueWriteBuffer (extract queue) (extract cl) blocking offset
                               (min (long (size cl)) (long (size host))) (ptr host)
                               (if wait-events (alength wait-events) 0)
-                              wait-events (fold event))
+                              wait-events (extract event))
      queue))
   ([queue cl host wait-events event]
    (enq-write! queue cl host false 0 wait-events event))
@@ -1069,17 +1069,17 @@
       (enq-copy! my-queue cl-src cl-dst 4 8 32 (events) ev)
   "
   ([queue cl-src cl-dst src-offset dst-offset size wait-events ev]
-   (enq-copy* cl-src (fold queue) cl-dst src-offset dst-offset size wait-events (fold ev))
+   (enq-copy* cl-src (extract queue) cl-dst src-offset dst-offset size wait-events (extract ev))
    queue)
   ([queue cl-src cl-dst size wait-events ev]
-   (enq-copy* cl-src (fold queue) cl-dst 0 0 size wait-events (fold ev))
+   (enq-copy* cl-src (extract queue) cl-dst 0 0 size wait-events (extract ev))
    queue)
   ([queue cl-src cl-dst wait-events ev]
-   (enq-copy* cl-src (fold queue) cl-dst 0 0 (min (long (size cl-src)) (long (size cl-dst)))
-              wait-events (fold ev))
+   (enq-copy* cl-src (extract queue) cl-dst 0 0 (min (long (size cl-src)) (long (size cl-dst)))
+              wait-events (extract ev))
    queue)
   ([queue cl-src cl-dst size]
-   (enq-copy* cl-src (fold queue) cl-dst 0 0 size nil nil)
+   (enq-copy* cl-src (extract queue) cl-dst 0 0 size nil nil)
    queue)
   ([queue cl-src cl-dst]
    (enq-copy! queue cl-src cl-dst (min (long (size cl-src)) (long (size cl-dst)))))
@@ -1099,10 +1099,10 @@
       (enq-fill! my-queue cl-buf (float-array [1 2 3 4]) 2 (events) ev)
   "
   ([queue this pattern offset multiplier wait-events ev]
-   (enq-fill* this (fold queue) pattern offset multiplier wait-events (fold ev))
+   (enq-fill* this (extract queue) pattern offset multiplier wait-events (extract ev))
    queue)
   ([queue this pattern wait-events ev]
-   (enq-fill* this (fold queue) pattern 0 (quot (long (size this)) (long (size pattern))) wait-events (fold ev))
+   (enq-fill* this (extract queue) pattern 0 (quot (long (size this)) (long (size pattern))) wait-events (extract ev))
    queue)
   ([queue this pattern]
    (enq-fill! queue this pattern nil nil))
@@ -1144,9 +1144,9 @@
       (enq-map-buffer! cl-data :write)
   "
   (^ByteBuffer [queue cl blocking offset req-size flags wait-events event]
-   (enq-map-buffer* (fold queue) cl blocking offset req-size
+   (enq-map-buffer* (extract queue) cl blocking offset req-size
                     (if (keyword? flags) (cl-map-flags flags) (mask cl-map-flags flags))
-                    wait-events (fold event)))
+                    wait-events (extract event)))
   (^ByteBuffer [queue cl offset req-size flags wait-events event]
    (enq-map-buffer! queue cl false offset req-size flags wait-events event))
   (^ByteBuffer [queue cl flags wait-events event]
@@ -1154,7 +1154,7 @@
   (^ByteBuffer [queue cl flags event]
    (enq-map-buffer! queue cl flags nil event))
   (^ByteBuffer [queue cl flags]
-   (enq-map-buffer! (fold queue) cl true 0 (size cl) flags nil nil))
+   (enq-map-buffer! queue cl true 0 (size cl) flags nil nil))
   (^ByteBuffer [cl flags]
    (enq-map-buffer! *command-queue* cl flags)))
 
@@ -1190,9 +1190,9 @@
   "
   ([queue cl ^ByteBuffer host ^objects wait-events event]
    (if (< 0 (.capacity host))
-     (let [err (CL/clEnqueueUnmapMemObject (fold queue) (fold cl) host
+     (let [err (CL/clEnqueueUnmapMemObject (extract queue) (extract cl) host
                                            (if wait-events (alength wait-events) 0)
-                                           wait-events (fold event))]
+                                           wait-events (extract event))]
        (with-check err queue))
      (do
        (release host)
@@ -1240,13 +1240,13 @@
       (enq-svm-map svm-data :write-invalidate-region)
   "
   ([queue svm flags wait-events event]
-   (enq-svm-map* (fold queue) svm false
+   (enq-svm-map* (extract queue) svm false
                  (if (keyword? flags) (cl-map-flags flags) (mask cl-map-flags flags))
-                 wait-events (fold event)))
+                 wait-events (extract event)))
   ([queue svm flags event]
    (enq-svm-map! queue svm flags nil event))
   ([queue svm flags]
-   (enq-svm-map* (fold queue) svm true
+   (enq-svm-map* (extract queue) svm true
                  (if (keyword? flags) (cl-map-flags flags) (mask cl-map-flags flags))
                  nil nil))
   ([svm flags]
@@ -1283,9 +1283,9 @@
       (enq-svm-unmap! svm-data byte-buff)
 "
   ([queue svm ^objects wait-events event]
-   (let [err (CL/clEnqueueSVMUnmap (fold queue) (ptr svm)
+   (let [err (CL/clEnqueueSVMUnmap (extract queue) (ptr svm)
                                    (if wait-events (alength wait-events) 0)
-                                   wait-events (fold event))]
+                                   wait-events (extract event))]
      (with-check err queue)))
   ([queue svm event]
    (enq-svm-unmap! queue svm nil event))
@@ -1313,8 +1313,8 @@
    (enq-marker! queue nil ev))
   ([queue ^objects wait-events ev]
    (with-check
-     (CL/clEnqueueMarkerWithWaitList (fold queue) (if wait-events (alength wait-events) 0)
-                                     wait-events (fold ev))
+     (CL/clEnqueueMarkerWithWaitList (extract queue) (if wait-events (alength wait-events) 0)
+                                     wait-events (extract ev))
      queue)))
 
 (defn enq-barrier!
@@ -1335,8 +1335,8 @@
    (enq-barrier! queue nil ev))
   ([queue ^objects wait-events ev]
    (with-check
-     (CL/clEnqueueBarrierWithWaitList (fold queue) (if wait-events (alength wait-events) 0)
-                                      wait-events (fold ev))
+     (CL/clEnqueueBarrierWithWaitList (extract queue) (if wait-events (alength wait-events) 0)
+                                      wait-events (extract ev))
      queue)))
 
 (defn finish!
@@ -1352,7 +1352,7 @@
       (finish! my-queue)
   "
   ([queue]
-   (with-check (CL/clFinish (fold queue)) queue))
+   (with-check (CL/clFinish (extract queue)) queue))
   ([]
    (finish! *command-queue*)))
 
@@ -1368,7 +1368,7 @@
       (flush! my-queue)
   "
   [queue]
-  (with-check (CL/clFlush (fold queue)) queue))
+  (with-check (CL/clFlush (extract queue)) queue))
 
 (defmacro with-queue
   "Dynamically binds `queue` to the default queue [[*command-queue*]].

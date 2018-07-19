@@ -8,8 +8,9 @@
 
 (ns ^{:author "Dragan Djuric"}
     uncomplicate.clojurecl.internal.impl
-  (:require [uncomplicate.commons.core :refer [Releaseable release info]]
-            [uncomplicate.fluokitten.jvm]
+  (:require [uncomplicate.commons
+             [core :refer [Releaseable release info]]
+             [utils :refer [dragan-says-ex]]]
             [uncomplicate.clojurecl.internal
              [api :refer :all]
              [constants :refer :all]
@@ -17,7 +18,7 @@
             [clojure.core.async :refer [go >!]])
   (:import [java.nio ByteBuffer ByteOrder]
            clojure.lang.IDeref
-           [org.jocl CL cl_device_id cl_mem
+           [org.jocl CL NativePointerObject cl_device_id cl_mem
             cl_context cl_command_queue cl_mem cl_program cl_kernel cl_sampler
             cl_event cl_buffer_region cl_queue_properties
             Sizeof Pointer CreateContextFunction EventCallbackFunction
@@ -25,185 +26,182 @@
 
 ;; =============== Release CL Resources ==================================
 
-(extend-type cl_device_id
-  Releaseable
-  (release [d]
-    (with-check (CL/clReleaseDevice d) true)))
+(defn native-pointer ^long [npo]
+  (if npo (JOCLAccessor/getNativePointer npo) 0))
 
-(extend-type cl_command_queue
-  Releaseable
-  (release [q]
-    (with-check (CL/clReleaseCommandQueue q) true)))
-
-(extend-type cl_context
-  Releaseable
-  (release [c]
-    (with-check (CL/clReleaseContext c) true)))
-
-(extend-type cl_event
-  Releaseable
-  (release [e]
-    (with-check (CL/clReleaseEvent e) true)))
-
-(extend-type cl_kernel
-  Releaseable
-  (release [k]
-    (with-check (CL/clReleaseKernel k) true)))
-
-(extend-type cl_mem
-  Releaseable
-  (release [m]
-    (with-check (CL/clReleaseMemObject m) true)))
-
-(extend-type cl_program
-  Releaseable
-  (release [p]
-    (with-check (CL/clReleaseProgram p) true)))
-
-(extend-type cl_sampler
-  Releaseable
-  (release [s]
-    (with-check (CL/clReleaseSampler s) true)))
-
-(defn ^:private equals-deref [this other]
-  (or (identical? this other)
-      (and (instance? (class this) other) (= (deref this) (deref other)))))
+(extend-protocol Releaseable
+  NativePointerObject
+  (release [this]
+    (dragan-says-ex "It is not allowed to use and release raw JOCL objects. Use safe wrappers."
+                    {:this this})))
 
 (deftype CLCommandQueue [queue]
   Object
   (hashCode [this]
-    (hash (deref this)))
+    (hash @queue))
   (equals [this other]
-    (equals-deref this other))
-  IDeref
-  (deref [_]
+    (= @queue (extract other)))
+  (toString [this]
+    (format "#CLCommandQueue[0x%s]" (Long/toHexString (native-pointer @queue))))
+  CLWrapper
+  (extract [_]
     @queue)
   Releaseable
   (release [this]
     (locking this
       (when-let [q @queue]
-        (with-check (CL/clReleaseCommandQueue q) (vreset! queue nil))))
+        (locking q
+          (with-check (CL/clReleaseCommandQueue q) (vreset! queue nil)))))
     true))
 
 (deftype CLContext [ctx]
   Object
   (hashCode [this]
-    (hash (deref this)))
+    (hash @ctx))
   (equals [this other]
-    (equals-deref this other))
-  IDeref
-  (deref [_]
+    (= @ctx (extract other)))
+  (toString [this]
+    (format "#CLContext[0x%s]" (Long/toHexString (native-pointer @ctx))))
+  CLWrapper
+  (extract [_]
     @ctx)
   Releaseable
   (release [this]
     (locking this
       (when-let [c @ctx]
-        (with-check (CL/clReleaseContext c) (vreset! ctx nil))))
+        (locking c
+          (with-check (CL/clReleaseContext c) (vreset! ctx nil)))))
     true))
 
 (deftype CLDevice [device]
   Object
   (hashCode [this]
-    (hash (deref this)))
+    (hash @device))
   (equals [this other]
-    (equals-deref this other))
-  IDeref
-  (deref [_]
+    (= @device (extract other)))
+  (toString [this]
+    (format "#CLDevice[0x%s]" (Long/toHexString (native-pointer @device))))
+  CLWrapper
+  (extract [_]
     @device)
   Releaseable
   (release [this]
     (locking this
       (when-let [d @device]
-        (with-check (CL/clReleaseDevice d) (vreset! device nil))))
+        (locking d
+          (with-check (CL/clReleaseDevice d) (vreset! device nil)))))
     true))
 
 (deftype CLEvent [event]
   Object
   (hashCode [this]
-    (hash (deref this)))
+    (hash @event))
   (equals [this other]
-    (equals-deref this other))
-  IDeref
-  (deref [_]
+    (= @event (extract other)))
+  (toString [this]
+    (format "#CLEvent[0x%s]" (Long/toHexString (native-pointer @event))))
+  CLWrapper
+  (extract [_]
     @event)
   Releaseable
   (release [this]
     (locking this
       (when-let [e @event]
-        (with-check (CL/clReleaseEvent e) (vreset! event nil))))
+        (locking e
+          (with-check (CL/clReleaseEvent e) (vreset! event nil)))))
     true))
 
 (deftype CLKernel [kernel]
   Object
   (hashCode [this]
-    (hash (deref this)))
+    (hash @kernel))
   (equals [this other]
-    (equals-deref this other))
-  IDeref
-  (deref [_]
+    (= @kernel (extract other)))
+  (toString [this]
+    (format "#CLKernel[0x%s]" (Long/toHexString (native-pointer @kernel))))
+  CLWrapper
+  (extract [_]
     @kernel)
   Releaseable
   (release [this]
     (locking this
       (when-let [k @kernel]
-        (with-check (CL/clReleaseKernel k) (vreset! kernel nil))))
+        (locking k
+          (with-check (CL/clReleaseKernel k) (vreset! kernel nil)))))
     true))
 
 (deftype CLProgram [program]
   Object
   (hashCode [this]
-    (hash (deref this)))
+    (hash @program))
   (equals [this other]
-    (equals-deref this other))
-  IDeref
-  (deref [_]
+    (= @program (extract other)))
+  (toString [this]
+    (format "#CLProgram[0x%s]" (Long/toHexString (native-pointer @program))))
+  CLWrapper
+  (extract [_]
     @program)
   Releaseable
   (release [this]
     (locking this
       (when-let [p @program]
-        (with-check (CL/clReleaseProgram p) (vreset! program nil))))
+        (locking p
+          (with-check (CL/clReleaseProgram p) (vreset! program nil)))))
     true))
 
 (deftype CLSampler [sampler]
   Object
   (hashCode [this]
-    (hash (deref this)))
+    (hash @sampler))
   (equals [this other]
-    (equals-deref this other))
-  IDeref
-  (deref [_]
+    (= @sampler (extract other)))
+  (toString [this]
+    (format "#CLSampler[0x%s]" (Long/toHexString (native-pointer @sampler))))
+  CLWrapper
+  (extract [_]
     @sampler)
   Releaseable
   (release [this]
     (locking this
       (when-let [s @sampler]
-        (with-check (CL/clReleaseSampler s) (vreset! sampler nil))))
+        (locking s
+          (with-check (CL/clReleaseSampler s) (vreset! sampler nil)))))
     true))
 
-(defn native-pointer ^long [npo]
-  (JOCLAccessor/getNativePointer npo))
+(extend-type cl_command_queue
+  Wrappable
+  (wrap [queue]
+    (->CLCommandQueue (volatile! queue))))
 
-(defn wrap-command-queue [^cl_command_queue queue]
-  (when queue (->CLCommandQueue (volatile! queue))))
+(extend-type cl_context
+  Wrappable
+  (wrap [ctx]
+    (->CLContext (volatile! ctx))))
 
-(defn wrap-context [^cl_context ctx]
-  (when ctx (->CLContext (volatile! ctx))))
+(extend-type cl_device_id
+  Wrappable
+  (wrap [dev]
+    (->CLDevice (volatile! dev))))
 
-(defn wrap-device [^cl_device_id dev]
-  (when dev (->CLDevice (volatile! dev))))
+(extend-type cl_event
+  Wrappable
+  (wrap [event]
+    (->CLEvent (volatile! event))))
 
-(defn wrap-event [^cl_event event]
-  (when event (->CLEvent (volatile! event))))
+(extend-type cl_kernel
+  Wrappable
+  (wrap [kernel]
+    (->CLKernel (volatile! kernel))))
 
-(defn wrap-kernel [^cl_kernel kernel]
-  (when kernel (->CLKernel (volatile! kernel))))
+(extend-type cl_program
+  Wrappable
+  (wrap [program]
+    (->CLProgram (volatile! program))))
 
-(defn wrap-program [^cl_program program]
-  (when program (->CLProgram (volatile! program))))
-
-(defn wrap-sampler [^cl_sampler sampler]
-  (when sampler (->CLSampler (volatile! sampler))))
+(extend-type cl_sampler
+  Wrappable
+  (wrap [sampler]
+    (->CLSampler (volatile! sampler))))
 
 ;; =============== Device ==========================================
 
@@ -228,7 +226,7 @@
     (if (= CL/CL_DEVICE_NOT_FOUND err)
       0
       (with-check err
-        {:platform (info platform) :device-type device-type}
+        {:platform (info (wrap platform)) :device-type device-type}
         (aget res 0)))))
 
 (defn devices*
@@ -300,18 +298,21 @@
   (hashCode [this]
     (hash @cl))
   (equals [this other]
-    (equals-deref this other))
-  IDeref
-  (deref [_]
+    (= @cl (extract other)))
+  (toString [this]
+    (format "#CLBuffer[0x%s]" (Long/toHexString (native-pointer @cl))))
+  CLWrapper
+  (extract [_]
     @cl)
   Releaseable
   (release [this]
     (locking this
       (when-let [c @cl]
-        (with-check (CL/clReleaseMemObject c)
-          (do
-            (vreset! cl nil)
-            (vreset! cl* nil)))))
+        (locking c
+          (with-check (CL/clReleaseMemObject c)
+            (do
+              (vreset! cl nil)
+              (vreset! cl* nil))))))
     true)
   Mem
   (ptr [_]
@@ -321,7 +322,7 @@
   CLMem
   (enq-copy* [this queue dst src-offset dst-offset size wait-events ev]
     (with-check
-      (CL/clEnqueueCopyBuffer queue @cl @dst src-offset dst-offset size
+      (CL/clEnqueueCopyBuffer queue @cl (extract dst) src-offset dst-offset size
                               (if wait-events (alength ^objects wait-events) 0)
                               wait-events ev)
       queue))
@@ -343,16 +344,19 @@
   (hashCode [this]
     (hash @svm*))
   (equals [this other]
-    (equals-deref this other))
-  IDeref
-  (deref [_]
+    (= @svm* (extract other)))
+  (toString [this]
+    (str @svm*))
+  CLWrapper
+  (extract [_]
     @svm*)
   Releaseable
   (release [this]
     (locking this
       (when-let [ss @svm*]
-        (CL/clSVMFree ctx ss)
-        (vreset! svm* nil)))
+        (locking ss
+          (CL/clSVMFree ctx ss)
+          (vreset! svm* nil))))
     true)
   Mem
   (ptr [_]
@@ -568,12 +572,12 @@
 
 ;; ============== Events ==========================================
 
-(defrecord EventCallbackInfo [event status data])
+(defrecord EventCallbackInfo [status data])
 
 (deftype EventCallback [ch]
   EventCallbackFunction
   (function [this ev status data]
-    (go (>! ch (->EventCallbackInfo ev (dec-command-execution-status status) data)))))
+    (go (>! ch (->EventCallbackInfo (dec-command-execution-status status) data)))))
 
 (defn set-event-callback*
   "Registers a callback function for an event and a specific command
@@ -599,12 +603,10 @@
 
 ;; ============= Program ==========================================
 
-(defrecord BuildCallbackInfo [program data])
-
 (deftype BuildCallback [ch]
   BuildProgramFunction
   (function [this program data]
-    (go (>! ch (->BuildCallbackInfo program data)))))
+    (go (>! ch (if data data :no-user-data)))))
 
 ;; ============== Command Queue ===============================
 
@@ -719,7 +721,7 @@
   ^ByteBuffer [queue cl blocking offset req-size flags ^objects wait-events event]
   (if (< 0 ^long req-size)
     (let [err (int-array 1)
-          res (CL/clEnqueueMapBuffer queue @cl blocking flags offset
+          res (CL/clEnqueueMapBuffer queue (extract cl) blocking flags offset
                                      (min ^long req-size (- ^long (size cl) ^long offset))
                                      (if wait-events (alength wait-events) 0)
                                      wait-events event err)]

@@ -42,7 +42,7 @@
         (enq-read! cqueue cl-v v (events kernel-event) read-event) => cqueue
         (follow read-event) => notifications
         (set-status! user-event) => user-event
-        (:event (<!! notifications)) => @read-event))))
+        (:data (<!! notifications)) => read-event))))
 
   (facts
    "Listing 7.6. Page 155."
@@ -66,7 +66,7 @@
         (follow profile-event)
 
         (< 10000
-           (-> (<!! notifications) :event profiling-info durations :end)
+           (-> (<!! notifications) :data profiling-info durations :end)
            350000)
         => true))))
 
@@ -89,6 +89,6 @@
         (follow profile-event)
 
         (< 10000
-           (-> (<!! notifications) :event profiling-info durations :end)
+           (-> (<!! notifications) :data profiling-info durations :end)
            300000)
         => true)))))

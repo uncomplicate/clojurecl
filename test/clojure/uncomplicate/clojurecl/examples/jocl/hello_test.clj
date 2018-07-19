@@ -8,10 +8,10 @@
 
 (ns uncomplicate.clojurecl.examples.jocl.hello-test
   (:require [midje.sweet :refer :all]
-            [uncomplicate.commons.core :refer [with-release]]
-            [uncomplicate.clojurecl.core :refer :all])
-  (:import [java.nio ByteBuffer]))
-
+            [uncomplicate.commons
+             [core :refer [with-release]]
+             [utils :refer [put-float get-float]]]
+            [uncomplicate.clojurecl.core :refer :all]))
 
 (def program-source (slurp "test/opencl/examples/jocl/hello-kernel.cl"))
 
@@ -30,6 +30,7 @@
                               (cl-buffer ctx bytesize :write-only)]
                  prog (build-program! (program-with-source ctx [program-source]))
                  sample-kernel (kernel prog "sampleKernel")]
+
     (facts
 
      (apply set-args! sample-kernel mem-objects) => sample-kernel
@@ -49,13 +50,13 @@
                    mem-object-dest (cl-buffer ctx bytesize :read-only)]
 
       (let [src-buffer-a (enq-map-buffer! cqueue mem-object-a :write)]
-        (.putFloat ^ByteBuffer src-buffer-a 0 46)
-        (.putFloat ^ByteBuffer src-buffer-a 4 100)
+        (put-float src-buffer-a 0 46)
+        (put-float src-buffer-a 1 100)
         (enq-unmap! cqueue mem-object-a src-buffer-a))
 
       (let [src-buffer-b (enq-map-buffer! cqueue mem-object-b :write)]
-        (.putFloat ^ByteBuffer src-buffer-b 0 56)
-        (.putFloat ^ByteBuffer src-buffer-b 4 200)
+        (put-float src-buffer-b 0 56)
+        (put-float src-buffer-b 1 200)
         (enq-unmap! cqueue mem-object-b src-buffer-b))
 
       (facts
@@ -66,6 +67,6 @@
        (enq-kernel! cqueue sample-kernel work-sizes) => cqueue
 
        (let [dest-buffer (enq-map-buffer! cqueue mem-object-dest :read)]
-         (.getFloat ^ByteBuffer dest-buffer 0) => 102.0
-         (.getFloat ^ByteBuffer dest-buffer 4) => 300.0
+         (get-float dest-buffer 0) => 102.0
+         (get-float dest-buffer 1) => 300.0
          (enq-unmap! cqueue mem-object-dest dest-buffer) => cqueue)))))

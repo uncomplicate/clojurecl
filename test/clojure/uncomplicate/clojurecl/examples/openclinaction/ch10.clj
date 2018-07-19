@@ -60,7 +60,7 @@
         (enq-read! cqueue cl-output output) => cqueue
         (finish! cqueue) => cqueue
         (println "Naive reduction time:"
-                 (-> (<!! notifications) :event profiling-info durations :end))
+                 (-> (<!! notifications) :data profiling-info durations :end))
         (aget output 0) => num-items
         ;; ============= Scalar reduction ====================================
         (set-args! reduction-scalar cl-data cl-partial-sums cl-partial-output)
@@ -72,7 +72,7 @@
         (enq-read! cqueue cl-partial-output partial-output)
         (finish! cqueue)
         (println "Scalar reduction time:"
-                 (-> (<!! notifications) :event profiling-info durations :end))
+                 (-> (<!! notifications) :data profiling-info durations :end))
         (long (first partial-output)) => workgroup-size
         ;; =============== Vector reduction ==================================
         (set-args! reduction-vector cl-data cl-partial-sums cl-partial-output)
@@ -90,6 +90,6 @@
         (enq-read! cqueue cl-partial-output partial-output)
         (finish! cqueue)
         (println "Vector reduction time:"
-                 (-> (<!! notifications) :event profiling-info durations :end)
-                 (-> (<!! notifications) :event profiling-info durations :end))
+                 (-> (<!! notifications) :data profiling-info durations :end)
+                 (-> (<!! notifications) :data profiling-info durations :end))
         (first partial-output) => num-items)))))

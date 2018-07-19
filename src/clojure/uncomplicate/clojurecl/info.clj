@@ -140,17 +140,20 @@
   "
   (:require [clojure.string :as str]
             [uncomplicate.commons
-             [core :refer [Info info with-release]]
+             [core :refer [Info info]]
              [utils :refer [unmask unmask1 buffer direct-buffer]]]
-            [uncomplicate.fluokitten.core :refer [fmap fold]]
+            [uncomplicate.fluokitten.core :refer [fmap]]
             [uncomplicate.clojurecl.internal
+             [api :refer [wrap extract]]
              [constants :refer :all]
              [utils :refer :all]
              [impl :refer :all]])
   (:import [java.nio ByteBuffer IntBuffer LongBuffer]
            [org.jocl CL cl_platform_id  cl_device_id cl_context cl_command_queue
             cl_program cl_kernel cl_sampler cl_event cl_device_partition_property
-            cl_mem Sizeof Pointer]))
+            cl_mem Sizeof Pointer]
+           [uncomplicate.clojurecl.internal.impl CLDevice CLContext CLCommandQueue CLProgram
+            CLKernel CLEvent CLBuffer]))
 
 (defn ^:private get-array [^ByteBuffer buf]
   (if (= Sizeof/size_t 8)
@@ -244,32 +247,6 @@
 (defprotocol InfoProperties
   (properties [this]))
 
-(extend-type clojure.lang.IDeref
-  Info
-  (info
-    ([this info-type]
-     (info (deref this) info-type))
-    ([this]
-     (info (deref this))))
-  InfoExtensions
-  (extensions [this]
-    (extensions (deref this)))
-  InfoName
-  (name-info [this]
-    (name-info (deref this)))
-  InfoProfile
-  (profile [this]
-    (profile (deref this)))
-  InfoVendor
-  (vendor [this]
-    (vendor (deref this)))
-  InfoReferenceCount
-  (reference-count [this]
-    (reference-count (deref this)))
-  InfoProperties
-  (properties [this]
-    (properties (deref this))))
-
 ;; =================== Platform ===================================
 
 (defn version [platform]
@@ -316,280 +293,280 @@
 ;; =================== Device ==============================================
 
 (defn address-bits ^long [device]
-  (info-int* CL/clGetDeviceInfo (fold device) CL/CL_DEVICE_ADDRESS_BITS))
+  (info-int* CL/clGetDeviceInfo (extract device) CL/CL_DEVICE_ADDRESS_BITS))
 
 (defn available [device]
-  (info-bool* CL/clGetDeviceInfo (fold device) CL/CL_DEVICE_AVAILABLE))
+  (info-bool* CL/clGetDeviceInfo (extract device) CL/CL_DEVICE_AVAILABLE))
 
 (defn built-in-kernels [device]
-  (to-set (info-string* CL/clGetDeviceInfo (fold device) CL/CL_DEVICE_BUILT_IN_KERNELS)))
+  (to-set (info-string* CL/clGetDeviceInfo (extract device) CL/CL_DEVICE_BUILT_IN_KERNELS)))
 
 (defn compiler-available [device]
-  (info-bool* CL/clGetDeviceInfo (fold device) CL/CL_DEVICE_COMPILER_AVAILABLE))
+  (info-bool* CL/clGetDeviceInfo (extract device) CL/CL_DEVICE_COMPILER_AVAILABLE))
 
 (defn double-fp-config ^long [device]
-  (info-long* CL/clGetDeviceInfo (fold device) CL/CL_DEVICE_DOUBLE_FP_CONFIG))
+  (info-long* CL/clGetDeviceInfo (extract device) CL/CL_DEVICE_DOUBLE_FP_CONFIG))
 
 (defn endian-little [device]
-  (info-bool* CL/clGetDeviceInfo (fold device) CL/CL_DEVICE_ENDIAN_LITTLE))
+  (info-bool* CL/clGetDeviceInfo (extract device) CL/CL_DEVICE_ENDIAN_LITTLE))
 
 (defn error-correction-support [device]
-  (info-bool* CL/clGetDeviceInfo (fold device) CL/CL_DEVICE_ERROR_CORRECTION_SUPPORT))
+  (info-bool* CL/clGetDeviceInfo (extract device) CL/CL_DEVICE_ERROR_CORRECTION_SUPPORT))
 
 (defn execution-capabilities ^long [device]
-  (info-long* CL/clGetDeviceInfo (fold device) CL/CL_DEVICE_EXECUTION_CAPABILITIES))
+  (info-long* CL/clGetDeviceInfo (extract device) CL/CL_DEVICE_EXECUTION_CAPABILITIES))
 
 (defn global-mem-cache-size ^long [device]
-  (info-long* CL/clGetDeviceInfo (fold device) CL/CL_DEVICE_GLOBAL_MEM_CACHE_SIZE))
+  (info-long* CL/clGetDeviceInfo (extract device) CL/CL_DEVICE_GLOBAL_MEM_CACHE_SIZE))
 
 (defn global-mem-cache-type ^long [device]
-  (info-long* CL/clGetDeviceInfo (fold device) CL/CL_DEVICE_GLOBAL_MEM_CACHE_TYPE))
+  (info-long* CL/clGetDeviceInfo (extract device) CL/CL_DEVICE_GLOBAL_MEM_CACHE_TYPE))
 
 (defn global-mem-cacheline-size ^long [device]
-  (info-int* CL/clGetDeviceInfo (fold device) CL/CL_DEVICE_GLOBAL_MEM_CACHELINE_SIZE))
+  (info-int* CL/clGetDeviceInfo (extract device) CL/CL_DEVICE_GLOBAL_MEM_CACHELINE_SIZE))
 
 (defn global-mem-size ^long [device]
-  (info-long* CL/clGetDeviceInfo (fold device) CL/CL_DEVICE_GLOBAL_MEM_SIZE))
+  (info-long* CL/clGetDeviceInfo (extract device) CL/CL_DEVICE_GLOBAL_MEM_SIZE))
 
 (defn global-variable-preferred-total-size ^long [device]
-  (info-size* CL/clGetDeviceInfo (fold device) CL/CL_DEVICE_GLOBAL_VARIABLE_PREFERRED_TOTAL_SIZE))
+  (info-size* CL/clGetDeviceInfo (extract device) CL/CL_DEVICE_GLOBAL_VARIABLE_PREFERRED_TOTAL_SIZE))
 
 (defn image2d-max-height ^long [device]
-  (info-size* CL/clGetDeviceInfo (fold device) CL/CL_DEVICE_IMAGE2D_MAX_HEIGHT))
+  (info-size* CL/clGetDeviceInfo (extract device) CL/CL_DEVICE_IMAGE2D_MAX_HEIGHT))
 
 (defn image2d-max-width ^long [device]
-  (info-size* CL/clGetDeviceInfo (fold device) CL/CL_DEVICE_IMAGE2D_MAX_WIDTH))
+  (info-size* CL/clGetDeviceInfo (extract device) CL/CL_DEVICE_IMAGE2D_MAX_WIDTH))
 
 (defn image3d-max-depth ^long [device]
-  (info-size* CL/clGetDeviceInfo (fold device) CL/CL_DEVICE_IMAGE3D_MAX_DEPTH))
+  (info-size* CL/clGetDeviceInfo (extract device) CL/CL_DEVICE_IMAGE3D_MAX_DEPTH))
 
 (defn image3d-max-height ^long [device]
-  (info-size* CL/clGetDeviceInfo (fold device) CL/CL_DEVICE_IMAGE3D_MAX_HEIGHT))
+  (info-size* CL/clGetDeviceInfo (extract device) CL/CL_DEVICE_IMAGE3D_MAX_HEIGHT))
 
 (defn image3d-max-width ^long [device]
-  (info-size* CL/clGetDeviceInfo (fold device) CL/CL_DEVICE_IMAGE3D_MAX_WIDTH))
+  (info-size* CL/clGetDeviceInfo (extract device) CL/CL_DEVICE_IMAGE3D_MAX_WIDTH))
 
 (defn image-base-address-alignment ^long [device]
-  (info-int* CL/clGetDeviceInfo (fold device) CL/CL_DEVICE_IMAGE_BASE_ADDRESS_ALIGNMENT))
+  (info-int* CL/clGetDeviceInfo (extract device) CL/CL_DEVICE_IMAGE_BASE_ADDRESS_ALIGNMENT))
 
 (defn image-max-array-size ^long [device]
-  (info-size* CL/clGetDeviceInfo (fold device) CL/CL_DEVICE_IMAGE_MAX_ARRAY_SIZE))
+  (info-size* CL/clGetDeviceInfo (extract device) CL/CL_DEVICE_IMAGE_MAX_ARRAY_SIZE))
 
 (defn image-max-buffer-size ^long [device]
-  (info-size* CL/clGetDeviceInfo (fold device) CL/CL_DEVICE_IMAGE_MAX_BUFFER_SIZE))
+  (info-size* CL/clGetDeviceInfo (extract device) CL/CL_DEVICE_IMAGE_MAX_BUFFER_SIZE))
 
 (defn image-pitch-alignment ^long [device]
-  (info-int* CL/clGetDeviceInfo (fold device) CL/CL_DEVICE_IMAGE_PITCH_ALIGNMENT))
+  (info-int* CL/clGetDeviceInfo (extract device) CL/CL_DEVICE_IMAGE_PITCH_ALIGNMENT))
 
 (defn image-support [device]
-  (info-bool* CL/clGetDeviceInfo (fold device) CL/CL_DEVICE_IMAGE_SUPPORT))
+  (info-bool* CL/clGetDeviceInfo (extract device) CL/CL_DEVICE_IMAGE_SUPPORT))
 
 (defn linker-available [device]
-  (info-bool* CL/clGetDeviceInfo (fold device) CL/CL_DEVICE_LINKER_AVAILABLE))
+  (info-bool* CL/clGetDeviceInfo (extract device) CL/CL_DEVICE_LINKER_AVAILABLE))
 
 (defn local-mem-size ^long [device]
-  (info-long* CL/clGetDeviceInfo (fold device) CL/CL_DEVICE_LOCAL_MEM_SIZE))
+  (info-long* CL/clGetDeviceInfo (extract device) CL/CL_DEVICE_LOCAL_MEM_SIZE))
 
 (defn local-mem-type ^long [device]
-  (info-long* CL/clGetDeviceInfo (fold device) CL/CL_DEVICE_LOCAL_MEM_TYPE))
+  (info-long* CL/clGetDeviceInfo (extract device) CL/CL_DEVICE_LOCAL_MEM_TYPE))
 
 (defn max-clock-frequency ^long [device]
-  (info-int* CL/clGetDeviceInfo (fold device) CL/CL_DEVICE_MAX_CLOCK_FREQUENCY))
+  (info-int* CL/clGetDeviceInfo (extract device) CL/CL_DEVICE_MAX_CLOCK_FREQUENCY))
 
 (defn max-compute-units ^long [device]
-  (info-int* CL/clGetDeviceInfo (fold device) CL/CL_DEVICE_MAX_COMPUTE_UNITS))
+  (info-int* CL/clGetDeviceInfo (extract device) CL/CL_DEVICE_MAX_COMPUTE_UNITS))
 
 (defn max-constant-args ^long [device]
-  (info-int* CL/clGetDeviceInfo (fold device) CL/CL_DEVICE_MAX_CONSTANT_ARGS))
+  (info-int* CL/clGetDeviceInfo (extract device) CL/CL_DEVICE_MAX_CONSTANT_ARGS))
 
 (defn max-constant-buffer-size ^long [device]
-  (info-long* CL/clGetDeviceInfo (fold device) CL/CL_DEVICE_MAX_CONSTANT_BUFFER_SIZE))
+  (info-long* CL/clGetDeviceInfo (extract device) CL/CL_DEVICE_MAX_CONSTANT_BUFFER_SIZE))
 
 (defn max-global-variable-size ^long [device]
-  (info-size* CL/clGetDeviceInfo (fold device) CL/CL_DEVICE_MAX_GLOBAL_VARIABLE_SIZE))
+  (info-size* CL/clGetDeviceInfo (extract device) CL/CL_DEVICE_MAX_GLOBAL_VARIABLE_SIZE))
 
 (defn max-mem-aloc-size ^long [device]
-  (info-long* CL/clGetDeviceInfo (fold device) CL/CL_DEVICE_MAX_MEM_ALLOC_SIZE))
+  (info-long* CL/clGetDeviceInfo (extract device) CL/CL_DEVICE_MAX_MEM_ALLOC_SIZE))
 
 (defn max-on-device-events ^long [device]
-  (info-int* CL/clGetDeviceInfo (fold device) CL/CL_DEVICE_MAX_ON_DEVICE_EVENTS))
+  (info-int* CL/clGetDeviceInfo (extract device) CL/CL_DEVICE_MAX_ON_DEVICE_EVENTS))
 
 (defn max-on-device-queues ^long [device]
-  (info-int* CL/clGetDeviceInfo (fold device) CL/CL_DEVICE_MAX_ON_DEVICE_QUEUES))
+  (info-int* CL/clGetDeviceInfo (extract device) CL/CL_DEVICE_MAX_ON_DEVICE_QUEUES))
 
 (defn max-parameter-size ^long [device]
-  (info-size* CL/clGetDeviceInfo (fold device) CL/CL_DEVICE_MAX_PARAMETER_SIZE))
+  (info-size* CL/clGetDeviceInfo (extract device) CL/CL_DEVICE_MAX_PARAMETER_SIZE))
 
 (defn max-pipe-args ^long [device]
-  (info-int* CL/clGetDeviceInfo (fold device) CL/CL_DEVICE_MAX_PIPE_ARGS))
+  (info-int* CL/clGetDeviceInfo (extract device) CL/CL_DEVICE_MAX_PIPE_ARGS))
 
 (defn max-read-image-args ^long [device]
-  (info-int* CL/clGetDeviceInfo (fold device) CL/CL_DEVICE_MAX_READ_IMAGE_ARGS))
+  (info-int* CL/clGetDeviceInfo (extract device) CL/CL_DEVICE_MAX_READ_IMAGE_ARGS))
 
 (defn max-read-write-image-args ^long [device]
-  (info-int* CL/clGetDeviceInfo (fold device) CL/CL_DEVICE_MAX_READ_WRITE_IMAGE_ARGS))
+  (info-int* CL/clGetDeviceInfo (extract device) CL/CL_DEVICE_MAX_READ_WRITE_IMAGE_ARGS))
 
 (defn max-samplers ^long [device]
-  (info-int* CL/clGetDeviceInfo (fold device) CL/CL_DEVICE_MAX_SAMPLERS))
+  (info-int* CL/clGetDeviceInfo (extract device) CL/CL_DEVICE_MAX_SAMPLERS))
 
 (defn max-work-group-size ^long [device]
-  (info-size* CL/clGetDeviceInfo (fold device) CL/CL_DEVICE_MAX_WORK_GROUP_SIZE))
+  (info-size* CL/clGetDeviceInfo (extract device) CL/CL_DEVICE_MAX_WORK_GROUP_SIZE))
 
 (defn max-work-item-dimensions ^long [device]
-  (info-int* CL/clGetDeviceInfo (fold device) CL/CL_DEVICE_MAX_WORK_ITEM_DIMENSIONS))
+  (info-int* CL/clGetDeviceInfo (extract device) CL/CL_DEVICE_MAX_WORK_ITEM_DIMENSIONS))
 
 (defn max-work-item-sizes [device]
-  (info-size* CL/clGetDeviceInfo (fold device) CL/CL_DEVICE_MAX_WORK_ITEM_SIZES
+  (info-size* CL/clGetDeviceInfo (extract device) CL/CL_DEVICE_MAX_WORK_ITEM_SIZES
               (max-work-item-dimensions device)))
 
 (defn max-write-image-args ^long [device]
-  (info-int* CL/clGetDeviceInfo (fold device) CL/CL_DEVICE_MAX_WRITE_IMAGE_ARGS))
+  (info-int* CL/clGetDeviceInfo (extract device) CL/CL_DEVICE_MAX_WRITE_IMAGE_ARGS))
 
 (defn mem-base-addr-align ^long [device]
-  (info-int* CL/clGetDeviceInfo (fold device) CL/CL_DEVICE_MEM_BASE_ADDR_ALIGN))
+  (info-int* CL/clGetDeviceInfo (extract device) CL/CL_DEVICE_MEM_BASE_ADDR_ALIGN))
 
 (defn native-vector-width-char ^long [device]
-  (info-int* CL/clGetDeviceInfo (fold device) CL/CL_DEVICE_NATIVE_VECTOR_WIDTH_CHAR))
+  (info-int* CL/clGetDeviceInfo (extract device) CL/CL_DEVICE_NATIVE_VECTOR_WIDTH_CHAR))
 
 (defn native-vector-width-short ^long [device]
-  (info-int* CL/clGetDeviceInfo (fold device) CL/CL_DEVICE_NATIVE_VECTOR_WIDTH_SHORT))
+  (info-int* CL/clGetDeviceInfo (extract device) CL/CL_DEVICE_NATIVE_VECTOR_WIDTH_SHORT))
 
 (defn native-vector-width-int ^long [device]
-  (info-int* CL/clGetDeviceInfo (fold device) CL/CL_DEVICE_NATIVE_VECTOR_WIDTH_INT))
+  (info-int* CL/clGetDeviceInfo (extract device) CL/CL_DEVICE_NATIVE_VECTOR_WIDTH_INT))
 
 (defn native-vector-width-long ^long [device]
-  (info-int* CL/clGetDeviceInfo (fold device) CL/CL_DEVICE_NATIVE_VECTOR_WIDTH_LONG))
+  (info-int* CL/clGetDeviceInfo (extract device) CL/CL_DEVICE_NATIVE_VECTOR_WIDTH_LONG))
 
 (defn native-vector-width-float ^long [device]
-  (info-int* CL/clGetDeviceInfo (fold device) CL/CL_DEVICE_NATIVE_VECTOR_WIDTH_FLOAT))
+  (info-int* CL/clGetDeviceInfo (extract device) CL/CL_DEVICE_NATIVE_VECTOR_WIDTH_FLOAT))
 
 (defn native-vector-width-double ^long [device]
-  (info-int* CL/clGetDeviceInfo (fold device) CL/CL_DEVICE_NATIVE_VECTOR_WIDTH_DOUBLE))
+  (info-int* CL/clGetDeviceInfo (extract device) CL/CL_DEVICE_NATIVE_VECTOR_WIDTH_DOUBLE))
 
 (defn native-vector-width-half ^long [device]
-  (info-int* CL/clGetDeviceInfo (fold device) CL/CL_DEVICE_NATIVE_VECTOR_WIDTH_HALF))
+  (info-int* CL/clGetDeviceInfo (extract device) CL/CL_DEVICE_NATIVE_VECTOR_WIDTH_HALF))
 
 (defn opencl-c-version [device]
-  (let [info (str/split (info-string* CL/clGetDeviceInfo (fold device) CL/CL_DEVICE_OPENCL_C_VERSION)
+  (let [info (str/split (info-string* CL/clGetDeviceInfo (extract device) CL/CL_DEVICE_OPENCL_C_VERSION)
                         #" ")]
     {:version (Double/parseDouble (get info 2 0))
      :vendor-specific-info (get info 3)}))
 
 (defn parent-device [device]
-  (let [device (fold device)
+  (let [device (extract device)
         id (info-long* CL/clGetDeviceInfo device CL/CL_DEVICE_PARENT_DEVICE)]
     (if (= 0 id)
       nil
       (let [parent (cl_device_id.)
             err (CL/clGetDeviceInfo device CL/CL_DEVICE_PARENT_DEVICE Sizeof/cl_device_id
                                     (Pointer/to parent) nil)]
-        (with-check err (wrap-device parent))))))
+        (with-check err (wrap parent))))))
 
 (defn partition-affinity-domain ^long [device]
-  (info-long* CL/clGetDeviceInfo (fold device)
+  (info-long* CL/clGetDeviceInfo (extract device)
               CL/CL_DEVICE_PARTITION_AFFINITY_DOMAIN))
 
 (defn partition-max-sub-devices ^long [device]
-  (info-int* CL/clGetDeviceInfo (fold device) CL/CL_DEVICE_PARTITION_MAX_SUB_DEVICES))
+  (info-int* CL/clGetDeviceInfo (extract device) CL/CL_DEVICE_PARTITION_MAX_SUB_DEVICES))
 
 (defn partition-properties [device]
-  (let [device (fold device)]
+  (let [device (extract device)]
     (info-long* CL/clGetDeviceInfo device CL/CL_DEVICE_PARTITION_PROPERTIES
                 (info-count* CL/clGetDeviceInfo device CL/CL_DEVICE_PARTITION_PROPERTIES
                              Sizeof/cl_long))))
 
 ;;TODO
 (defn partition-type [device]
-  (let [device (fold device)]
+  (let [device (extract device)]
     (info-long* CL/clGetDeviceInfo device CL/CL_DEVICE_PARTITION_TYPE
                 (info-count* CL/clGetDeviceInfo device CL/CL_DEVICE_PARTITION_TYPE Sizeof/cl_long))) )
 
 (defn pipe-max-active-reservations ^long [device]
-  (info-int* CL/clGetDeviceInfo (fold device) CL/CL_DEVICE_PIPE_MAX_ACTIVE_RESERVATIONS))
+  (info-int* CL/clGetDeviceInfo (extract device) CL/CL_DEVICE_PIPE_MAX_ACTIVE_RESERVATIONS))
 
 (defn pipe-max-packet-size ^long [device]
-  (info-long* CL/clGetDeviceInfo (fold device) CL/CL_DEVICE_PIPE_MAX_PACKET_SIZE))
+  (info-long* CL/clGetDeviceInfo (extract device) CL/CL_DEVICE_PIPE_MAX_PACKET_SIZE))
 
 (defn platform [device]
   (let [p (cl_platform_id.)
-        err (CL/clGetDeviceInfo (fold device) CL/CL_DEVICE_PLATFORM Sizeof/cl_platform_id
+        err (CL/clGetDeviceInfo (extract device) CL/CL_DEVICE_PLATFORM Sizeof/cl_platform_id
                                 (Pointer/to p) nil)]
     (with-check err p)))
 
 (defn preferred-global-atomic-alignment ^long [device]
-  (info-int* CL/clGetDeviceInfo (fold device) CL/CL_DEVICE_PREFERRED_GLOBAL_ATOMIC_ALIGNMENT))
+  (info-int* CL/clGetDeviceInfo (extract device) CL/CL_DEVICE_PREFERRED_GLOBAL_ATOMIC_ALIGNMENT))
 
 (defn preferred-interop-user-sync [device]
-  (info-bool* CL/clGetDeviceInfo (fold device) CL/CL_DEVICE_PREFERRED_INTEROP_USER_SYNC))
+  (info-bool* CL/clGetDeviceInfo (extract device) CL/CL_DEVICE_PREFERRED_INTEROP_USER_SYNC))
 
 (defn preferred-local-atomic-alignment ^long [device]
-  (info-int* CL/clGetDeviceInfo (fold device) CL/CL_DEVICE_PREFERRED_LOCAL_ATOMIC_ALIGNMENT))
+  (info-int* CL/clGetDeviceInfo (extract device) CL/CL_DEVICE_PREFERRED_LOCAL_ATOMIC_ALIGNMENT))
 
 (defn preferred-platform-atomic-alignment ^long [device]
-  (info-int* CL/clGetDeviceInfo (fold device) CL/CL_DEVICE_PREFERRED_PLATFORM_ATOMIC_ALIGNMENT))
+  (info-int* CL/clGetDeviceInfo (extract device) CL/CL_DEVICE_PREFERRED_PLATFORM_ATOMIC_ALIGNMENT))
 
 (defn preferred-vector-width-char ^long [device]
-  (info-int* CL/clGetDeviceInfo (fold device) CL/CL_DEVICE_PREFERRED_VECTOR_WIDTH_CHAR))
+  (info-int* CL/clGetDeviceInfo (extract device) CL/CL_DEVICE_PREFERRED_VECTOR_WIDTH_CHAR))
 
 (defn preferred-vector-width-short ^long [device]
-  (info-int* CL/clGetDeviceInfo (fold device) CL/CL_DEVICE_PREFERRED_VECTOR_WIDTH_SHORT))
+  (info-int* CL/clGetDeviceInfo (extract device) CL/CL_DEVICE_PREFERRED_VECTOR_WIDTH_SHORT))
 
 (defn preferred-vector-width-int ^long [device]
-  (info-int* CL/clGetDeviceInfo (fold device) CL/CL_DEVICE_PREFERRED_VECTOR_WIDTH_INT))
+  (info-int* CL/clGetDeviceInfo (extract device) CL/CL_DEVICE_PREFERRED_VECTOR_WIDTH_INT))
 
 (defn preferred-vector-width-long ^long [device]
-  (info-int* CL/clGetDeviceInfo (fold device) CL/CL_DEVICE_PREFERRED_VECTOR_WIDTH_LONG))
+  (info-int* CL/clGetDeviceInfo (extract device) CL/CL_DEVICE_PREFERRED_VECTOR_WIDTH_LONG))
 
 (defn preferred-vector-width-float ^long [device]
-  (info-int* CL/clGetDeviceInfo (fold device) CL/CL_DEVICE_PREFERRED_VECTOR_WIDTH_FLOAT))
+  (info-int* CL/clGetDeviceInfo (extract device) CL/CL_DEVICE_PREFERRED_VECTOR_WIDTH_FLOAT))
 
 (defn preferred-vector-width-double ^long [device]
-  (info-int* CL/clGetDeviceInfo (fold device) CL/CL_DEVICE_PREFERRED_VECTOR_WIDTH_DOUBLE))
+  (info-int* CL/clGetDeviceInfo (extract device) CL/CL_DEVICE_PREFERRED_VECTOR_WIDTH_DOUBLE))
 
 (defn preferred-vector-width-half ^long [device]
-  (info-int* CL/clGetDeviceInfo (fold device) CL/CL_DEVICE_PREFERRED_VECTOR_WIDTH_HALF))
+  (info-int* CL/clGetDeviceInfo (extract device) CL/CL_DEVICE_PREFERRED_VECTOR_WIDTH_HALF))
 
 (defn printf-buffer-size ^long [device]
-  (info-size* CL/clGetDeviceInfo (fold device) CL/CL_DEVICE_PRINTF_BUFFER_SIZE))
+  (info-size* CL/clGetDeviceInfo (extract device) CL/CL_DEVICE_PRINTF_BUFFER_SIZE))
 
 (defn profiling-timer-resolution ^long [device]
-  (info-size* CL/clGetDeviceInfo (fold device) CL/CL_DEVICE_PROFILING_TIMER_RESOLUTION))
+  (info-size* CL/clGetDeviceInfo (extract device) CL/CL_DEVICE_PROFILING_TIMER_RESOLUTION))
 
 (defn queue-on-device-max-size ^long [device]
-  (info-int* CL/clGetDeviceInfo (fold device) CL/CL_DEVICE_QUEUE_ON_DEVICE_MAX_SIZE))
+  (info-int* CL/clGetDeviceInfo (extract device) CL/CL_DEVICE_QUEUE_ON_DEVICE_MAX_SIZE))
 
 (defn queue-on-device-preferred-size ^long [device]
-  (info-int* CL/clGetDeviceInfo (fold device) CL/CL_DEVICE_QUEUE_ON_DEVICE_PREFERRED_SIZE))
+  (info-int* CL/clGetDeviceInfo (extract device) CL/CL_DEVICE_QUEUE_ON_DEVICE_PREFERRED_SIZE))
 
 (defn queue-on-device-properties ^long [device]
-  (info-long* CL/clGetDeviceInfo (fold device) CL/CL_DEVICE_QUEUE_ON_DEVICE_PROPERTIES))
+  (info-long* CL/clGetDeviceInfo (extract device) CL/CL_DEVICE_QUEUE_ON_DEVICE_PROPERTIES))
 
 (defn queue-on-host-properties ^long [device]
-  (info-long* CL/clGetDeviceInfo (fold device) CL/CL_DEVICE_QUEUE_ON_HOST_PROPERTIES))
+  (info-long* CL/clGetDeviceInfo (extract device) CL/CL_DEVICE_QUEUE_ON_HOST_PROPERTIES))
 
 (defn single-fp-config ^long [device]
-  (info-long* CL/clGetDeviceInfo (fold device) CL/CL_DEVICE_SINGLE_FP_CONFIG))
+  (info-long* CL/clGetDeviceInfo (extract device) CL/CL_DEVICE_SINGLE_FP_CONFIG))
 
 (defn spir-versions [device]
   (apply hash-set
          (map #(Double/parseDouble %)
-              (str/split (info-string* CL/clGetDeviceInfo (fold device) CL_DEVICE_SPIR_VERSIONS)
+              (str/split (info-string* CL/clGetDeviceInfo (extract device) CL_DEVICE_SPIR_VERSIONS)
                          #" "))))
 
 (defn svm-capabilities ^long [device]
-  (info-long* CL/clGetDeviceInfo (fold device) CL/CL_DEVICE_SVM_CAPABILITIES))
+  (info-long* CL/clGetDeviceInfo (extract device) CL/CL_DEVICE_SVM_CAPABILITIES))
 
 (defn device-type ^long [device]
-  (info-long* CL/clGetDeviceInfo (fold device) CL/CL_DEVICE_TYPE))
+  (info-long* CL/clGetDeviceInfo (extract device) CL/CL_DEVICE_TYPE))
 
 (defn vendor-id ^long [device]
-  (info-int* CL/clGetDeviceInfo (fold device) CL/CL_DEVICE_VENDOR_ID))
+  (info-int* CL/clGetDeviceInfo (extract device) CL/CL_DEVICE_VENDOR_ID))
 
 (defn device-version [device]
-  (info-string* CL/clGetDeviceInfo (fold device) CL/CL_DEVICE_VERSION))
+  (info-string* CL/clGetDeviceInfo (extract device) CL/CL_DEVICE_VERSION))
 
 (defn driver-version [device]
-  (info-string* CL/clGetDeviceInfo (fold device) CL/CL_DRIVER_VERSION))
+  (info-string* CL/clGetDeviceInfo (extract device) CL/CL_DRIVER_VERSION))
 
 (defrecord DeviceInfo [address-bits
                        available
@@ -681,7 +658,7 @@
                        device-version
                        driver-version])
 
-(extend-type cl_device_id
+(extend-type CLDevice
   Info
   (info
     ([d info-type]
@@ -741,7 +718,7 @@
         :native-vector-width-float (native-vector-width-float d)
         :native-vector-width-half (native-vector-width-half d)
         :opencl-c-version (opencl-c-version d)
-        :parent-device (with-release [pd (parent-device d)] (info pd))
+        :parent-device (if-let [pd (parent-device d)] (name-info pd) nil)
         :partition-affinity-domain (set (unmask cl-device-affinity-domain (partition-affinity-domain d)))
         :partition-max-sub-devices (partition-max-sub-devices d)
         :partition-properties (map dec-device-partition-property (partition-properties d))
@@ -833,7 +810,7 @@
       (maybe (native-vector-width-float d))
       (maybe (native-vector-width-half d))
       (maybe (opencl-c-version d))
-      (maybe (with-release [pd (parent-device d)] (info pd)))
+      (maybe (if-let [pd (parent-device d)] (name-info pd) nil))
       (maybe (set (unmask cl-device-affinity-domain (partition-affinity-domain d))))
       (maybe (partition-max-sub-devices d))
       (maybe (map dec-device-partition-property (partition-properties d)))
@@ -870,32 +847,32 @@
       (maybe (driver-version d)))))
   InfoExtensions
   (extensions [d]
-    (to-set (info-string* CL/clGetDeviceInfo d CL/CL_DEVICE_EXTENSIONS)))
+    (to-set (info-string* CL/clGetDeviceInfo (extract d) CL/CL_DEVICE_EXTENSIONS)))
   InfoName
   (name-info [d]
-    (info-string* CL/clGetDeviceInfo d CL/CL_DEVICE_NAME))
+    (info-string* CL/clGetDeviceInfo (extract d) CL/CL_DEVICE_NAME))
   InfoProfile
   (profile [d]
-    (info-string* CL/clGetDeviceInfo d CL/CL_DEVICE_PROFILE))
+    (info-string* CL/clGetDeviceInfo (extract d) CL/CL_DEVICE_PROFILE))
   InfoVendor
   (vendor [d]
-    (info-string* CL/clGetDeviceInfo d CL/CL_DEVICE_VENDOR))
+    (info-string* CL/clGetDeviceInfo (extract d) CL/CL_DEVICE_VENDOR))
   InfoReferenceCount
   (reference-count [d]
-    (info-int* CL/clGetDeviceInfo d CL/CL_DEVICE_REFERENCE_COUNT)))
+    (info-int* CL/clGetDeviceInfo (extract d) CL/CL_DEVICE_REFERENCE_COUNT)))
 
 ;; =================== Context =============================================
 
 (defn num-devices-in-context ^long [context]
-  (info-int* CL/clGetContextInfo (fold context) CL/CL_CONTEXT_NUM_DEVICES))
+  (info-int* CL/clGetContextInfo (extract context) CL/CL_CONTEXT_NUM_DEVICES))
 
 (defn devices-in-context [context]
-  (fmap wrap-device (vec (info-native* CL/clGetContextInfo (fold context) CL/CL_CONTEXT_DEVICES
+  (fmap wrap (vec (info-native* CL/clGetContextInfo (extract context) CL/CL_CONTEXT_DEVICES
                                        cl_device_id Sizeof/cl_device_id))))
 
 (defrecord ContextInfo [num-devices reference-count devices properties])
 
-(extend-type cl_context
+(extend-type CLContext
   Info
   (info
     ([c info-type]
@@ -903,122 +880,122 @@
       (case info-type
         :num-devices (num-devices-in-context c)
         :reference-count (reference-count c)
-        :devices (with-release [devs (devices-in-context c)] (fmap info devs))
+        :devices (fmap name-info (devices-in-context c))
         :properties (map dec-context-properties (remove zero? (properties c)))
         nil)))
     ([c]
      (->ContextInfo (maybe (num-devices-in-context c))
                     (maybe (reference-count c))
-                    (maybe (with-release [devs (devices-in-context c)] (fmap info devs)))
+                    (maybe (fmap name-info (devices-in-context c)))
                     (maybe (map dec-context-properties (remove zero? (properties c)))))))
   InfoProperties
   (properties [c]
-    (info-long* CL/clGetContextInfo c CL/CL_CONTEXT_PROPERTIES
-                (info-count* CL/clGetContextInfo c CL/CL_CONTEXT_PROPERTIES Sizeof/cl_long)))
+    (info-long* CL/clGetContextInfo (extract c) CL/CL_CONTEXT_PROPERTIES
+                (info-count* CL/clGetContextInfo (extract c) CL/CL_CONTEXT_PROPERTIES Sizeof/cl_long)))
   InfoReferenceCount
   (reference-count [c]
-    (info-int* CL/clGetContextInfo c CL/CL_CONTEXT_REFERENCE_COUNT)))
+    (info-int* CL/clGetContextInfo (extract c) CL/CL_CONTEXT_REFERENCE_COUNT)))
 
 ;; =================== Command Queue =======================================
 
 (defn queue-context [queue]
   (let [c (cl_context.)
-        err (CL/clGetCommandQueueInfo (fold queue) CL/CL_QUEUE_CONTEXT Sizeof/cl_context
+        err (CL/clGetCommandQueueInfo (extract queue) CL/CL_QUEUE_CONTEXT Sizeof/cl_context
                                       (Pointer/to c) nil)]
-    (with-check err (wrap-context c))))
+    (with-check err (wrap c))))
 
 (defn queue-device [queue]
   (let [d (cl_device_id.)
-        err (CL/clGetCommandQueueInfo (fold queue) CL/CL_QUEUE_DEVICE Sizeof/cl_device_id
+        err (CL/clGetCommandQueueInfo (extract queue) CL/CL_QUEUE_DEVICE Sizeof/cl_device_id
                                       (Pointer/to d) nil)]
-    (with-check err (wrap-device d))))
+    (with-check err (wrap d))))
 
 (defn queue-size ^long [queue]
-  (info-int* CL/clGetCommandQueueInfo (fold queue) CL/CL_QUEUE_SIZE))
+  (info-int* CL/clGetCommandQueueInfo (extract queue) CL/CL_QUEUE_SIZE))
 
 (defrecord CommandQueueInfo [context device reference-count properties size])
 
-(extend-type cl_command_queue
+(extend-type CLCommandQueue
   Info
   (info
     ([cq info-type]
      (maybe
       (case info-type
-        :context (with-release [ctx (queue-context cq)] (info ctx))
-        :device (with-release [dev (queue-device cq)] (info dev))
+        :context (str (queue-context cq))
+        :device (name-info (queue-device cq))
         :reference-count (reference-count cq)
         :properties (set (unmask cl-command-queue-properties (properties cq)))
         :size (queue-size cq)
         nil)))
     ([cq]
-     (->CommandQueueInfo (maybe (with-release [ctx (queue-context cq)] (info ctx)))
-                         (maybe (with-release [dev (queue-device cq)] (info dev)))
+     (->CommandQueueInfo (maybe (str (queue-context cq)))
+                         (maybe (name-info (queue-device cq)))
                          (maybe (reference-count cq))
                          (maybe (set (unmask cl-command-queue-properties (properties cq))))
                          (maybe (queue-size cq)))))
   InfoReferenceCount
   (reference-count [cq]
-    (info-int* CL/clGetCommandQueueInfo cq CL/CL_QUEUE_REFERENCE_COUNT))
+    (info-int* CL/clGetCommandQueueInfo (extract cq) CL/CL_QUEUE_REFERENCE_COUNT))
   InfoProperties
   (properties [cq]
-    (info-long* CL/clGetCommandQueueInfo cq CL/CL_QUEUE_PROPERTIES)))
+    (info-long* CL/clGetCommandQueueInfo (extract cq) CL/CL_QUEUE_PROPERTIES)))
 
 ;; =================== Event ===============================================
 
 (defn event-command-queue [event]
   (let [cq (cl_command_queue.)
-        err (CL/clGetEventInfo (fold event) CL/CL_EVENT_COMMAND_QUEUE Sizeof/cl_command_queue
+        err (CL/clGetEventInfo (extract event) CL/CL_EVENT_COMMAND_QUEUE Sizeof/cl_command_queue
                                (Pointer/to cq) nil)]
-    (with-check err (wrap-command-queue cq))))
+    (with-check err (wrap cq))))
 
 (defn event-context [event]
   (let [c (cl_context.)
-        err (CL/clGetEventInfo (fold event) CL/CL_EVENT_CONTEXT Sizeof/cl_context (Pointer/to c) nil)]
-    (with-check err (wrap-context c))))
+        err (CL/clGetEventInfo (extract event) CL/CL_EVENT_CONTEXT Sizeof/cl_context (Pointer/to c) nil)]
+    (with-check err (wrap c))))
 
 (defn command-type [event]
-  (info-int* CL/clGetEventInfo (fold event) CL/CL_EVENT_COMMAND_TYPE))
+  (info-int* CL/clGetEventInfo (extract event) CL/CL_EVENT_COMMAND_TYPE))
 
 (defn execution-status [event]
-  (info-int* CL/clGetEventInfo (fold event) CL/CL_EVENT_COMMAND_EXECUTION_STATUS))
+  (info-int* CL/clGetEventInfo (extract event) CL/CL_EVENT_COMMAND_EXECUTION_STATUS))
 
 (defrecord EventInfo [command-queue context command-type execution-status reference-count])
 
-(extend-type cl_event
+(extend-type CLEvent
   Info
   (info
     ([e info-type]
      (maybe
       (case info-type
-        :command-queue (with-release [queue (event-command-queue e)] (info queue))
-        :context (with-release [ctx (event-context e)] (info ctx))
+        :command-queue (str (event-command-queue e))
+        :context (str (event-context e))
         :command-type (dec-command-type (command-type e))
         :execution-status (dec-command-execution-status (execution-status e))
         :reference-count (reference-count e)
         nil)))
     ([e]
-     (->EventInfo (maybe (with-release [queue (event-command-queue e)] (info queue)))
-                  (maybe (with-release [ctx (event-context e)] (info ctx)))
+     (->EventInfo (maybe (str (event-command-queue e)))
+                  (maybe (str (event-context e)))
                   (maybe (dec-command-type (command-type e)))
                   (maybe (dec-command-execution-status (execution-status e)))
                   (maybe (reference-count e)))))
   InfoReferenceCount
   (reference-count [e]
-    (info-int* CL/clGetEventInfo e CL/CL_EVENT_REFERENCE_COUNT)))
+    (info-int* CL/clGetEventInfo (extract e) CL/CL_EVENT_REFERENCE_COUNT)))
 
 ;; =================== Event Profiling =====================================
 
 (defn queued ^long [event]
-  (info-long* CL/clGetEventProfilingInfo (fold event) CL/CL_PROFILING_COMMAND_QUEUED))
+  (info-long* CL/clGetEventProfilingInfo (extract event) CL/CL_PROFILING_COMMAND_QUEUED))
 
 (defn submit ^long [event]
-  (info-long* CL/clGetEventProfilingInfo (fold event) CL/CL_PROFILING_COMMAND_SUBMIT))
+  (info-long* CL/clGetEventProfilingInfo (extract event) CL/CL_PROFILING_COMMAND_SUBMIT))
 
 (defn start ^long [event]
-  (info-long* CL/clGetEventProfilingInfo (fold event) CL/CL_PROFILING_COMMAND_START))
+  (info-long* CL/clGetEventProfilingInfo (extract event) CL/CL_PROFILING_COMMAND_START))
 
 (defn end ^long [event]
-  (info-long* CL/clGetEventProfilingInfo (fold event) CL/CL_PROFILING_COMMAND_END))
+  (info-long* CL/clGetEventProfilingInfo (extract event) CL/CL_PROFILING_COMMAND_END))
 
 (defrecord ProfilingInfo [^long queued ^long submit ^long start ^long end])
 
@@ -1047,27 +1024,27 @@
 ;; ===================== Kernel ===============================================
 
 (defn function-name [kernel]
-  (info-string* CL/clGetKernelInfo (fold kernel) CL/CL_KERNEL_FUNCTION_NAME))
+  (info-string* CL/clGetKernelInfo (extract kernel) CL/CL_KERNEL_FUNCTION_NAME))
 
 (defn num-args ^long [kernel]
-  (info-int* CL/clGetKernelInfo (fold kernel) CL/CL_KERNEL_NUM_ARGS))
+  (info-int* CL/clGetKernelInfo (extract kernel) CL/CL_KERNEL_NUM_ARGS))
 
 (defn kernel-context [kernel]
   (let [c (cl_context.)
-        err (CL/clGetKernelInfo (fold kernel) CL/CL_KERNEL_CONTEXT Sizeof/cl_context (Pointer/to c) nil)]
-    (with-check err (wrap-context c))))
+        err (CL/clGetKernelInfo (extract kernel) CL/CL_KERNEL_CONTEXT Sizeof/cl_context (Pointer/to c) nil)]
+    (with-check err (wrap c))))
 
 (defn kernel-program [kernel]
   (let [p (cl_program.)
-        err (CL/clGetKernelInfo (fold kernel) CL/CL_KERNEL_PROGRAM Sizeof/cl_program (Pointer/to p) nil)]
-    (with-check err (wrap-program p))))
+        err (CL/clGetKernelInfo (extract kernel) CL/CL_KERNEL_PROGRAM Sizeof/cl_program (Pointer/to p) nil)]
+    (with-check err (wrap p))))
 
 (defn attributes [kernel]
-  (to-set (info-string* CL/clGetKernelInfo (fold kernel) CL/CL_KERNEL_ATTRIBUTES)))
+  (to-set (info-string* CL/clGetKernelInfo (extract kernel) CL/CL_KERNEL_ATTRIBUTES)))
 
 (defrecord KernelInfo [function-name num-args reference-count context program attributes])
 
-(extend-type cl_kernel
+(extend-type CLKernel
   Info
   (info
     ([k info-type]
@@ -1076,20 +1053,20 @@
         :function-name (function-name k)
         :num-args (num-args k)
         :reference-count (reference-count k)
-        :context (with-release [ctx (kernel-context k)] (info ctx))
-        :program (with-release [prog (kernel-program k)] (info prog))
+        :context (str (kernel-context k))
+        :program (str (kernel-program k))
         :attributes (attributes k)
         nil)))
     ([k]
      (->KernelInfo (maybe (function-name k))
                    (maybe (num-args k))
                    (maybe (reference-count k))
-                   (maybe (with-release [ctx (kernel-context k)] (info ctx)))
-                   (maybe (with-release [prog (kernel-program k)] (info prog)))
+                   (maybe (str (kernel-context k)))
+                   (maybe (str (kernel-program k)))
                    (maybe (attributes k)))))
   InfoReferenceCount
   (reference-count [k]
-    (info-int* CL/clGetKernelInfo k CL/CL_KERNEL_REFERENCE_COUNT)))
+    (info-int* CL/clGetKernelInfo (extract k) CL/CL_KERNEL_REFERENCE_COUNT)))
 
 ;; ===================== Kernel Arg ===========================================
 
@@ -1097,34 +1074,35 @@
 
 (defmacro ^:private arg-info-string* [kernel arg info]
   `(let [cnt# (long-array 1)
-         err# (CL/clGetKernelArgInfo ~kernel ~arg ~info 0 nil cnt#)]
+         kernel# (extract ~kernel)
+         err# (CL/clGetKernelArgInfo kernel# ~arg ~info 0 nil cnt#)]
      (with-check err#
        (let [res# (byte-array (aget cnt# 0))
-             err# (CL/clGetKernelArgInfo ~kernel ~arg ~info (alength res#) (Pointer/to res#) nil)]
+             err# (CL/clGetKernelArgInfo kernel# ~arg ~info (alength res#) (Pointer/to res#) nil)]
          (with-check err#
            (String. res# 0 (max 0 (dec (alength res#)))))))))
 
 (defmacro ^:private arg-info-long* [kernel arg info]
   `(let [res# (long-array 1)
-         err# (CL/clGetKernelArgInfo ~kernel ~arg ~info Sizeof/cl_long (Pointer/to res#) nil)]
+         err# (CL/clGetKernelArgInfo (extract ~kernel) ~arg ~info Sizeof/cl_long (Pointer/to res#) nil)]
      (with-check err# (aget res# 0))))
 
 ;; ----------- Kernel Arg Info functions -------------------------------------
 
 (defn arg-address-qualifier ^long [kernel arg]
-  (arg-info-long* (fold kernel) arg CL/CL_KERNEL_ARG_ADDRESS_QUALIFIER))
+  (arg-info-long* kernel arg CL/CL_KERNEL_ARG_ADDRESS_QUALIFIER))
 
 (defn arg-access-qualifier ^long [kernel arg]
-  (arg-info-long* (fold kernel) arg CL/CL_KERNEL_ARG_ACCESS_QUALIFIER))
+  (arg-info-long* kernel arg CL/CL_KERNEL_ARG_ACCESS_QUALIFIER))
 
 (defn arg-type-name ^long [kernel arg]
-  (arg-info-string* (fold kernel) arg CL/CL_KERNEL_ARG_TYPE_NAME))
+  (arg-info-string* kernel arg CL/CL_KERNEL_ARG_TYPE_NAME))
 
 (defn arg-type-qualifier ^long [kernel arg]
-  (arg-info-long* (fold kernel) arg CL/CL_KERNEL_ARG_TYPE_QUALIFIER))
+  (arg-info-long* kernel arg CL/CL_KERNEL_ARG_TYPE_QUALIFIER))
 
 (defn arg-name [kernel arg]
-  (arg-info-string* (fold kernel) arg CL/CL_KERNEL_ARG_NAME))
+  (arg-info-string* kernel arg CL/CL_KERNEL_ARG_NAME))
 
 (defrecord KernelArgInfo [address-qualifier access-qualifier type-name type-qualifier name])
 
@@ -1158,42 +1136,42 @@
 ;; ===================== Mem Object ===========================================
 
 (defn mem-type ^long [mo]
-  (info-int* CL/clGetMemObjectInfo (fold mo) CL/CL_MEM_TYPE))
+  (info-int* CL/clGetMemObjectInfo (extract mo) CL/CL_MEM_TYPE))
 
 (defn flags ^long [mo]
-  (info-long* CL/clGetMemObjectInfo (fold mo) CL/CL_MEM_FLAGS))
+  (info-long* CL/clGetMemObjectInfo (extract mo) CL/CL_MEM_FLAGS))
 
 (defn mem-size ^long [mo]
-  (info-size* CL/clGetMemObjectInfo (fold mo) CL/CL_MEM_SIZE))
+  (info-size* CL/clGetMemObjectInfo (extract mo) CL/CL_MEM_SIZE))
 
 ;;TODO see what to do with these voids, and whether they make sense with Java.
 ;;(defn mem-host-ptr [mo]
 ;;  (info-long* CL/clGetMemObjectInfo mo CL/CL_MEM_HOST_PTR))
 
 (defn map-count ^long [mo]
-  (info-int* CL/clGetMemObjectInfo (fold mo) CL/CL_MEM_MAP_COUNT))
+  (info-int* CL/clGetMemObjectInfo (extract mo) CL/CL_MEM_MAP_COUNT))
 
 (defn ^:private aget-first-np [^objects npa]
   (aget npa 0))
 
 (defn mem-context [mo]
-  (wrap-context (aget-first-np (info-native* CL/clGetMemObjectInfo (fold mo) CL/CL_MEM_CONTEXT
+  (wrap (aget-first-np (info-native* CL/clGetMemObjectInfo (extract mo) CL/CL_MEM_CONTEXT
                                              cl_context Sizeof/cl_context))))
 
 (defn associated-memobject [mo]
-  (aget-first-np (info-native* CL/clGetMemObjectInfo (fold mo) CL/CL_MEM_ASSOCIATED_MEMOBJECT
+  (aget-first-np (info-native* CL/clGetMemObjectInfo (extract mo) CL/CL_MEM_ASSOCIATED_MEMOBJECT
                                cl_mem Sizeof/cl_mem)))
 
 (defn offset ^long [mo]
-  (info-size* CL/clGetMemObjectInfo (fold mo) CL/CL_MEM_OFFSET))
+  (info-size* CL/clGetMemObjectInfo (extract mo) CL/CL_MEM_OFFSET))
 
 (defn uses-svm-pointer [mo]
-  (info-bool* CL/clGetMemObjectInfo (fold mo) CL/CL_MEM_USES_SVM_POINTER))
+  (info-bool* CL/clGetMemObjectInfo (extract mo) CL/CL_MEM_USES_SVM_POINTER))
 
 (defrecord MemObjectInfo [type flags size map-count reference-count context associated-memobject
                           offset uses-svm-pointer])
 
-(extend-type cl_mem
+(extend-type CLBuffer
   Info
   (info
     ([mo info-type]
@@ -1204,8 +1182,8 @@
         :size (mem-size mo)
         :map-count (map-count mo)
         :reference-count (reference-count mo)
-        :context (with-release [ctx (mem-context mo)] (info ctx))
-        :associated-memobject (with-release [cl-mem (associated-memobject mo)] (info cl-mem))
+        :context (str (mem-context mo))
+        :associated-memobject (if-let [mo (associated-memobject mo)] (str mo) nil)
         :offset (offset mo)
         :uses-svm-pointer (uses-svm-pointer mo)
         nil)))
@@ -1215,13 +1193,13 @@
                       (maybe (mem-size mo))
                       (maybe (map-count mo))
                       (maybe (reference-count mo))
-                      (maybe (with-release [ctx (mem-context mo)] (info ctx)))
-                      (maybe (with-release [cl-mem (associated-memobject mo)] (info cl-mem)))
+                      (maybe (str (mem-context mo)))
+                      (maybe (if-let [mo (associated-memobject mo)] (str mo) nil))
                       (maybe (offset mo))
                       (maybe (uses-svm-pointer mo)))))
   InfoReferenceCount
   (reference-count [mo]
-    (info-int* CL/clGetMemObjectInfo mo CL/CL_MEM_REFERENCE_COUNT)))
+    (info-int* CL/clGetMemObjectInfo (extract mo) CL/CL_MEM_REFERENCE_COUNT)))
 
 ;; ===================== Pipe =================================================
 
@@ -1233,24 +1211,25 @@
 
 (defmacro ^:private pb-info-string* [program device info]
   `(let [cnt# (long-array 1)
-         err# (CL/clGetProgramBuildInfo ~program ~device ~info 0 nil cnt#)]
+         program# (extract ~program)
+         err# (CL/clGetProgramBuildInfo program# ~device ~info 0 nil cnt#)]
      (with-check err#
        (let [res# (byte-array (aget cnt# 0))
-             err# (CL/clGetProgramBuildInfo ~program ~device ~info
+             err# (CL/clGetProgramBuildInfo program# ~device ~info
                                             (alength res#) (Pointer/to res#) nil)]
          (with-check err#
            (String. res# 0 (max 0 (dec (alength res#)))))))))
 
 (defmacro ^:private pb-info-int* [program device info]
   `(let [res# (int-array 1)
-         err# (CL/clGetProgramBuildInfo ~program ~device ~info Sizeof/cl_int (Pointer/to res#) nil)]
+         err# (CL/clGetProgramBuildInfo (extract ~program) (extract ~device)
+                                        ~info Sizeof/cl_int (Pointer/to res#) nil)]
      (with-check err# (aget res# 0))))
 
-(let [pointer-to-buffer (fn [^ByteBuffer b]
-                          (Pointer/to b))]
+(let [pointer-to-buffer (fn [^ByteBuffer b] (Pointer/to b))]
   (defmacro ^:private pb-info-size* [program device info]
     `(let [res# (buffer Sizeof/size_t)
-           err# (CL/clGetProgramBuildInfo ~program ~device ~info Sizeof/size_t
+           err# (CL/clGetProgramBuildInfo (extract ~program) (extract ~device) ~info Sizeof/size_t
                                           (~pointer-to-buffer res#) nil)]
        (with-check err#
          (first (seq (get-array res#)))))))
@@ -1258,19 +1237,19 @@
 ;; -- Program Build Info functions --------------------------------------------
 
 (defn build-status ^long [program device]
-  (pb-info-int* (fold program) (fold device) CL/CL_PROGRAM_BUILD_STATUS))
+  (pb-info-int* program device CL/CL_PROGRAM_BUILD_STATUS))
 
 (defn build-options [program device]
-  (pb-info-string* (fold program) (fold device) CL/CL_PROGRAM_BUILD_OPTIONS))
+  (pb-info-string* program device CL/CL_PROGRAM_BUILD_OPTIONS))
 
 (defn build-log [program device]
-  (pb-info-string* (fold program) (fold device) CL/CL_PROGRAM_BUILD_LOG))
+  (pb-info-string* program device CL/CL_PROGRAM_BUILD_LOG))
 
 (defn binary-type ^long [program device]
-  (pb-info-int* (fold program) (fold device) CL/CL_PROGRAM_BINARY_TYPE))
+  (pb-info-int* program device CL/CL_PROGRAM_BINARY_TYPE))
 
 (defn global-variable-total-size ^long [program device]
-  (pb-info-size* (fold program) (fold device) CL/CL_PROGRAM_BUILD_GLOBAL_VARIABLE_TOTAL_SIZE))
+  (pb-info-size* program device CL/CL_PROGRAM_BUILD_GLOBAL_VARIABLE_TOTAL_SIZE))
 
 (defrecord ProgramBuildInfo [build-status build-options build-log binary-type global-variable-total-size])
 
@@ -1293,73 +1272,71 @@
 ;; ===================== Program ==============================================
 
 (defn program-context [p]
-  (aget-first-np (info-native* CL/clGetProgramInfo (fold p) CL/CL_PROGRAM_CONTEXT
-                               cl_context Sizeof/cl_context)))
+  (wrap (aget-first-np (info-native* CL/clGetProgramInfo (extract p) CL/CL_PROGRAM_CONTEXT
+                                     cl_context Sizeof/cl_context))))
 
 (defn program-num-devices ^long [p]
-  (info-int* CL/clGetProgramInfo (fold p) CL/CL_PROGRAM_NUM_DEVICES))
+  (info-int* CL/clGetProgramInfo (extract p) CL/CL_PROGRAM_NUM_DEVICES))
 
 (defn program-devices [p]
-  (fmap wrap-device (vec (info-native* CL/clGetProgramInfo (fold p) CL/CL_PROGRAM_DEVICES
+  (fmap wrap (vec (info-native* CL/clGetProgramInfo (extract p) CL/CL_PROGRAM_DEVICES
                                        cl_device_id Sizeof/cl_device_id))))
 
 (defn program-source [p]
-  (info-string* CL/clGetProgramInfo (fold p) CL/CL_PROGRAM_SOURCE))
+  (info-string* CL/clGetProgramInfo (extract p) CL/CL_PROGRAM_SOURCE))
 
 (defn binary-sizes [p]
-  (info-size* CL/clGetProgramInfo (fold p) CL/CL_PROGRAM_BINARY_SIZES
-              (program-num-devices (fold p))))
+  (info-size* CL/clGetProgramInfo (extract p) CL/CL_PROGRAM_BINARY_SIZES (program-num-devices p)))
 
 (defn binaries [p]
-  (let [p (fold p)
-        result-buffers (map direct-buffer (binary-sizes p))
+  (let [result-buffers (map direct-buffer (binary-sizes p))
         pointer (to-native-pointer (into-array Pointer (map pointer-to-buffer result-buffers)))
-        err (CL/clGetProgramInfo p CL/CL_PROGRAM_BINARIES (* (count result-buffers) Sizeof/POINTER)
-                                 pointer nil)]
+        err (CL/clGetProgramInfo (extract p) CL/CL_PROGRAM_BINARIES
+                                 (* (count result-buffers) Sizeof/POINTER)  pointer nil)]
     (with-check err result-buffers)))
 
 (defn program-num-kernels ^long [p]
-  (if (some pos? (binary-sizes (fold p)))
-    (info-size* CL/clGetProgramInfo (fold p) CL/CL_PROGRAM_NUM_KERNELS)
+  (if (some pos? (binary-sizes p))
+    (info-size* CL/clGetProgramInfo (extract p) CL/CL_PROGRAM_NUM_KERNELS)
     0))
 
 (defn kernel-names [p]
-  (if (some pos? (binary-sizes (fold p)))
-    (to-set (info-string* CL/clGetProgramInfo (fold p) CL/CL_PROGRAM_KERNEL_NAMES))
+  (if (some pos? (binary-sizes p))
+    (to-set (info-string* CL/clGetProgramInfo (extract p) CL/CL_PROGRAM_KERNEL_NAMES))
     #{}))
 
 (defrecord ProgramInfo [reference-count context num-devices devices source
                         binary-sizes binaries num-kernels kernel-names])
 
-(extend-type cl_program
+(extend-type CLProgram
   Info
   (info
     ([p info-type]
      (maybe
       (case info-type
         :reference-count (reference-count p)
-        :context (with-release [ctx (program-context p)] (info ctx))
+        :context (str (program-context p))
         :num-devices (program-num-devices p)
-        :devices (with-release [devs (program-devices p)] (fmap info devs))
+        :devices (fmap name-info (program-devices p))
         :source (program-source p)
         :binary-sizes (binary-sizes p)
-        :binaries (binaries p)
+        :binaries (program-num-devices p)
         :num-kernels (program-num-kernels p)
         :kernel-names (kernel-names p)
         nil)))
     ([p]
      (->ProgramInfo (maybe (reference-count p))
-                    (maybe (with-release [ctx (program-context p)] (info ctx)))
+                    (maybe (str (program-context p)))
                     (maybe (program-num-devices p))
-                    (maybe (with-release [devs (program-devices p)] (fmap info devs)))
+                    (maybe (fmap name-info (program-devices p)))
                     (maybe (program-source p))
                     (maybe (binary-sizes p))
-                    (maybe (binaries p))
+                    (maybe (program-num-devices p))
                     (maybe (program-num-kernels p))
                     (maybe (kernel-names p)))))
   InfoReferenceCount
   (reference-count [p]
-    (info-int* CL/clGetProgramInfo p CL/CL_PROGRAM_REFERENCE_COUNT)))
+    (info-int* CL/clGetProgramInfo (extract p) CL/CL_PROGRAM_REFERENCE_COUNT)))
 
 ;; ===================== Sampler ==============================================
 

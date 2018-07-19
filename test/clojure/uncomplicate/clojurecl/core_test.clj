@@ -11,11 +11,12 @@
             [uncomplicate.commons
              [core :refer [release with-release info]]
              [utils :refer [direct-buffer put-float get-float]]]
+            [uncomplicate.fluokitten.core :refer [fmap]]
             [uncomplicate.clojurecl
              [core :refer :all]
              [info :refer [reference-count mem-base-addr-align opencl-c-version queue-context]]]
             [uncomplicate.clojurecl.internal
-             [api :refer [size ptr byte-buffer]]
+             [api :refer [size ptr byte-buffer wrap extract]]
              [impl :refer :all]]
             [clojure.core.async :refer [go >! <! <!! chan]])
   (:import java.nio.ByteBuffer
@@ -117,11 +118,11 @@
        (let [adevs (devices* p CL/CL_DEVICE_TYPE_ALL)
              props (context-properties {:platform p})]
 
-         (let [ctx (context* adevs nil nil nil)]
+         (let [ctx (wrap (context* adevs nil nil nil))]
            (reference-count ctx) => 1
            (release ctx) => true)
 
-         (let [ctx (context* adevs props nil nil)]
+         (let [ctx (wrap (context* adevs props nil nil))]
            (reference-count ctx) => 1
            (release ctx) => true)
 
@@ -130,7 +131,7 @@
          ;; shoud then reported through the channel. Test it later.)
 
          (let [ch (chan)
-               ctx (context* adevs props ch :some-data)]
+               ctx (wrap (context* adevs props ch :some-data))]
            (reference-count ctx) => 1
            (command-queue ctx nil) => (throws ExceptionInfo))
 
@@ -154,22 +155,20 @@
        "queue tests"
        (with-release [ctx (context devs)
                       cl-data (cl-buffer ctx Float/BYTES :read-write)]
-         (let [queue (command-queue ctx dev)
-               cl-queue (deref queue)]
+         (let [queue (command-queue ctx dev)]
            (reference-count queue) => 1
            (queue-context queue) => ctx
            (info queue :properties) => #{}
-           (release queue) => true
-           (reference-count cl-queue) => 0)
+           (release queue) => true)
 
-         (let [queue (command-queue* @ctx @dev 0)]
+         (let [queue (wrap (command-queue* (extract ctx) (extract dev) 0))]
            (reference-count queue) => 1
            (queue-context queue) => ctx
            (info queue :properties) => #{}
            (type (info queue :size)) => String
            (release queue) => true)
 
-         (let [queue (command-queue* @ctx @dev 0 5)]
+         (let [queue (wrap (command-queue* (extract ctx) (extract dev) 0 5))]
            (reference-count queue) => 1
            (queue-context queue) => ctx
            (info queue :properties) => #{:queue-on-device :out-of-order-exec-mode}
@@ -232,11 +231,11 @@
   (facts
    "EventCallback tests"
    (let [ch (chan)
-         ev ^cl_event (host-event)
-         call-event-fun (fn [^EventCallbackFunction f] (.function f ev CL/CL_QUEUED :my-data))]
+         ev (host-event)
+         call-event-fun (fn [^EventCallbackFunction f] (.function f (extract ev) CL/CL_QUEUED ev))]
      (->EventCallback ch) =not=> nil
      (do (call-event-fun (->EventCallback ch))
-         (:event (<!! ch)) => ev))
+         (:data (<!! ch)) => ev))
 
    (with-release [cl-buf (cl-buffer Float/BYTES)
                   cpu-buf (put-float (direct-buffer Float/BYTES) 0 1.0)]
@@ -245,7 +244,7 @@
            follow (register notifications)]
        (enq-write! *command-queue* cl-buf cpu-buf ev)
        (follow ev)
-       (:event (<!! notifications)) => @ev)))
+       (:data (<!! notifications)) => ev)))
 
   (let [src (slurp "test/opencl/core_test.cl")
         cnt 8
@@ -265,7 +264,7 @@
        "Program build tests."
        program =not=> nil
        (info program :source) => src
-       (:data (<!! notifications)) => :my-data)
+       (<!! notifications) => :my-data)
 
       ;; TODO Some procedures might crash JVM if called on
       ;; unprepared objects (kernels of unbuilt program).
@@ -341,7 +340,7 @@
      (enq-read! queue1 cl-data data (events ev-nd2) ev-read)
      (follow ev-read)
 
-     (:event (<!! notifications)) => @ev-read
+     (:data (<!! notifications)) => ev-read
 
      (vec (let [res (float-array cnt)] (.get (.asFloatBuffer ^ByteBuffer data) res) res))
      => [168.0 171.0 174.0 177.0 180.0 183.0 186.0 189.0]
@@ -378,7 +377,7 @@
      (enq-svm-unmap! queue svm) => queue
 
      (svm-buffer* nil 4 0) => (throws IllegalArgumentException)
-     (svm-buffer* @ctx 0 0) => (throws IllegalArgumentException)
+     (svm-buffer* (extract ctx) 0 0) => (throws IllegalArgumentException)
      (svm-buffer ctx 4 0 :invalid-flag) => (throws NullPointerException))))
 
 (with-default-1
