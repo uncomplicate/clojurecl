@@ -68,12 +68,12 @@
   [[finish!]], [[flush!]] [[with-queue]].
   "
   (:require [uncomplicate.commons
-             [core :refer [release with-release info]]
+             [core :refer [release with-release info wrap extract]]
              [utils :refer [mask]]]
             [uncomplicate.fluokitten.core :refer [fmap]]
             [uncomplicate.clojurecl.info :refer [build-info program-devices opencl-c-version version]]
             [uncomplicate.clojurecl.internal
-             [api :refer :all]
+             [protocols :refer :all]
              [constants :refer :all]
              [impl :refer :all]
              [utils :refer [with-check with-check-arr error]]]

@@ -7,7 +7,7 @@
 ;;   You must not remove this notice, or any other, from this software.
 
 (ns ^{:author "Dragan Djuric"}
-    uncomplicate.clojurecl.internal.api)
+    uncomplicate.clojurecl.internal.protocols)
 
 (defprotocol Mem
   "An object that represents memory that participates in OpenCL operations.
@@ -42,17 +42,3 @@
   [[CLBuffer]], java numbers, primitive arrays and `ByteBuffer`s."
   (set-arg [arg kernel n]
     "Specific implementation of setting the kernel arguments."))
-
-(defprotocol CLWrapper
-  (extract [this]))
-
-(defprotocol Wrappable
-  (wrap [this]))
-
-(extend-type nil
-  CLWrapper
-  (extract [_]
-    nil)
-  Wrappable
-  (wrap [this]
-    nil))

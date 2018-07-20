@@ -140,11 +140,10 @@
   "
   (:require [clojure.string :as str]
             [uncomplicate.commons
-             [core :refer [Info info]]
+             [core :refer [Info info wrap extract]]
              [utils :refer [unmask unmask1 buffer direct-buffer]]]
             [uncomplicate.fluokitten.core :refer [fmap]]
             [uncomplicate.clojurecl.internal
-             [api :refer [wrap extract]]
              [constants :refer :all]
              [utils :refer :all]
              [impl :refer :all]])

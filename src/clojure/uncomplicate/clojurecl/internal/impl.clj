@@ -9,10 +9,10 @@
 (ns ^{:author "Dragan Djuric"}
     uncomplicate.clojurecl.internal.impl
   (:require [uncomplicate.commons
-             [core :refer [Releaseable release info]]
+             [core :refer [Releaseable release info Wrapper extract Wrappable wrap]]
              [utils :refer [dragan-says-ex]]]
             [uncomplicate.clojurecl.internal
-             [api :refer :all]
+             [protocols :refer :all]
              [constants :refer :all]
              [utils :refer [with-check with-check-arr]]]
             [clojure.core.async :refer [go >!]])
@@ -35,138 +35,34 @@
     (dragan-says-ex "It is not allowed to use and release raw JOCL objects. Use safe wrappers."
                     {:this this})))
 
-(deftype CLCommandQueue [queue]
-  Object
-  (hashCode [this]
-    (hash @queue))
-  (equals [this other]
-    (= @queue (extract other)))
-  (toString [this]
-    (format "#CLCommandQueue[0x%s]" (Long/toHexString (native-pointer @queue))))
-  CLWrapper
-  (extract [_]
-    @queue)
-  Releaseable
-  (release [this]
-    (locking this
-      (when-let [q @queue]
-        (locking q
-          (with-check (CL/clReleaseCommandQueue q) (vreset! queue nil)))))
-    true))
+(defmacro deftype-wrapper [name release-method]
+  (let [name-str (str name)]
+    `(deftype ~name [ref#]
+       Object
+       (hashCode [this#]
+         (hash (deref ref#)))
+       (equals [this# other#]
+         (= (deref ref#) (extract other#)))
+       (toString [this#]
+         (format "#%s[0x%s]" ~name-str (Long/toHexString (native-pointer (deref ref#)))))
+       Wrapper
+       (extract [this#]
+         (deref ref#))
+       Releaseable
+       (release [this#]
+         (locking this#
+           (when-let [d# (deref ref#)]
+             (locking d#
+               (with-check (~release-method d#) (vreset! ref# nil)))))
+         true))))
 
-(deftype CLContext [ctx]
-  Object
-  (hashCode [this]
-    (hash @ctx))
-  (equals [this other]
-    (= @ctx (extract other)))
-  (toString [this]
-    (format "#CLContext[0x%s]" (Long/toHexString (native-pointer @ctx))))
-  CLWrapper
-  (extract [_]
-    @ctx)
-  Releaseable
-  (release [this]
-    (locking this
-      (when-let [c @ctx]
-        (locking c
-          (with-check (CL/clReleaseContext c) (vreset! ctx nil)))))
-    true))
-
-(deftype CLDevice [device]
-  Object
-  (hashCode [this]
-    (hash @device))
-  (equals [this other]
-    (= @device (extract other)))
-  (toString [this]
-    (format "#CLDevice[0x%s]" (Long/toHexString (native-pointer @device))))
-  CLWrapper
-  (extract [_]
-    @device)
-  Releaseable
-  (release [this]
-    (locking this
-      (when-let [d @device]
-        (locking d
-          (with-check (CL/clReleaseDevice d) (vreset! device nil)))))
-    true))
-
-(deftype CLEvent [event]
-  Object
-  (hashCode [this]
-    (hash @event))
-  (equals [this other]
-    (= @event (extract other)))
-  (toString [this]
-    (format "#CLEvent[0x%s]" (Long/toHexString (native-pointer @event))))
-  CLWrapper
-  (extract [_]
-    @event)
-  Releaseable
-  (release [this]
-    (locking this
-      (when-let [e @event]
-        (locking e
-          (with-check (CL/clReleaseEvent e) (vreset! event nil)))))
-    true))
-
-(deftype CLKernel [kernel]
-  Object
-  (hashCode [this]
-    (hash @kernel))
-  (equals [this other]
-    (= @kernel (extract other)))
-  (toString [this]
-    (format "#CLKernel[0x%s]" (Long/toHexString (native-pointer @kernel))))
-  CLWrapper
-  (extract [_]
-    @kernel)
-  Releaseable
-  (release [this]
-    (locking this
-      (when-let [k @kernel]
-        (locking k
-          (with-check (CL/clReleaseKernel k) (vreset! kernel nil)))))
-    true))
-
-(deftype CLProgram [program]
-  Object
-  (hashCode [this]
-    (hash @program))
-  (equals [this other]
-    (= @program (extract other)))
-  (toString [this]
-    (format "#CLProgram[0x%s]" (Long/toHexString (native-pointer @program))))
-  CLWrapper
-  (extract [_]
-    @program)
-  Releaseable
-  (release [this]
-    (locking this
-      (when-let [p @program]
-        (locking p
-          (with-check (CL/clReleaseProgram p) (vreset! program nil)))))
-    true))
-
-(deftype CLSampler [sampler]
-  Object
-  (hashCode [this]
-    (hash @sampler))
-  (equals [this other]
-    (= @sampler (extract other)))
-  (toString [this]
-    (format "#CLSampler[0x%s]" (Long/toHexString (native-pointer @sampler))))
-  CLWrapper
-  (extract [_]
-    @sampler)
-  Releaseable
-  (release [this]
-    (locking this
-      (when-let [s @sampler]
-        (locking s
-          (with-check (CL/clReleaseSampler s) (vreset! sampler nil)))))
-    true))
+(deftype-wrapper CLDevice CL/clReleaseDevice)
+(deftype-wrapper CLContext CL/clReleaseContext)
+(deftype-wrapper CLCommandQueue CL/clReleaseCommandQueue)
+(deftype-wrapper CLEvent CL/clReleaseEvent)
+(deftype-wrapper CLKernel CL/clReleaseKernel)
+(deftype-wrapper CLProgram CL/clReleaseProgram)
+(deftype-wrapper CLSampler CL/clReleaseSampler)
 
 (extend-type cl_command_queue
   Wrappable
@@ -301,7 +197,7 @@
     (= @cl (extract other)))
   (toString [this]
     (format "#CLBuffer[0x%s]" (Long/toHexString (native-pointer @cl))))
-  CLWrapper
+  Wrapper
   (extract [_]
     @cl)
   Releaseable
@@ -347,7 +243,7 @@
     (= @svm* (extract other)))
   (toString [this]
     (str @svm*))
-  CLWrapper
+  Wrapper
   (extract [_]
     @svm*)
   Releaseable

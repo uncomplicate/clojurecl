@@ -9,14 +9,14 @@
 (ns uncomplicate.clojurecl.core-test
   (:require [midje.sweet :refer :all]
             [uncomplicate.commons
-             [core :refer [release with-release info]]
+             [core :refer [release with-release info wrap extract]]
              [utils :refer [direct-buffer put-float get-float]]]
             [uncomplicate.fluokitten.core :refer [fmap]]
             [uncomplicate.clojurecl
              [core :refer :all]
              [info :refer [reference-count mem-base-addr-align opencl-c-version queue-context]]]
             [uncomplicate.clojurecl.internal
-             [api :refer [size ptr byte-buffer wrap extract]]
+             [protocols :refer [size ptr byte-buffer]]
              [impl :refer :all]]
             [clojure.core.async :refer [go >! <! <!! chan]])
   (:import java.nio.ByteBuffer
