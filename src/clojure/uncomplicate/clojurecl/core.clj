@@ -68,7 +68,7 @@
   [[finish!]], [[flush!]] [[with-queue]].
   "
   (:require [uncomplicate.commons
-             [core :refer [release with-release info wrap extract]]
+             [core :refer [release with-release info]]
              [utils :refer [mask]]]
             [uncomplicate.fluokitten.core :refer [fmap]]
             [uncomplicate.clojurecl.info :refer [build-info program-devices opencl-c-version version]]

@@ -9,6 +9,12 @@
 (ns ^{:author "Dragan Djuric"}
     uncomplicate.clojurecl.internal.protocols)
 
+(defprotocol Wrapper
+  (extract [this]))
+
+(defprotocol Wrappable
+  (wrap [this]))
+
 (defprotocol Mem
   "An object that represents memory that participates in OpenCL operations.
   It can be on the device ([[CLMem]]), or on the host.  Built-in implementations:

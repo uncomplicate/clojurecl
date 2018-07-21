@@ -9,7 +9,7 @@
 (ns ^{:author "Dragan Djuric"}
     uncomplicate.clojurecl.internal.impl
   (:require [uncomplicate.commons
-             [core :refer [Releaseable release info Wrapper extract Wrappable wrap]]
+             [core :refer [Releaseable release info]]
              [utils :refer [dragan-says-ex]]]
             [uncomplicate.clojurecl.internal
              [protocols :refer :all]
@@ -24,6 +24,14 @@
             Sizeof Pointer CreateContextFunction EventCallbackFunction
             BuildProgramFunction JOCLAccessor]))
 
+(extend-type nil
+  Wrapper
+  (extract [_]
+    nil)
+  Wrappable
+  (wrap [this]
+    nil))
+
 ;; =============== Release CL Resources ==================================
 
 (defn native-pointer ^long [npo]
@@ -35,7 +43,7 @@
     (dragan-says-ex "It is not allowed to use and release raw JOCL objects. Use safe wrappers."
                     {:this this})))
 
-(defmacro deftype-wrapper [name release-method]
+(defmacro ^:private deftype-wrapper [name release-method]
   (let [name-str (str name)]
     `(deftype ~name [ref#]
        Object
@@ -368,96 +376,27 @@
       {:kernel (info kernel) :n n :arg (info this)}
       kernel)))
 
-(extend-type (Class/forName "[F")
-  Mem
-  (ptr [this]
-    (Pointer/to ^floats this))
-  (size [this]
-    (* Float/BYTES (alength ^floats this)))
-  Argument
-  (set-arg [this kernel n]
-    (with-check
-      (CL/clSetKernelArg kernel n (* Float/BYTES (alength ^floats this)) (Pointer/to ^floats this))
-      {:kernel (info kernel) :n n :arg (info this)}
-      kernel)))
+(defmacro ^:private extend-mem-array [type atype bytes]
+  `(extend-type ~type
+    Mem
+    (ptr [this#]
+      (Pointer/to (~atype this#)))
+    (size [this#]
+      (* ~bytes (alength (~atype this#))))
+    Argument
+    (set-arg [this# kernel# n#]
+      (with-check
+        (CL/clSetKernelArg kernel# n# (* ~bytes (alength (~atype this#))) (Pointer/to (~atype this#)))
+        {:kernel (info kernel#) :n n# :arg (info this#)}
+        kernel#))))
 
-(extend-type (Class/forName "[D")
-  Mem
-  (ptr [this]
-    (Pointer/to ^doubles this))
-  (size [this]
-    (* Double/BYTES (alength ^doubles this)))
-  Argument
-  (set-arg [this kernel n]
-    (with-check
-      (CL/clSetKernelArg kernel n (* Double/BYTES (alength ^doubles this)) (Pointer/to ^doubles this))
-      {:kernel (info kernel) :n n :arg (info this)}
-      kernel)))
-
-(extend-type (Class/forName "[I")
-  Mem
-  (ptr [this]
-    (Pointer/to ^ints this))
-  (size [this]
-    (* Integer/BYTES (alength ^ints this)))
-  Argument
-  (set-arg [this kernel n]
-    (with-check
-      (CL/clSetKernelArg kernel n (* Integer/BYTES (alength ^ints this)) (Pointer/to ^ints this))
-      {:kernel (info kernel) :n n :arg (info this)}
-      kernel)))
-
-(extend-type (Class/forName "[J")
-  Mem
-  (ptr [this]
-    (Pointer/to ^longs this))
-  (size [this]
-    (* Long/BYTES (alength ^longs this)))
-  Argument
-  (set-arg [this kernel n]
-    (with-check
-      (CL/clSetKernelArg kernel n (* Long/BYTES (alength ^longs this)) (Pointer/to ^longs this))
-      {:kernel (info kernel) :n n :arg (info this)}
-      kernel)))
-
-(extend-type (Class/forName "[B")
-  Mem
-  (ptr [this]
-    (Pointer/to ^bytes this))
-  (size [this]
-    (alength ^bytes this))
-  Argument
-  (set-arg [this kernel n]
-    (with-check
-      (CL/clSetKernelArg kernel n (alength ^bytes this) (Pointer/to ^bytes this))
-      {:kernel (info kernel) :n n :arg (info this)}
-      kernel)))
-
-(extend-type (Class/forName "[S")
-  Mem
-  (ptr [this]
-    (Pointer/to ^shorts this))
-  (size [this]
-    (* Short/BYTES (alength ^shorts this)))
-  Argument
-  (set-arg [this kernel n]
-    (with-check
-      (CL/clSetKernelArg kernel n (* Short/BYTES (alength ^shorts this)) (Pointer/to ^shorts this))
-      {:kernel (info kernel) :n n :arg (info this)}
-      kernel)))
-
-(extend-type (Class/forName "[C")
-  Mem
-  (ptr [this]
-    (Pointer/to ^chars this))
-  (size [this]
-    (* Character/BYTES (alength ^chars this)))
-  Argument
-  (set-arg [this kernel n]
-    (with-check
-      (CL/clSetKernelArg kernel n (* Character/BYTES (alength ^chars this)) (Pointer/to ^chars this))
-      {:kernel (info kernel) :n n :arg (info this)}
-      kernel)))
+(extend-mem-array (Class/forName "[F") floats Float/BYTES)
+(extend-mem-array (Class/forName "[D") doubles Double/BYTES)
+(extend-mem-array (Class/forName "[I") ints Integer/BYTES)
+(extend-mem-array (Class/forName "[J") longs Long/BYTES)
+(extend-mem-array (Class/forName "[B") bytes 1)
+(extend-mem-array (Class/forName "[S") shorts Short/BYTES)
+(extend-mem-array (Class/forName "[C") chars Character/BYTES)
 
 (extend-type ByteBuffer
   Mem
