@@ -96,7 +96,7 @@
        :doc "Dynamic var for binding the default command queue."}
   *command-queue*)
 
-(defn release-bindings
+(defn release-bindings!
   "Release global platform, context, and command queue (if any exists)."
   []
   (release *platform*)
