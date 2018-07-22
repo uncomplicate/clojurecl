@@ -96,6 +96,13 @@
        :doc "Dynamic var for binding the default command queue."}
   *command-queue*)
 
+(defn release-bindings
+  "Release global platform, context, and command queue (if any exists)."
+  []
+  (release *platform*)
+  (release *context*)
+  (release *command-queue*))
+
 ;; =============== Platform =========================================
 
 (defn num-platforms
@@ -130,6 +137,14 @@
   If [[*platform*]] is unbound, throws `Illegalargumentexception`."
   []
   (info *platform*))
+
+(defn set-platform!
+  "Sets the var root binding of [[*platform*]] to the platform `p` or the default platform."
+  ([p]
+   (release *platform*)
+   (alter-var-root (var *platform*) (constantly p)))
+  ([]
+   (set-platform! (first (platforms)))))
 
 (defmacro with-platform
   "Dynamically binds `platform` to the default platform [[*platform*]] and
@@ -276,6 +291,14 @@
   "
   []
   (info *context*))
+
+(defn set-context!
+  "Sets the var root binding of [[*context*]] to the context `ctx` or the default context."
+  ([ctx]
+   (release *context*)
+   (alter-var-root (var *context*) (constantly ctx)))
+  ([]
+   (set-context! (context))))
 
 (defmacro with-context
   "Dynamically binds `context` to the default context [[*context*]].
@@ -1370,6 +1393,15 @@
   [queue]
   (with-check (CL/clFlush (extract queue)) queue))
 
+(defn set-queue!
+  "Sets the var root binding of [[*command-queue*]] to the queue `q` or the default command queue on
+  the default device in the default context."
+  ([q]
+   (release *command-queue*)
+   (alter-var-root (var *command-queue*) (constantly q)))
+  ([]
+   (set-queue! (command-queue *context*))))
+
 (defmacro with-queue
   "Dynamically binds `queue` to the default queue [[*command-queue*]].
   and evaluates the body with that binding. Releases the queue
@@ -1392,6 +1424,22 @@
   version their order is not changed."
   [devs]
   (sort-by #(- ^double (:version (opencl-c-version %))) devs))
+
+(defn set-default!
+  "Sets the root bindings to the default platform, context and command queue."
+  []
+  (set-platform! (first (remove legacy? (platforms))))
+  (let [dev (first (sort-by-cl-version (devices)))]
+    (set-context! (context [dev]))
+    (set-queue! (command-queue dev))))
+
+(defn set-default-1!
+  "Sets the root bindings to the default platform, context and command queue."
+  []
+  (set-platform!)
+  (let [dev (first (sort-by-cl-version (devices)))]
+    (set-context! (context [dev]))
+    (set-queue! (command-queue-1 dev))))
 
 (defmacro with-default
   "Dynamically binds [[*platform*]], [[*context*]] and [[*command-queue*]]

@@ -22,7 +22,13 @@
   :codox {:metadata {:doc/formt a:markdown}
           :src-dir-uri "http://github.com/uncomplicate/clojurecl/blob/master/"
           :src-linenum-anchor-prefix "L"
-          :output-path "docs/codox"}
+          :output-path "docs/codox"
+          :namespaces [uncomplicate.clojurecl.core
+                       uncomplicate.clojurecl.info
+                       uncomplicate.clojurecl.toolbox
+                       uncomplicate.clojurecl.internal.protocols
+                       uncomplicate.clojurecl.internal.constants
+                       uncomplicate.clojurecl.internal.utils]}
 
   :profiles {:dev {:plugins [[lein-midje "3.2.1"]
                              [lein-codox "0.10.3"]]
@@ -30,7 +36,7 @@
                                  *assert* true
                                  *unchecked-math* :warn-on-boxed
                                  *print-length* 128}
-                   :dependencies [[midje "1.9.1"]]
+                   :dependencies [[midje "1.9.2"]]
                    :jvm-opts ^:replace [#_"--add-opens=java.base/jdk.internal.ref=ALL-UNNAMED"]}}
 
   :javac-options ["-target" "1.8" "-source" "1.8" "-Xlint:-options"]
