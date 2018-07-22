@@ -61,7 +61,7 @@
          (deref ref#))
        Releaseable
        (release [this#]
-         (locking this#
+         (locking ref#
            (when-let [d# (deref ref#)]
              (locking d#
                (with-check (~release-method d#) (vreset! ref# nil)))))
@@ -213,7 +213,7 @@
     @cl)
   Releaseable
   (release [this]
-    (locking this
+    (locking cl
       (when-let [c @cl]
         (locking c
           (with-check (CL/clReleaseMemObject c)
@@ -259,7 +259,7 @@
     @svm*)
   Releaseable
   (release [this]
-    (locking this
+    (locking svm*
       (when-let [ss @svm*]
         (locking ss
           (CL/clSVMFree ctx ss)
