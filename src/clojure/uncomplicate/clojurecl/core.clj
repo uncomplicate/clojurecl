@@ -96,13 +96,6 @@
        :doc "Dynamic var for binding the default command queue."}
   *command-queue*)
 
-(defn release-bindings!
-  "Release global platform, context, and command queue (if any exists)."
-  []
-  (release *platform*)
-  (release *context*)
-  (release *command-queue*))
-
 ;; =============== Platform =========================================
 
 (defn num-platforms
@@ -1401,6 +1394,13 @@
    (alter-var-root (var *command-queue*) (constantly q)))
   ([]
    (set-queue! (command-queue *context*))))
+
+(defn release-context!
+  "Release global platform, context, and command queue (if any exists)."
+  []
+  (set-queue! nil)
+  (set-context! nil)
+  (set-platform! nil))
 
 (defmacro with-queue
   "Dynamically binds `queue` to the default queue [[*command-queue*]].

@@ -20,7 +20,7 @@
            clojure.lang.IDeref
            [org.jocl CL NativePointerObject cl_device_id cl_mem
             cl_context cl_command_queue cl_mem cl_program cl_kernel cl_sampler
-            cl_event cl_buffer_region cl_queue_properties
+            cl_event cl_buffer_region cl_queue_properties cl_platform_id
             Sizeof Pointer CreateContextFunction EventCallbackFunction
             BuildProgramFunction JOCLAccessor]))
 
@@ -45,6 +45,11 @@
   Info
   (info [this]
     (info (wrap this))))
+
+(extend-type cl_platform_id
+  Releaseable
+  (release [_]
+    true))
 
 (defmacro ^:private deftype-wrapper [name release-method]
   (let [name-str (str name)]
