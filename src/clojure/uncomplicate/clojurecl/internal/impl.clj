@@ -9,7 +9,7 @@
 (ns ^{:author "Dragan Djuric"}
     uncomplicate.clojurecl.internal.impl
   (:require [uncomplicate.commons
-             [core :refer [Releaseable release info]]
+             [core :refer [Releaseable release Info info]]
              [utils :refer [dragan-says-ex]]]
             [uncomplicate.clojurecl.internal
              [protocols :refer :all]
@@ -37,11 +37,14 @@
 (defn native-pointer ^long [npo]
   (if npo (JOCLAccessor/getNativePointer npo) 0))
 
-(extend-protocol Releaseable
-  NativePointerObject
+(extend-type NativePointerObject
+  Releaseable
   (release [this]
     (dragan-says-ex "It is not allowed to use and release raw JOCL objects. Use safe wrappers."
-                    {:this this})))
+                    {:this this}))
+  Info
+  (info [this]
+    (info (wrap this))))
 
 (defmacro ^:private deftype-wrapper [name release-method]
   (let [name-str (str name)]
@@ -130,7 +133,7 @@
     (if (= CL/CL_DEVICE_NOT_FOUND err)
       0
       (with-check err
-        {:platform (info (wrap platform)) :device-type device-type}
+        {:platform (info platform) :device-type device-type}
         (aget res 0)))))
 
 (defn devices*
@@ -359,8 +362,7 @@
     (let [err (int-array 1)
           res (CL/clSVMAlloc ctx flags size alignment)]
       (with-check-arr err (->SVMBuffer ctx (volatile! res) size)))
-    (throw (IllegalArgumentException.
-            "To create a svm buffer, you must provide a context and a positive size."))))
+    (dragan-says-ex "To create a svm buffer, you must provide a context and a positive size.")))
 
 (extend-type Long
   Argument

@@ -7,6 +7,7 @@
 * enq-nd! renamed to enq-kernel!
 * XXX* methods moved to internal implementation namespace.
 * OpenCL 1 functions moved from legacy namespace to core.
+* Wrapped/Wrappable protocols introduced.
 
 ### Enhancements
 
