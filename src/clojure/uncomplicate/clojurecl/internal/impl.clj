@@ -46,11 +46,6 @@
   (info [this]
     (info (wrap this))))
 
-(extend-type cl_platform_id
-  Releaseable
-  (release [_]
-    true))
-
 (defmacro ^:private deftype-wrapper [name release-method]
   (let [name-str (str name)]
     `(deftype ~name [ref#]
@@ -79,6 +74,17 @@
 (deftype-wrapper CLKernel CL/clReleaseKernel)
 (deftype-wrapper CLProgram CL/clReleaseProgram)
 (deftype-wrapper CLSampler CL/clReleaseSampler)
+
+(extend-type cl_platform_id
+  Releaseable
+  (release [_]
+    true)
+  Wrappable
+  (wrap [this]
+    this)
+  Wrapper
+  (unwrap [this]
+    this))
 
 (extend-type cl_command_queue
   Wrappable
