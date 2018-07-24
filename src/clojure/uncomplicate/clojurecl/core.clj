@@ -1,5 +1,5 @@
 ;;   COPYRIGHT (C) DRAGAN DJURIC. ALL RIGHTS RESERVED.
- ;;   THE USE AND DISTRIBUTION TERMS FOR THIS SOFTWARE ARE COVERED BY THE
+;;   THE USE AND DISTRIBUTION TERMS FOR THIS SOFTWARE ARE COVERED BY THE
 ;;   ECLIPSE PUBLIC LICENSE 1.0 (HTTP://OPENSOURCE.ORG/LICENSES/ECLIPSE-1.0.PHP) OR LATER
 ;;   WHICH CAN BE FOUND IN THE FILE LICENSE AT THE ROOT OF THIS DISTRIBUTION.
 ;;   BY USING THIS SOFTWARE IN ANY FASHION, YOU ARE AGREEING TO BE BOUND BY
@@ -71,7 +71,8 @@
              [core :refer [release with-release info]]
              [utils :refer [mask]]]
             [uncomplicate.fluokitten.core :refer [fmap]]
-            [uncomplicate.clojurecl.info :refer [build-info program-devices opencl-c-version version]]
+            [uncomplicate.clojurecl.info
+             :refer [build-info program-devices opencl-c-version version devices-in-context]]
             [uncomplicate.clojurecl.internal
              [protocols :refer :all]
              [constants :refer :all]
@@ -263,8 +264,8 @@
   "
   ([devices properties ch user-data]
    (wrap (context* (into-array cl_device_id (fmap extract devices))
-                           (and (seq properties) (context-properties properties))
-                           ch user-data)))
+                   (and (seq properties) (context-properties properties))
+                   ch user-data)))
   ([devices]
    (context devices nil nil nil))
   ([]
@@ -871,13 +872,15 @@
   ([ctx device x & properties]
    (if (integer? x)
      (wrap (command-queue* (extract ctx) (extract device) x
-                                         (mask cl-command-queue-properties properties)))
+                           (mask cl-command-queue-properties properties)))
      (wrap (command-queue* (extract ctx) (extract device) 0
-                                         (mask cl-command-queue-properties x properties)))))
+                           (mask cl-command-queue-properties x properties)))))
   ([ctx device]
    (wrap (command-queue* (extract ctx) (extract device) 0 0)))
   ([device]
-   (command-queue *context* device)))
+   (command-queue *context* device))
+  ([]
+   (command-queue *context* ((devices-in-context *context*) 0))))
 
 (defn command-queue-1
   "Creates a host or device command queue on a specific device.
@@ -918,13 +921,15 @@
   ([ctx device x & properties]
    (if (integer? x)
      (wrap (command-queue-1* (extract ctx) (extract device) x
-                                           (mask cl-command-queue-properties properties)))
+                             (mask cl-command-queue-properties properties)))
      (wrap (command-queue-1* (extract ctx) (extract device) 0
-                                           (mask cl-command-queue-properties x properties)))))
+                             (mask cl-command-queue-properties x properties)))))
   ([ctx device]
    (wrap (command-queue-1* (extract ctx) (extract device) 0 0)))
   ([device]
-   (command-queue-1 *context* device)))
+   (command-queue-1 *context* device))
+  ([]
+   (command-queue-1 *context* ((devices-in-context *context*) 0))))
 
 (defn enq-kernel!
   "Enqueues a command to asynchronously execute a kernel on a device.

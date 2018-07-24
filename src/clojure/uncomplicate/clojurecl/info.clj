@@ -7,7 +7,7 @@
 ;;   You must not remove this notice, or any other, from this software.
 
 (ns ^{:author "Dragan Djuric"}
-  uncomplicate.clojurecl.info
+    uncomplicate.clojurecl.info
   "Info functions for all OpenCL objects (platforms, devices, etc...).
 
   The OpenCL standard defines info functions for all cl structures. Typically
@@ -868,7 +868,7 @@
 
 (defn devices-in-context [context]
   (fmap wrap (vec (info-native* CL/clGetContextInfo (extract context) CL/CL_CONTEXT_DEVICES
-                                       cl_device_id Sizeof/cl_device_id))))
+                                cl_device_id Sizeof/cl_device_id))))
 
 (defrecord ContextInfo [num-devices reference-count devices properties])
 
@@ -1001,12 +1001,12 @@
 
 (defn profiling-info
   (^long [event info]
-         (case info
-           :queued (queued event)
-           :submit (submit event)
-           :start (start event)
-           :end (end event)
-           nil))
+   (case info
+     :queued (queued event)
+     :submit (submit event)
+     :start (start event)
+     :end (end event)
+     nil))
 
   ([event]
    (->ProfilingInfo (queued event) (submit event) (start event) (end event))))
@@ -1156,7 +1156,7 @@
 
 (defn mem-context [mo]
   (wrap (aget-first-np (info-native* CL/clGetMemObjectInfo (extract mo) CL/CL_MEM_CONTEXT
-                                             cl_context Sizeof/cl_context))))
+                                     cl_context Sizeof/cl_context))))
 
 (defn associated-memobject [mo]
   (aget-first-np (info-native* CL/clGetMemObjectInfo (extract mo) CL/CL_MEM_ASSOCIATED_MEMOBJECT
@@ -1280,7 +1280,7 @@
 
 (defn program-devices [p]
   (fmap wrap (vec (info-native* CL/clGetProgramInfo (extract p) CL/CL_PROGRAM_DEVICES
-                                       cl_device_id Sizeof/cl_device_id))))
+                                cl_device_id Sizeof/cl_device_id))))
 
 (defn program-source [p]
   (info-string* CL/clGetProgramInfo (extract p) CL/CL_PROGRAM_SOURCE))
