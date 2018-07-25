@@ -41,10 +41,7 @@
   Releaseable
   (release [this]
     (dragan-says-ex "It is not allowed to use and release raw JOCL objects. Use safe wrappers."
-                    {:this this}))
-  Info
-  (info [this]
-    (info (wrap this))))
+                    {:this this})))
 
 (defmacro ^:private deftype-wrapper [name release-method]
   (let [name-str (str name)]
@@ -87,36 +84,57 @@
     this))
 
 (extend-type cl_command_queue
+  Info
+  (info [this]
+    (info (wrap this)))
   Wrappable
   (wrap [queue]
     (->CLCommandQueue (volatile! queue))))
 
 (extend-type cl_context
+  Info
+  (info [this]
+    (info (wrap this)))
   Wrappable
   (wrap [ctx]
     (->CLContext (volatile! ctx))))
 
 (extend-type cl_device_id
+  Info
+  (info [this]
+    (info (wrap this)))
   Wrappable
   (wrap [dev]
     (->CLDevice (volatile! dev))))
 
 (extend-type cl_event
+  Info
+  (info [this]
+    (info (wrap this)))
   Wrappable
   (wrap [event]
     (->CLEvent (volatile! event))))
 
 (extend-type cl_kernel
+  Info
+  (info [this]
+    (info (wrap this)))
   Wrappable
   (wrap [kernel]
     (->CLKernel (volatile! kernel))))
 
 (extend-type cl_program
+  Info
+  (info [this]
+    (info (wrap this)))
   Wrappable
   (wrap [program]
     (->CLProgram (volatile! program))))
 
 (extend-type cl_sampler
+  Info
+  (info [this]
+    (info (wrap this)))
   Wrappable
   (wrap [sampler]
     (->CLSampler (volatile! sampler))))
