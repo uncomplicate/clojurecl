@@ -16,7 +16,7 @@
              [constants :refer :all]
              [utils :refer [with-check with-check-arr]]]
             [clojure.core.async :refer [go >!]])
-  (:import [java.nio ByteBuffer ByteOrder]
+  (:import [java.nio ByteBuffer ByteOrder Buffer]
            clojure.lang.IDeref
            [org.jocl CL NativePointerObject cl_device_id cl_mem
             cl_context cl_command_queue cl_mem cl_program cl_kernel cl_sampler
@@ -428,6 +428,29 @@
 (extend-mem-array (Class/forName "[B") bytes 1)
 (extend-mem-array (Class/forName "[S") shorts Short/BYTES)
 (extend-mem-array (Class/forName "[C") chars Character/BYTES)
+
+(def component-size-lookup
+  {Float/TYPE     Float/BYTES
+   Double/TYPE    Double/BYTES
+   Long/TYPE      Long/BYTES
+   Integer/TYPE   Integer/BYTES
+   Short/TYPE     Short/BYTES
+   Character/TYPE Character/BYTES
+   Byte/TYPE      Byte/BYTES})
+
+(defn component-size-raw [^Class cls]
+  (get component-size-lookup
+       (.getReturnType (.getMethod cls "get" (into-array Class [])))))
+
+(def component-size (memoize component-size-raw))
+
+(extend-type Buffer
+  Mem
+  (ptr [this]
+    (Pointer/toBuffer this))
+  (size [this]
+    (unchecked-multiply-int (component-size (type this))
+                            (.capacity ^Buffer this))))
 
 (extend-type ByteBuffer
   Mem
