@@ -80,7 +80,7 @@
   (wrap [this]
     this)
   Wrapper
-  (unwrap [this]
+  (extract [this]
     this))
 
 (extend-type cl_command_queue
