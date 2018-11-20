@@ -141,7 +141,7 @@
   (:require [clojure.string :as str]
             [uncomplicate.commons
              [core :refer [Info info]]
-             [utils :refer [unmask unmask1 buffer direct-buffer]]]
+             [utils :refer [unmask unmask1 direct-buffer]]]
             [uncomplicate.fluokitten.core :refer [fmap]]
             [uncomplicate.clojurecl.internal
              [protocols :refer [wrap extract]]
@@ -201,7 +201,7 @@
 
 (defmacro ^:private info-size*
   ([method clobject info num]
-   `(let [res# (buffer (* Sizeof/size_t (long ~num)))
+   `(let [res# (direct-buffer (* Sizeof/size_t (long ~num)))
           err# (~method ~clobject ~info (* Sizeof/size_t (long ~num)) (~pointer-to-buffer res#) nil)]
       (with-check err#
         (vec (get-array res#)))))
@@ -1228,7 +1228,7 @@
 
 (let [pointer-to-buffer (fn [^ByteBuffer b] (Pointer/to b))]
   (defmacro ^:private pb-info-size* [program device info]
-    `(let [res# (buffer Sizeof/size_t)
+    `(let [res# (direct-buffer Sizeof/size_t)
            err# (CL/clGetProgramBuildInfo (extract ~program) (extract ~device) ~info Sizeof/size_t
                                           (~pointer-to-buffer res#) nil)]
        (with-check err#

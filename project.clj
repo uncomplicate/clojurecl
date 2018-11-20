@@ -15,8 +15,8 @@
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :dependencies [[org.clojure/clojure "1.9.0"]
                  [org.jocl/jocl "2.0.1"]
-                 [org.clojure/core.async "0.4.474"]
-                 [uncomplicate/commons "0.6.0"]
+                 [org.clojure/core.async "0.4.490"]
+                 [uncomplicate/commons "0.7.0-SNAPSHOT"]
                  [uncomplicate/fluokitten "0.9.0"]]
 
   :codox {:metadata {:doc/formt a:markdown}
