@@ -36,8 +36,8 @@
                 (dotimes [n num-items]
                   (.putFloat ^java.nio.ByteBuffer d (* n Float/BYTES) 1.0))
                 d)
-         cl-partial-sums (* workgroup-size Float/BYTES)
-         partial-output (float-array (/ bytesize workgroup-size))
+         cl-partial-sums (* workgroup-size 4 Float/BYTES)
+         partial-output (float-array (/ num-items workgroup-size))
          output (float-array 1)]
      (with-release [cl-data (cl-buffer ctx bytesize :read-only)
                     cl-output (cl-buffer ctx Float/BYTES :write-only)

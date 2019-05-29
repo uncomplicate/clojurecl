@@ -67,7 +67,7 @@
 
         (< 10000
            (-> (<!! notifications) :data profiling-info durations :end)
-           350000)
+           550000)
         => true))))
 
   (facts

@@ -549,7 +549,7 @@
 
 (defn spir-versions [device]
   (apply hash-set
-         (map #(Double/parseDouble %)
+         (map #(if (clojure.string/blank? %) 0 (Double/parseDouble %))
               (str/split (info-string* CL/clGetDeviceInfo (extract device) CL_DEVICE_SPIR_VERSIONS)
                          #" "))))
 
@@ -1212,10 +1212,10 @@
 (defmacro ^:private pb-info-string* [program device info]
   `(let [cnt# (long-array 1)
          program# (extract ~program)
-         err# (CL/clGetProgramBuildInfo program# ~device ~info 0 nil cnt#)]
+         err# (CL/clGetProgramBuildInfo program# (extract ~device) ~info 0 nil cnt#)]
      (with-check err#
        (let [res# (byte-array (aget cnt# 0))
-             err# (CL/clGetProgramBuildInfo program# ~device ~info
+             err# (CL/clGetProgramBuildInfo program# (extract ~device) ~info
                                             (alength res#) (Pointer/to res#) nil)]
          (with-check err#
            (String. res# 0 (max 0 (dec (alength res#)))))))))
