@@ -1,5 +1,9 @@
 # [ClojureCL](http://clojurecl.uncomplicate.org) - notable changes between versions
 
+## 0.11.0
+
+* Support ROCm OpenCL implementation.
+
 ## 0.10.0
 
 ### Breaking Changes
