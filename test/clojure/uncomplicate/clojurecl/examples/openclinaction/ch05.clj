@@ -10,9 +10,11 @@
   (:require [midje.sweet :refer :all]
             [clojure.java.io :as io]
             [uncomplicate.commons.core :refer [with-release info]]
-            [uncomplicate.clojurecl.core :refer :all]))
+            [uncomplicate.clojurecl
+             [core :refer :all]
+             [toolbox :refer [decent-platform]]]))
 
-(with-release [dev (first (devices (first (platforms))))
+(with-release [dev (first (devices (decent-platform (platforms))))
                ctx (context [dev])
                cqueue (command-queue ctx dev)]
 

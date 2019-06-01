@@ -11,7 +11,8 @@
             [uncomplicate.commons
              [core :refer [with-release]]
              [utils :refer [put-float get-float]]]
-            [uncomplicate.clojurecl.core :refer :all]))
+            [uncomplicate.clojurecl.core :refer :all]
+            [uncomplicate.clojurecl.toolbox :refer [decent-platform]]))
 
 (def program-source (slurp "test/opencl/examples/jocl/hello-kernel.cl"))
 
@@ -21,7 +22,7 @@
       src-array-b (float-array (range n))
       dest-array (float-array n)
       work-sizes (work-size [n] [1])]
-  (with-release [devs (devices (first (platforms)))
+  (with-release [devs (devices (decent-platform (platforms)))
                  dev (first devs)
                  ctx (context devs)
                  cqueue (command-queue ctx dev)

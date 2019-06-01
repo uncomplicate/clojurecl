@@ -15,9 +15,10 @@
              [utils :refer [direct-buffer]]]
             [uncomplicate.clojurecl
              [core :refer :all]
-             [info :refer [profiling-info durations end opencl-c-version]]]))
+             [info :refer [profiling-info durations end opencl-c-version]]
+             [toolbox :refer [decent-platform]]]))
 
-(with-release [dev (first (sort-by-cl-version (devices (first (platforms)))))
+(with-release [dev (first (sort-by-cl-version (devices (decent-platform (platforms)))))
                ctx (context [dev])
                cqueue (command-queue ctx dev :profiling)]
 

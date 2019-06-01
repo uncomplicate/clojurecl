@@ -14,7 +14,8 @@
             [uncomplicate.fluokitten.core :refer [fmap]]
             [uncomplicate.clojurecl
              [core :refer :all]
-             [info :refer [reference-count mem-base-addr-align opencl-c-version queue-context]]]
+             [info :refer [reference-count mem-base-addr-align opencl-c-version queue-context]]
+             [toolbox :refer [decent-platform]]]
             [uncomplicate.clojurecl.internal
              [protocols :refer [size ptr byte-buffer wrap extract]]
              [impl :refer :all]]
@@ -38,7 +39,7 @@
 (facts
  "num-devices tests."
 
- (let [p (first (remove legacy? (platforms)))]
+ (let [p (decent-platform (platforms))]
    (num-devices* p CL/CL_DEVICE_TYPE_ALL) => (num-devices p :all)
 
    (< 0 (num-devices p :all)) => true
@@ -62,7 +63,7 @@
 (facts
  "devices tests"
 
- (let [p (first (remove legacy? (platforms)))]
+ (let [p (decent-platform (platforms))]
    ;;(vec (devices* p CL/CL_DEVICE_TYPE_ALL)) => (devices p :all)
 
    (count (devices p :all)) => (num-devices p :all)
@@ -83,7 +84,7 @@
 (facts
  "Root level devices resource management."
 
- (let [p (first (remove legacy? (platforms)))
+ (let [p (decent-platform (platforms))
        da (first (devices p))
        db (first (devices p))]
    (reference-count da) => 1
@@ -101,7 +102,7 @@
        (:errinfo (<!! ch)) => "Some error")))
 (set! *warn-on-reflection* true)
 
-(let [p (first (remove legacy? (platforms)))]
+(let [p (decent-platform (platforms))]
   (with-platform p
     (with-release [devs (devices p)
                    dev (first (filter #(<= 2.0 (double (:version (opencl-c-version %)))) devs))]
@@ -204,7 +205,7 @@
    "cl-buffer and cl-sub-buffer reading/writing tests."
    (let [alignment (mem-base-addr-align
                     (first (filter #(<= 2.0 (double (:version (opencl-c-version %))))
-                                   (devices (first (remove legacy? (platforms)))))))]
+                                   (devices (decent-platform (platforms))))))]
      (with-release [cl-buf (cl-buffer (* 4 alignment Float/BYTES))
                     cl-subbuf (cl-sub-buffer cl-buf (* alignment Float/BYTES) (* alignment Float/BYTES))]
        (cl-buffer? cl-subbuf) => true
@@ -321,7 +322,7 @@
       ev-write (event)
       wsize (work-size [8])]
 
-  (with-release [devs (devices (first (remove legacy? (platforms))))
+  (with-release [devs (devices (decent-platform (platforms)))
                  ctx (context devs)
                  queue1 (command-queue ctx (first devs))
                  queue2 (command-queue ctx (first devs))
@@ -354,7 +355,7 @@
        (enq-unmap! queue1 cl-data mapped-write) => queue1)))
 
   (with-release [dev (first (filter #(= 2.0 (:version (opencl-c-version %)))
-                                    (devices (first (remove legacy? (platforms))) :gpu)))
+                                    (devices (decent-platform (platforms)) :gpu)))
                  ctx (context [dev])
                  queue (command-queue ctx dev)
                  svm (svm-buffer ctx (* cnt Float/BYTES) 0)

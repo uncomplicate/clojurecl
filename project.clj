@@ -6,7 +6,7 @@
 ;;   the terms of this license.
 ;;   You must not remove this notice, or any other, from this software.
 
-(defproject uncomplicate/clojurecl "0.11.0"
+(defproject uncomplicate/clojurecl "0.12.0-SNAPSHOT"
   :description "ClojureCL is a Clojure library for parallel computations with OpenCL."
   :url "https://github.com/uncomplicate/clojurecl"
   :scm {:name "git"
@@ -31,7 +31,7 @@
                        uncomplicate.clojurecl.internal.utils]}
 
   :profiles {:dev {:plugins [[lein-midje "3.2.1"]
-                             [lein-codox "0.10.3"]]
+                             [lein-codox "0.10.6"]]
                    :global-vars {*warn-on-reflection* true
                                  *assert* true
                                  *unchecked-math* :warn-on-boxed

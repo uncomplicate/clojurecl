@@ -23,7 +23,7 @@
       program-source [(slurp "src/opencl/uncomplicate/clojurecl/kernels/reduction.cl")
                       (slurp "test/opencl/toolbox_test.cl")]]
 
-  (with-release [dev (first (devices (first (remove legacy? (platforms)))))
+  (with-release [dev (first (devices (decent-platform (platforms))))
                  ctx (context [dev])
                  queue (command-queue ctx dev)
                  wgs (max-work-group-size dev)

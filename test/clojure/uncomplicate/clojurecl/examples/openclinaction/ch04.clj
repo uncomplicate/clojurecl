@@ -15,12 +15,13 @@
              [utils :refer [direct-buffer]]]
             [uncomplicate.clojurecl
              [core :refer :all]
-             [info :refer [endian-little]]]))
+             [info :refer [endian-little]]
+             [toolbox :refer [decent-platform]]]))
 
 (let [notifications (chan)
       follow (register notifications)]
 
-  (with-release [dev (first (devices (first (platforms))))
+  (with-release [dev (first (devices (decent-platform (platforms))))
                  ctx (context [dev])
                  cqueue (command-queue ctx dev)]
 

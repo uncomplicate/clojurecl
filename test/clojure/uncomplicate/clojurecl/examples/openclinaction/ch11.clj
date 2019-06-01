@@ -13,12 +13,13 @@
             [uncomplicate.commons.core :refer [with-release info]]
             [uncomplicate.clojurecl
              [core :refer :all]
-             [info :refer [durations profiling-info opencl-c-version]]]))
+             [info :refer [durations profiling-info opencl-c-version]]
+             [toolbox :refer [decent-platform]]]))
 
 (set! *unchecked-math* true)
 
-(with-release [dev (first (filter #(= 2.0 (:version (opencl-c-version %)))
-                                  (devices (first (platforms)))))
+(with-release [dev (first (filter #(<= 2.0 (:version (opencl-c-version %)))
+                                  (devices (decent-platform (platforms)))))
                ctx (context [dev])
                cqueue (command-queue ctx dev :profiling)]
 
