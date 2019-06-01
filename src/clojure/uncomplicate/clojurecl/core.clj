@@ -1433,7 +1433,7 @@
 (defn set-default!
   "Sets the root bindings to the default platform, context and command queue."
   []
-  (set-platform! (first (remove legacy? (platforms))))
+  (set-platform! (first (filter #(< 0 (num-devices % :gpu)) (remove legacy? (platforms)))))
   (let [dev (first (sort-by-cl-version (devices)))]
     (set-context! (context [dev]))
     (set-queue! (command-queue dev))))
@@ -1453,7 +1453,7 @@
   the device in that context. Requires OpenCL 2.0 support in the platform.
   If you're using OpenCL 1.2 or lower, use [[with-default-1]]"
   [& body]
-  `(with-platform (first (remove legacy? (platforms)))
+  `(with-platform (first (filter #(< 0 (num-devices % :gpu)) (remove legacy? (platforms))))
      (let [dev# (first (sort-by-cl-version (devices)))]
        (with-context (context [dev#])
          (with-queue (command-queue dev#)
@@ -1465,7 +1465,7 @@
   device of that platform, and the queue on the device in that context.
   Supports pre-2.0 platforms."
   [& body]
-  `(with-platform (first (platforms))
+  `(with-platform (first (filter #(< 0 (num-devices % :gpu)) (platforms)))
      (let [dev# (first (sort-by-cl-version (devices)))]
        (with-context (context [dev#])
          (with-queue (command-queue-1 dev#)

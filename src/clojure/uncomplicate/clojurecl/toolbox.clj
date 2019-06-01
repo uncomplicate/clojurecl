@@ -58,5 +58,8 @@
     (enq-read! queue cl-buf res)
     (aget res 0)))
 
-(defn decent-platform [platforms]
-  (first (filter #(< 0 (num-devices % :gpu)) (remove legacy? platforms))))
+(defn decent-platform
+  ([platforms]
+   (decent-platform platforms :gpu))
+  ([platforms device-type]
+   (first (filter #(< 0 (num-devices % device-type)) (remove legacy? platforms)))))

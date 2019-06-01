@@ -1,5 +1,9 @@
 # [ClojureCL](http://clojurecl.uncomplicate.org) - notable changes between versions
 
+## 0.12.0
+
+* default-platform prefers a platform with 2.0+ GPU devices.
+
 ## 0.11.0
 
 * Support ROCm OpenCL implementation.
