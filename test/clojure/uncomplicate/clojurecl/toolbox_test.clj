@@ -10,7 +10,7 @@
   (:require [midje.sweet :refer :all]
             [uncomplicate.commons
              [core :refer [release with-release]]
-             [utils :refer [direct-buffer]]]
+             [utils :refer [direct-buffer count-groups]]]
             [uncomplicate.clojurecl
              [core :refer :all]
              [info :refer :all]
@@ -38,7 +38,7 @@
 
     (enq-write! queue cl-data data)
 
-    (let [acc-size (* Double/BYTES (max 1 (count-work-groups (max-work-group-size dev) cnt)))]
+    (let [acc-size (* Double/BYTES (max 1 (count-groups (max-work-group-size dev) cnt)))]
       (with-release [sum-reduction-kernel (kernel program "sum_reduction")
                      sum-reduce-kernel (kernel program "sum_reduce")
                      cl-acc (cl-buffer ctx acc-size :read-write)]
@@ -48,11 +48,11 @@
          (set-arg! sum-reduction-kernel 0 cl-acc)
          (set-args! sum-reduce-kernel cl-acc cl-data)
          (enq-reduce! queue sum-reduce-kernel sum-reduction-kernel cnt wgs)
-         (enq-read-double queue cl-acc) => 3926780329410.0)))
+         (enq-read-double queue cl-acc) => 3926780329408.0)))
 
     (let [wgs-m 4
           wgs-n 32
-          acc-size (* Double/BYTES (max 1 (* cnt-m (count-work-groups wgs-n cnt-n))))
+          acc-size (* Double/BYTES (max 1 (* cnt-m (count-groups wgs-n cnt-n))))
           res (double-array cnt-m)]
       (with-release [sum-reduction-horizontal (kernel program "sum_reduction_horizontal")
                      sum-reduce-horizontal (kernel program "sum_reduce_horizontal")
@@ -67,7 +67,7 @@
 
     (let [wgs-m 32
           wgs-n 4
-          acc-size (* Double/BYTES (max 1 (* cnt-n (count-work-groups wgs-m cnt-m))))
+          acc-size (* Double/BYTES (max 1 (* cnt-n (count-groups wgs-m cnt-m))))
           res (double-array cnt-n)]
       (with-release [sum-reduction-vertical (kernel program "sum_reduction_vertical")
                      sum-reduce-vertical (kernel program "sum_reduce_vertical")

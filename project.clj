@@ -6,17 +6,17 @@
 ;;   the terms of this license.
 ;;   You must not remove this notice, or any other, from this software.
 
-(defproject uncomplicate/clojurecl "0.12.0"
+(defproject uncomplicate/clojurecl "0.13.0-SNAPSHOT"
   :description "ClojureCL is a Clojure library for parallel computations with OpenCL."
   :url "https://github.com/uncomplicate/clojurecl"
   :scm {:name "git"
         :url "https://github.com/uncomplicate/clojurecl"}
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
-  :dependencies [[org.clojure/clojure "1.10.0"]
+  :dependencies [[org.clojure/clojure "1.10.1"]
                  [org.jocl/jocl "2.0.1"]
                  [org.clojure/core.async "0.4.490"]
-                 [uncomplicate/commons "0.7.2"]
+                 [uncomplicate/commons "0.8.0-SNAPSHOT"]
                  [uncomplicate/fluokitten "0.9.1"]]
 
   :codox {:metadata {:doc/formt a:markdown}

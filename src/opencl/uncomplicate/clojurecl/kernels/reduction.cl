@@ -70,12 +70,19 @@ inline ACCUMULATOR work_group_reduction_sum_2 (ACCUMULATOR* lacc, const REAL val
 }
 
 __kernel void sum_reduction (__global ACCUMULATOR* acc) {
-    __local ACCUMULATOR lacc[WGS];
-    const ACCUMULATOR sum = work_group_reduction_sum(lacc, acc[get_global_id(0)]);
+    const ACCUMULATOR sum = work_group_reduce_add(acc[get_global_id(0)]);
     if (get_local_id(0) == 0) {
         acc[get_group_id(0)] = sum;
     }
 }
+
+__kernel void sum_reduce (__global ACCUMULATOR* acc, __global const REAL* x) {
+    const ACCUMULATOR sum = work_group_reduce_add(x[get_global_id(0)]);
+    if (get_local_id(0) == 0) {
+        acc[get_group_id(0)] = sum;
+    }
+}
+
 
 __kernel void sum_reduction_horizontal (__global ACCUMULATOR* acc) {
     const uint i = get_global_size(0) * get_global_id(1) + get_global_id(0);

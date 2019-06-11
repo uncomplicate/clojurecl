@@ -11,30 +11,27 @@
   "Various helpers that are not needed by ClojureCL itself,
   but may be very helpful in applications. See Neanderthal and Bayadera libraries
   for the examples of how to use them."
-  (:require [uncomplicate.commons.core :refer [wrap-int]]
-   [uncomplicate.clojurecl.core :refer :all]))
-
-(defn count-work-groups ^long [^long max-local-size ^long n]
-  (if (< max-local-size n)
-    (quot (+ n (dec max-local-size)) max-local-size)
-    1))
+  (:require [uncomplicate.commons
+             [core :refer [wrap-int]]
+             [utils :refer [count-groups]]]
+            [uncomplicate.clojurecl.core :refer :all]))
 
 (defn enq-reduce!
   ([queue main-kernel reduction-kernel n local-n]
    (loop [queue (enq-kernel! queue main-kernel (work-size-1d n local-n))
-          global-size (count-work-groups local-n n)]
+          global-size (count-groups local-n n)]
      (if (= 1 global-size)
        queue
        (recur (enq-kernel! queue reduction-kernel (work-size-1d global-size local-n))
-              (count-work-groups local-n global-size)))))
+              (count-groups local-n global-size)))))
   ([queue main-kernel reduction-kernel m n local-m local-n]
    (if (or (< 1 (long local-n)) (<= (long local-n) (long n)))
      (loop [queue (enq-kernel! queue main-kernel (work-size-2d m n local-m local-n))
-            global-size (count-work-groups local-n n)]
+            global-size (count-groups local-n n)]
        (if (= 1 global-size)
          queue
          (recur (enq-kernel! queue reduction-kernel (work-size-2d m global-size local-m local-n))
-                (count-work-groups local-n global-size))))
+                (count-groups local-n global-size))))
      (throw (IllegalArgumentException.
              (format "local-n %d would cause infinite recursion for n:%d." local-n n))))))
 
