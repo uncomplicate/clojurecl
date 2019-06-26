@@ -44,7 +44,7 @@
    (error err-code nil)))
 
 (defmacro with-check
-  "Evaluates `form` if `status` is not zero (`CL_SUCCESS`), otherwise throws
+  "Evaluates `form` if `status` is zero (`CL_SUCCESS`), otherwise throws
   an appropriate `ExceptionInfo` with decoded informative details.
   It helps fith JOCL methods that return error codes directly, while
   returning computation results through side-effects in arguments.
@@ -79,13 +79,12 @@
 
 (defmacro maybe
   "Evaluates form in try/catch block; if an OpenCL-related exception is caught,
-  substitutes the result with the [ExceptionInfo](http://clojuredocs.org/clojure.core/ex-info)
-  object.
+  substitutes the result with the String identifying the error.
+
   Non-OpenCL exceptions are rethrown. Useful when we do not want to let a minor
   OpenCL error due to a driver incompatibility with the standard
   or an unimplemented feature in the actual driver crash the application.
-  An [ExceptionInfo](http://clojuredocs.org/clojure.core/ex-info) object will be
-  put in the place of the expected result."
+  A String will be put in the place of the expected result."
   [form]
   `(try ~form
         (catch ExceptionInfo ex-info#
