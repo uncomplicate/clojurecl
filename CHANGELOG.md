@@ -1,5 +1,14 @@
 # [ClojureCL](http://clojurecl.uncomplicate.org) - notable changes between versions
 
+## 0.14.0
+
+* Use common Wrapper.
+
+## 0.13.0
+
+* Use built-in work group reduction provided by the platform instead of custom implementation
+(prior to rocm, the built impl was much slower).
+
 ## 0.12.0
 
 * default-platform prefers a platform with 2.0+ GPU devices.

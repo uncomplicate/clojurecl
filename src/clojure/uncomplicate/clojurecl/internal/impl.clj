@@ -9,7 +9,7 @@
 (ns ^{:author "Dragan Djuric"}
     uncomplicate.clojurecl.internal.impl
   (:require [uncomplicate.commons
-             [core :refer [Releaseable release Info info]]
+             [core :refer [Releaseable release Info info Wrapper Wrappable wrap extract]]
              [utils :refer [dragan-says-ex]]]
             [uncomplicate.clojurecl.internal
              [protocols :refer :all]
@@ -23,14 +23,6 @@
             cl_event cl_buffer_region cl_queue_properties cl_platform_id
             Sizeof Pointer CreateContextFunction EventCallbackFunction
             BuildProgramFunction JOCLAccessor]))
-
-(extend-type nil
-  Wrapper
-  (extract [_]
-    nil)
-  Wrappable
-  (wrap [this]
-    nil))
 
 ;; =============== Release CL Resources ==================================
 
