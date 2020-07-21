@@ -385,19 +385,21 @@
       (with-check-arr err (->SVMBuffer ctx (volatile! res) size)))
     (dragan-says-ex "To create a svm buffer, you must provide a context and a positive size.")))
 
-(extend-type Long
-  Argument
-  (set-arg [this kernel n]
-    (with-check (CL/clSetKernelArg kernel n this nil)
-      {:kernel (info kernel) :n n :arg (info this)}
-      kernel)))
+(defmacro ^:private extend-number [type]
+  `(extend-type ~type
+     Argument
+     (set-arg [this# kernel# n#]
+       (with-check (CL/clSetKernelArg kernel# n# this# nil)
+         {:kernel (info kernel#) :n n# :arg (info this#)}
+         kernel#))))
 
-(extend-type Integer
-  Argument
-  (set-arg [this kernel n]
-    (with-check (CL/clSetKernelArg kernel n this nil)
-      {:kernel (info kernel) :n n :arg (info this)}
-      kernel)))
+(extend-number Double)
+(extend-number Float)
+(extend-number Long)
+(extend-number Integer)
+(extend-number Byte)
+(extend-number Short)
+(extend-number Character)
 
 (defmacro ^:private extend-mem-array [type atype bytes]
   `(extend-type ~type
@@ -417,7 +419,7 @@
 (extend-mem-array (Class/forName "[D") doubles Double/BYTES)
 (extend-mem-array (Class/forName "[I") ints Integer/BYTES)
 (extend-mem-array (Class/forName "[J") longs Long/BYTES)
-(extend-mem-array (Class/forName "[B") bytes 1)
+(extend-mem-array (Class/forName "[B") bytes Byte/BYTES)
 (extend-mem-array (Class/forName "[S") shorts Short/BYTES)
 (extend-mem-array (Class/forName "[C") chars Character/BYTES)
 
