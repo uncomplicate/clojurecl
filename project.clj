@@ -16,7 +16,7 @@
   :dependencies [[org.clojure/clojure "1.10.1"]
                  [org.jocl/jocl "2.0.2"]
                  [org.clojure/core.async "1.0.567"]
-                 [uncomplicate/commons "0.12.0-SNAPSHOT"]
+                 [uncomplicate/commons "0.11.0"]
                  [uncomplicate/fluokitten "0.9.1"]]
 
   :codox {:metadata {:doc/formt a:markdown}
