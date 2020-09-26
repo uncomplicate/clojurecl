@@ -17,7 +17,7 @@ First `use` or `require` `uncomplicate.clojurecl.core` and/or `uncomplicate.cloj
 ```clojure
 (ns example
   (:require [uncomplicate.clojurecl.core :refer :all])
-  (:require [uncomplicate.commons.core :refer [info]))
+  (:require [uncomplicate.commons.core :refer [info]]))
 ```
 
 Now you can work with OpenCL platforms, devices, contexts, queues etc.
