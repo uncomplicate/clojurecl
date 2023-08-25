@@ -13,10 +13,10 @@
         :url "https://github.com/uncomplicate/clojurecl"}
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
-  :dependencies [[org.clojure/clojure "1.10.3"]
+  :dependencies [[org.clojure/clojure "1.11.1"]
                  [org.jocl/jocl "2.0.2"]
-                 [org.clojure/core.async "1.3.618"]
-                 [uncomplicate/commons "0.12.3"]
+                 [org.clojure/core.async "1.6.673"]
+                 [uncomplicate/commons "0.13.1-SNAPSHOT"]
                  [uncomplicate/fluokitten "0.9.1"]]
 
   :codox {:metadata {:doc/formt a:markdown}
@@ -36,7 +36,7 @@
                                  *assert* true
                                  *unchecked-math* :warn-on-boxed
                                  *print-length* 128}
-                   :dependencies [[midje "1.10.4"]]
+                   :dependencies [[midje "1.10.9"]]
                    :jvm-opts ^:replace ["--add-opens=java.base/jdk.internal.ref=ALL-UNNAMED"
                                         "--add-opens=java.base/sun.nio.ch=ALL-UNNAMED"]}}
 

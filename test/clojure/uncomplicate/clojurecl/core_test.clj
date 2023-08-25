@@ -49,7 +49,7 @@
    (num-devices p :cpu :gpu :accelerator :custom) => (num-devices p :all)
 
    (+ (num-devices p :cpu) (num-devices p :gpu)
-      (num-devices p :accelerator) (num-devices p :custom))
+      (num-devices p :accelerator) #_(num-devices p :custom));;Default Nvidia no longer supports :custom
    => (num-devices p :all)
 
    (num-devices p) => (num-devices p :all)
@@ -57,7 +57,7 @@
      (num-devices :all) => (num-devices p :all)
      (num-devices) => (num-devices p :all))
 
-   ;;(num-devices nil :all) => (throws ExceptionInfo);;Some platforms just use first p
+   ;;(num-devices nil :all) => (throws ExceptionInfo) ;;Some platforms just use first p
    (num-devices p :unknown-device) => (throws NullPointerException)))
 
 (facts
@@ -69,7 +69,7 @@
    (count (devices p :all)) => (num-devices p :all)
 
    (devices p :gpu :cpu) => (concat (devices p :gpu) (devices p :cpu))
-   (devices p :custom) => []
+;;   (devices p :custom) => []
 
 ;;   (type (first (devices p :cpu))) => uncomplicate.clojurecl.internal.impl.CLDevice
 

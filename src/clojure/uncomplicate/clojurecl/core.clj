@@ -1215,9 +1215,10 @@
                                            (if wait-events (alength wait-events) 0)
                                            wait-events (extract event))]
        (with-check err queue))
-     (do
-       (release host)
-       queue)))
+     #_(do
+       #_(release host) ;;TODO take care of this through JavaCPP...
+       queue)
+     queue))
   ([queue cl host event]
    (enq-unmap! queue cl host nil event))
   ([queue cl host]
