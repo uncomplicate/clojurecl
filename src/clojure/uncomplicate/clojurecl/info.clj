@@ -140,11 +140,12 @@
   "
   (:require [clojure.string :as str]
             [uncomplicate.commons
-             [core :refer [Info info wrap extract]]
+             [core :refer [Info info]]
              [utils :refer [unmask unmask1 direct-buffer]]]
-            [uncomplicate.fluokitten.core :refer [fmap]]
+            [uncomplicate.fluokitten.core :refer [fmap extract]]
             [uncomplicate.clojurecl.internal
              [constants :refer :all]
+             [protocols :refer [wrap]]
              [utils :refer :all]
              [impl :refer :all]])
   (:import [java.nio ByteBuffer IntBuffer LongBuffer]

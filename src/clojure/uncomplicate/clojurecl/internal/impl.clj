@@ -9,8 +9,9 @@
 (ns ^{:author "Dragan Djuric"}
     uncomplicate.clojurecl.internal.impl
   (:require [uncomplicate.commons
-             [core :refer [Releaseable release Info info Wrapper Wrappable wrap extract]]
+             [core :refer [Releaseable release Info info]]
              [utils :refer [dragan-says-ex]]]
+            [uncomplicate.fluokitten.protocols :refer [Comonad extract]]
             [uncomplicate.clojurecl.internal
              [protocols :refer :all]
              [constants :refer :all]
@@ -45,7 +46,7 @@
          (= (deref ref#) (extract other#)))
        (toString [this#]
          (format "#%s[0x%s]" ~name-str (Long/toHexString (native-pointer (deref ref#)))))
-       Wrapper
+       Comonad
        (extract [this#]
          (deref ref#))
        Releaseable
@@ -71,7 +72,7 @@
   Wrappable
   (wrap [this]
     this)
-  Wrapper
+  Comonad
   (extract [this]
     this))
 
@@ -229,7 +230,7 @@
     (= @cl (extract other)))
   (toString [this]
     (format "#CLBuffer[0x%s]" (Long/toHexString (native-pointer @cl))))
-  Wrapper
+  Comonad
   (extract [_]
     @cl)
   Releaseable
@@ -275,7 +276,7 @@
     (= @svm* (extract other)))
   (toString [this]
     (str @svm*))
-  Wrapper
+  Comonad
   (extract [_]
     @svm*)
   Releaseable

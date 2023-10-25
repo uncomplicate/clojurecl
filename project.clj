@@ -16,7 +16,7 @@
   :dependencies [[org.clojure/clojure "1.11.1"]
                  [org.jocl/jocl "2.0.2"]
                  [org.clojure/core.async "1.6.673"]
-                 [uncomplicate/commons "0.13.1-SNAPSHOT"]
+                 [uncomplicate/commons "0.14.0-SNAPSHOT"]
                  [uncomplicate/fluokitten "0.9.1"]]
 
   :codox {:metadata {:doc/formt a:markdown}
@@ -31,7 +31,7 @@
                        uncomplicate.clojurecl.internal.utils]}
 
   :profiles {:dev {:plugins [[lein-midje "3.2.1"]
-                             [lein-codox "0.10.7"]]
+                             [lein-codox "0.10.8"]]
                    :global-vars {*warn-on-reflection* true
                                  *assert* true
                                  *unchecked-math* :warn-on-boxed
