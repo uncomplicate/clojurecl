@@ -17,7 +17,7 @@
                  [org.jocl/jocl "2.0.2"]
                  [org.clojure/core.async "1.6.673"]
                  [uncomplicate/commons "0.14.0-SNAPSHOT"]
-                 [uncomplicate/fluokitten "0.9.1"]]
+                 [uncomplicate/fluokitten "0.9.2-SNAPSHOT"]]
 
   :codox {:metadata {:doc/formt a:markdown}
           :src-dir-uri "http://github.com/uncomplicate/clojurecl/blob/master/"
@@ -36,11 +36,8 @@
                                  *assert* true
                                  *unchecked-math* :warn-on-boxed
                                  *print-length* 128}
-                   :dependencies [[midje "1.10.9"]]
-                   :jvm-opts ^:replace ["--add-opens=java.base/jdk.internal.ref=ALL-UNNAMED"
-                                        "--add-opens=java.base/sun.nio.ch=ALL-UNNAMED"]}}
+                   :dependencies [[midje "1.10.9"]]}}
 
-  :javac-options ["-target" "1.8" "-source" "1.8" "-Xlint:-options"]
   :source-paths ["src/clojure" "src/opencl"]
   :test-paths ["test/clojure" "test/opencl"]
   :java-source-paths ["src/java"])
