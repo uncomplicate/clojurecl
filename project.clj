@@ -14,8 +14,8 @@
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :dependencies [[org.clojure/clojure "1.11.1"]
-                 [org.jocl/jocl "2.0.2"]
-                 [org.clojure/core.async "1.6.673"]
+                 [org.jocl/jocl "2.0.5"]
+                 [org.clojure/core.async "1.6.681"]
                  [uncomplicate/commons "0.14.0-SNAPSHOT"]
                  [uncomplicate/fluokitten "0.9.2-SNAPSHOT"]]
 
@@ -36,7 +36,7 @@
                                  *assert* true
                                  *unchecked-math* :warn-on-boxed
                                  *print-length* 128}
-                   :dependencies [[midje "1.10.9"]]}}
+                   :dependencies [[midje "1.10.10"]]}}
 
   :source-paths ["src/clojure" "src/opencl"]
   :test-paths ["test/clojure" "test/opencl"]
