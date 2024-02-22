@@ -10,7 +10,7 @@
   (:require [midje.sweet :refer :all]
             [uncomplicate.commons
              [core :refer [with-release]]
-             [utils :refer [put-float get-float]]]
+             [utils :refer [put-float! get-float]]]
             [uncomplicate.clojurecl.core :refer :all]
             [uncomplicate.clojurecl.toolbox :refer [decent-platform]]))
 
@@ -51,13 +51,13 @@
                    mem-object-dest (cl-buffer ctx bytesize :read-only)]
 
       (let [src-buffer-a (enq-map-buffer! cqueue mem-object-a :write)]
-        (put-float src-buffer-a 0 46)
-        (put-float src-buffer-a 1 100)
+        (put-float! src-buffer-a 0 46)
+        (put-float! src-buffer-a 1 100)
         (enq-unmap! cqueue mem-object-a src-buffer-a))
 
       (let [src-buffer-b (enq-map-buffer! cqueue mem-object-b :write)]
-        (put-float src-buffer-b 0 56)
-        (put-float src-buffer-b 1 200)
+        (put-float! src-buffer-b 0 56)
+        (put-float! src-buffer-b 1 200)
         (enq-unmap! cqueue mem-object-b src-buffer-b))
 
       (facts

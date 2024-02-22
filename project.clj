@@ -6,7 +6,7 @@
 ;;   the terms of this license.
 ;;   You must not remove this notice, or any other, from this software.
 
-(defproject uncomplicate/clojurecl "0.15.2-SNAPSHOT"
+(defproject uncomplicate/clojurecl "0.15.2"
   :description "ClojureCL is a Clojure library for parallel computations with OpenCL."
   :url "https://github.com/uncomplicate/clojurecl"
   :scm {:name "git"
@@ -16,8 +16,8 @@
   :dependencies [[org.clojure/clojure "1.11.1"]
                  [org.jocl/jocl "2.0.5"]
                  [org.clojure/core.async "1.6.681"]
-                 [uncomplicate/commons "0.14.0-SNAPSHOT"]
-                 [uncomplicate/fluokitten "0.9.2-SNAPSHOT"]]
+                 [uncomplicate/commons "0.14.0"]
+                 [uncomplicate/fluokitten "0.9.2"]]
 
   :codox {:metadata {:doc/formt a:markdown}
           :src-dir-uri "http://github.com/uncomplicate/clojurecl/blob/master/"
@@ -36,7 +36,10 @@
                                  *assert* true
                                  *unchecked-math* :warn-on-boxed
                                  *print-length* 128}
-                   :dependencies [[midje "1.10.10"]]}}
+                   :dependencies [[midje "1.10.10"]]
+                   :jvm-opts ^:replace ["-Dclojure.compiler.direct-linking=true"
+                                        "--add-opens=java.base/jdk.internal.ref=ALL-UNNAMED"
+                                        "--add-opens=java.base/sun.nio.ch=ALL-UNNAMED"]}}
 
   :source-paths ["src/clojure" "src/opencl"]
   :test-paths ["test/clojure" "test/opencl"]

@@ -10,7 +10,7 @@
   (:require [midje.sweet :refer :all]
             [uncomplicate.commons
              [core :refer [release with-release info]]
-             [utils :refer [direct-buffer put-float get-float]]]
+             [utils :refer [direct-buffer put-float! get-float]]]
             [uncomplicate.fluokitten.core :refer [fmap extract]]
             [uncomplicate.clojurecl
              [core :refer :all]
@@ -237,7 +237,7 @@
          (:data (<!! ch)) => ev))
 
    (with-release [cl-buf (cl-buffer Float/BYTES)
-                  cpu-buf (put-float (direct-buffer Float/BYTES) 0 1.0)]
+                  cpu-buf (put-float! (direct-buffer Float/BYTES) 0 1.0)]
      (let [ev (event)
            notifications (chan)
            follow (register notifications)]
@@ -312,7 +312,7 @@
       src (slurp "test/opencl/core_test.cl")
       data (let [d (direct-buffer (* 8 Float/BYTES))]
              (dotimes [n cnt]
-               (put-float d n n))
+               (put-float! d n n))
              d)
       notifications (chan)
       follow (register notifications)
@@ -348,9 +348,9 @@
            mapped-write (enq-map-buffer! queue1 cl-data :write)]
        (get-float mapped-read 1) => 171.0
        (get-float mapped-write 1) => 171.0
-       (do (put-float mapped-write 1 100.0) (get-float mapped-write 1)) => 100.0
+       (do (put-float! mapped-write 1 100.0) (get-float mapped-write 1)) => 100.0
        (get-float ^ByteBuffer mapped-read 1) => 100.0
-       (do (put-float mapped-read 1 100.0) (get-float mapped-read 1)) => 100.0
+       (do (put-float! mapped-read 1 100.0) (get-float mapped-read 1)) => 100.0
        (enq-unmap! queue1 cl-data mapped-read) => queue1
        (enq-unmap! queue1 cl-data mapped-write) => queue1)))
 
@@ -367,7 +367,7 @@
      (ptr svm) =not=> nil
      (set-args! dumb-kernel svm Integer/BYTES (int-array [42])) => dumb-kernel
      (enq-svm-map! queue svm :write)
-     (put-float (byte-buffer svm) 1 42.0)
+     (put-float! (byte-buffer svm) 1 42.0)
      (get-float (byte-buffer svm) 1) => 42.0
      (enq-svm-unmap! queue svm) => queue
      (enq-kernel! queue dumb-kernel wsize) => queue
