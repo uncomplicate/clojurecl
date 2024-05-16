@@ -6,18 +6,18 @@
 ;;   the terms of this license.
 ;;   You must not remove this notice, or any other, from this software.
 
-(defproject uncomplicate/clojurecl "0.15.2"
+(defproject uncomplicate/clojurecl "0.16.0"
   :description "ClojureCL is a Clojure library for parallel computations with OpenCL."
   :url "https://github.com/uncomplicate/clojurecl"
   :scm {:name "git"
         :url "https://github.com/uncomplicate/clojurecl"}
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
-  :dependencies [[org.clojure/clojure "1.11.1"]
+  :dependencies [[org.clojure/clojure "1.11.3"]
                  [org.jocl/jocl "2.0.5"]
                  [org.clojure/core.async "1.6.681"]
-                 [uncomplicate/commons "0.14.0"]
-                 [uncomplicate/fluokitten "0.9.2"]]
+                 [uncomplicate/commons "0.15.0"]
+                 [uncomplicate/fluokitten "0.10.0"]]
 
   :codox {:metadata {:doc/formt a:markdown}
           :src-dir-uri "http://github.com/uncomplicate/clojurecl/blob/master/"
@@ -40,6 +40,8 @@
                    :jvm-opts ^:replace ["-Dclojure.compiler.direct-linking=true"
                                         "--add-opens=java.base/jdk.internal.ref=ALL-UNNAMED"
                                         "--add-opens=java.base/sun.nio.ch=ALL-UNNAMED"]}}
+
+  :javac-options ["-target" "1.8" "-source" "1.8" "-Xlint:-options"]
 
   :source-paths ["src/clojure" "src/opencl"]
   :test-paths ["test/clojure" "test/opencl"]
