@@ -1,5 +1,9 @@
 # [ClojureCL](http://clojurecl.uncomplicate.org) - notable changes between versions
 
+## 0.16.3
+
+* Use JOCL 2.0.6.
+
 ## 0.14.0
 
 * Use common Wrapper.
