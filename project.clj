@@ -6,7 +6,7 @@
 ;;   the terms of this license.
 ;;   You must not remove this notice, or any other, from this software.
 
-(defproject uncomplicate/clojurecl "0.16.3"
+(defproject uncomplicate/clojurecl "0.16.4"
   :description "ClojureCL is a Clojure library for parallel computations with OpenCL."
   :url "https://github.com/uncomplicate/clojurecl"
   :scm {:name "git"
@@ -16,8 +16,8 @@
   :dependencies [[org.clojure/clojure "1.12.5"]
                  [org.jocl/jocl "2.0.6"]
                  [org.clojure/core.async "1.9.865"]
-                 [uncomplicate/commons "0.20.0"]
-                 [uncomplicate/fluokitten "0.10.2"]]
+                 [uncomplicate/commons "0.23.0"]
+                 [uncomplicate/fluokitten "0.10.3"]]
 
   :codox {:metadata {:doc/formt a:markdown}
           :src-dir-uri "http://github.com/uncomplicate/clojurecl/blob/master/"
